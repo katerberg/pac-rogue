@@ -18,6 +18,7 @@ export type GhostSpeedOptions = {
   heldGhostEids?: ReadonlySet<number>;
   frightenedGhostEids?: ReadonlySet<number>;
   tunnelSpeedRatio?: number | null;
+  extraSpeedMul?: (eid: number, kind: GhostKindId, inTunnel: boolean) => number;
   tuning?: Tuning;
 };
 
@@ -60,6 +61,7 @@ export function applyGhostSpeed(
         );
     const frightenedMul =
       options.frightenedGhostEids?.has(eid) === true ? HUNTER_FRIGHTENED_SPEED_MUL : 1;
-    Speed.px[eid] = base * ghostSpeedMul * frightenedMul;
+    const extraMul = options.extraSpeedMul?.(eid, kind, inTunnel) ?? 1;
+    Speed.px[eid] = base * ghostSpeedMul * frightenedMul * extraMul;
   }
 }

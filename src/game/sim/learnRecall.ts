@@ -5,6 +5,7 @@ import {
   type GhostReleaseClock,
 } from "../../domain/ghostRelease";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
+import { lowPowerKindReleaseAdds } from "../../domain/lowPowerUpgrades";
 import {
   ghostHouseReleaseDelayAddMs,
   ghostHouseReliefPelletAdd,
@@ -95,6 +96,7 @@ export class LearnRecall {
     return {
       delayAddMs: ghostHouseReleaseDelayAddMs(owned),
       reliefPelletAdd: ghostHouseReliefPelletAdd(owned),
+      kindAdds: lowPowerKindReleaseAdds(owned),
       heldGhostEids,
     };
   }

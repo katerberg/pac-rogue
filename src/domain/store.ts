@@ -1,4 +1,6 @@
 import type { Cell } from "./pennies";
+import type { GhostKindId } from "./ghostKind";
+import { isLowPowerId } from "./lowPowerUpgrades";
 import {
   baseIdOf,
   carryEnhancement,
@@ -72,6 +74,7 @@ export type StoreState = {
   clickedSlot: number | null;
   confirmYes: boolean;
   sacrifice: StoreSacrifice | null;
+  roster?: readonly GhostKindId[];
 };
 
 export type StoreStepInput = {
@@ -171,9 +174,10 @@ export function createStoreState(
   lifeRoom = true,
   guaranteedSchool: UpgradeSchool | null = null,
   previouslyOffered: readonly BaseUpgradeId[] = [],
+  roster?: readonly GhostKindId[],
 ): StoreState {
   const cells = layout.slots;
-  let pool = eligibleUpgrades(owned).filter((id) => !previouslyOffered.includes(id));
+  let pool = eligibleUpgrades(owned, { roster }).filter((id) => !previouslyOffered.includes(id));
   const slots: StoreSlot[] = [];
   const upgradeCells = cells.filter((cell) => cell.kind === "upgrade");
   const schoolPool =
@@ -199,7 +203,7 @@ export function createStoreState(
     }
   }
   const enhanced = new Set(enhanceTargets.values());
-  const tradeable = owned.filter((id) => !enhanced.has(baseIdOf(id)));
+  const tradeable = owned.filter((id) => !enhanced.has(baseIdOf(id)) && !isLowPowerId(id));
   for (const cell of cells) {
     const { kind, col, row } = cell;
     if (cell === guaranteedCell) {
@@ -228,6 +232,7 @@ export function createStoreState(
     clickedSlot: null,
     confirmYes: false,
     sacrifice: null,
+    roster,
   };
   return {
     ...stocked,
@@ -297,7 +302,7 @@ function swapPool(state: StoreState, owned: readonly UpgradeId[]): BaseUpgradeId
   const onShelf = new Set(
     state.slots.flatMap((slot) => (slot.kind === "upgrade" && !slot.sold ? [slot.id] : [])),
   );
-  return eligibleUpgrades(owned).filter((id) => !onShelf.has(id));
+  return eligibleUpgrades(owned, { roster: state.roster }).filter((id) => !onShelf.has(id));
 }
 
 export function promptView(

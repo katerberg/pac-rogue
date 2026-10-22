@@ -248,14 +248,14 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private buildUpgradeList(slots: ReturnType<PlayScene["upgradeHudSlots"]>): void {
-    for (const { id, x, y, size } of slots) {
+    for (const { id, copies, x, y, size } of slots) {
       const icon = this.add
         .image(x, y, upgradeIconTexture(id))
         .setDisplaySize(size, size)
         .setInteractive({ useHandCursor: true });
       icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
         icon.setDisplaySize(size * UPGRADE_ICON_HOVER_SCALE, size * UPGRADE_ICON_HOVER_SCALE);
-        this.showUpgradePreview(id, pointer.worldY);
+        this.showUpgradePreview(id, copies, pointer.worldY);
       });
       icon.on("pointerout", () => {
         icon.setDisplaySize(size, size);
@@ -264,12 +264,12 @@ export class PauseScene extends Phaser.Scene {
     }
   }
 
-  private showUpgradePreview(id: UpgradeId, pointerY: number): void {
+  private showUpgradePreview(id: UpgradeId, copies: number, pointerY: number): void {
     this.hideUpgradePreview();
     const def = getUpgradeDef(id);
     const y = clamp(pointerY, UPGRADE_PREVIEW_Y_MIN, UPGRADE_PREVIEW_Y_MAX);
     const visual = buildUpgradeCardVisual(this, hoverPreviewX("right"), y, {
-      label: def.label,
+      label: copies > 1 ? `${def.label} x${copies}` : def.label,
       description: def.description,
       school: def.school,
       rare: def.rare === true,

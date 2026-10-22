@@ -14,7 +14,7 @@ export const LAST_PELLETS_COUNT = 10;
 
 export type RunOutcome = "inProgress" | "death" | "complete" | "quit" | "abandoned";
 export type UpgradeSource = "start" | "offer" | "store" | "enhance" | "flag" | "slots";
-export type PowerPelletSource = "player" | "tunnelDash" | "ghostHarvest" | "fruit";
+export type PowerPelletSource = "player" | "ghostHarvest" | "fruit";
 export type ActivationKind =
   | "freeze"
   | "recall"
@@ -119,7 +119,6 @@ export type LevelLog = {
   livesMax: number;
   deaths: DeathLog[];
   tunnelWraps: number;
-  tunnelDashes: number;
   nearMisses: number;
   tilesTraveled: number;
   idleMs: number;
@@ -216,7 +215,6 @@ export function beginLevelLog(record: RunLogRecord, init: LevelLogInit): LevelLo
     livesMax: init.livesStart,
     deaths: [],
     tunnelWraps: 0,
-    tunnelDashes: 0,
     nearMisses: 0,
     tilesTraveled: 0,
     idleMs: 0,
@@ -225,7 +223,7 @@ export function beginLevelLog(record: RunLogRecord, init: LevelLogInit): LevelLo
     hiddenMs: 0,
     maxFrameMs: 0,
     hitchFrames: 0,
-    powerPellets: { player: 0, tunnelDash: 0, ghostHarvest: 0, fruit: 0 },
+    powerPellets: { player: 0, ghostHarvest: 0, fruit: 0 },
     activations: {},
     activeMs: {},
     targets: { freeze: [], recall: [], warpTiles: [], scatterGhosts: [] },

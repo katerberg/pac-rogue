@@ -30,7 +30,6 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `fruitFeast` | Fruit Feast | harvest | Fruit appears three times per level, each after the last is gone. | Fruit appears four times per level, each after the last is gone. |
 | `passiveDeathsHarvest` | Death's Harvest | death | Dying harvests nearby pellets. | Dying harvests pellets within ten tiles. |
 | `passiveOvercharge` | Overcharge (rare) | neutral | Doubles the duration of every other power pellet timer you're running. | Triples the duration of every other power pellet timer you're running. |
-| `passiveTunnelDash` | Tunnel Dash | speed | Tunnels move you the instant you touch them. | Tunnels move you the instant you touch them, and ghosts crawl through them. |
 | `passivePowerPelletRecharge` | Second Chomp | harvest | The first two power pellets you eat each level regenerate after ten seconds. | The first four power pellets you eat each level regenerate after seven seconds. |
 | `passiveRemoteTransference` | Remote Transference | automation | Every 5th pellet you eat also eats the farthest pellet. | Every 3rd pellet you eat also eats the farthest pellet. |
 | `passiveMyogenesis` | Myogenesis | death | Regenerate one life every level. | Refill every empty life slot on level clear. |
@@ -67,3 +66,25 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `powerPelletTithe` | Tithe | harvest | Power pellet: move 10% slower for 5 seconds, but pellets count double toward your streak. | Power pellet: move 10% slower for 8 seconds, but pellets count double toward your streak. |
 | `passiveMole` | Mole | harvest | Dig the pellet veins: +20% speed over pellets, 10% slower on cleared tiles. | Dig deeper: +30% speed over pellets, 10% slower on cleared tiles. |
 | `passiveBananaShield` | Banana Trail | protection | Power pellets trail a banana peel behind you. A ghost that hits it slips and bounces back. | Power pellets trail banana peels behind you. Store up to 3. Each ghost slip breaks one. |
+| `lowSpeed` | Speed | neutral | +3% Dot-Man speed. Stacks. |  |
+| `lowTunnelSpeed` | Tunnel Speed | neutral | +8% Dot-Man speed inside tunnels. Stacks. |  |
+| `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 8% slower inside tunnels. Stacks. |  |
+| `lowTurning` | Turning Speed | neutral | Dot-Man corners 0.6px earlier. Stacks. |  |
+| `lowSlowdownBlinky` | Blinky Slowdown | neutral | Blinky moves 4% slower. Stacks. |  |
+| `lowHouseDelayBlinky` | Blinky House Delay | neutral | Blinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionBlinky` | Blinky Traction | neutral | Blinky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownPinky` | Pinky Slowdown | neutral | Pinky moves 4% slower. Stacks. |  |
+| `lowHouseDelayPinky` | Pinky House Delay | neutral | Pinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionPinky` | Pinky Traction | neutral | Pinky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownInky` | Inky Slowdown | neutral | Inky moves 4% slower. Stacks. |  |
+| `lowHouseDelayInky` | Inky House Delay | neutral | Inky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionInky` | Inky Traction | neutral | Inky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownClyde` | Clyde Slowdown | neutral | Clyde moves 4% slower. Stacks. |  |
+| `lowHouseDelayClyde` | Clyde House Delay | neutral | Clyde leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionClyde` | Clyde Traction | neutral | Clyde loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownSpunky` | Spunky Slowdown | neutral | Spunky moves 4% slower. Stacks. |  |
+| `lowHouseDelaySpunky` | Spunky House Delay | neutral | Spunky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionSpunky` | Spunky Traction | neutral | Spunky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownWardy` | Wardy Slowdown | neutral | Wardy moves 4% slower. Stacks. |  |
+| `lowHouseDelayWardy` | Wardy House Delay | neutral | Wardy leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionWardy` | Wardy Traction | neutral | Wardy loses 8% speed after each turn. Stacks. |  |

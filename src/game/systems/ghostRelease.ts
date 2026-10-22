@@ -1,6 +1,7 @@
 import { hasComponent, query, type World } from "bitecs";
 import {
   idleReleaseDue,
+  releaseAddsForKind,
   shouldReleaseGhostAt,
   shouldReleaseSlot,
   type GhostReleaseAdds,
@@ -14,6 +15,8 @@ import { worldToCol, worldToRow } from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
 import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
+import { GhostKind } from "../components/GhostKind";
+import type { GhostKindId } from "../../domain/ghostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Position } from "../components/Position";
@@ -77,7 +80,13 @@ export function ghostRelease(
     const isBoss = hasComponent(world, eid, BossGhost);
     const ready = isBoss
       ? shouldReleaseGhostAt(clock, (BossGhost.releaseDelayMs[eid] ?? 0) + (adds.delayAddMs ?? 0))
-      : shouldReleaseSlot(slot, clock, collectedCount, afterLifeRelease, adds);
+      : shouldReleaseSlot(
+          slot,
+          clock,
+          collectedCount,
+          afterLifeRelease,
+          releaseAddsForKind(adds, (GhostKind.kind[eid] ?? 0) as GhostKindId),
+        );
     if (!ready) {
       if (!isBoss && slot < idleRank) {
         idleEid = eid;

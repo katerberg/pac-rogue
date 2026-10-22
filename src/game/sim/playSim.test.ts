@@ -22,7 +22,6 @@ import {
   canEnterDirection,
   cellCenterX,
   cellCenterY,
-  clampToGridCenters,
   getActiveLayout,
   ghostHouseSpawnCenter,
   horizontalTunnelRows,
@@ -97,6 +96,17 @@ import {
   type UpgradeChoiceOffer,
   type UpgradeId,
 } from "../../domain/upgrades";
+import {
+  LOW_POWER_IDS,
+  LOW_POWER_MAX_COPIES,
+  LOW_POWER_SLOWDOWN_CUT,
+  LOW_POWER_SPEED_ADD,
+  LOW_POWER_TUNNEL_SPEED_ADD,
+  LOW_POWER_VORTEX_CUT,
+  LOW_POWER_HOUSE_DELAY_MS,
+  LOW_POWER_TRACTION_CUT,
+  isLowPowerId,
+} from "../../domain/lowPowerUpgrades";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { schoolArtTextureKey } from "../../domain/schoolArt";
 import { upgradeArtTextureKey } from "../../domain/upgradeArt";
@@ -129,6 +139,10 @@ import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
+
+const MAXED_LOW_POWER: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
+  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+);
 
 const ONE_QUARTER_SLOT = { quarters: 1, upgrades: 0, lives: 0 };
 
@@ -531,21 +545,6 @@ describe("PlaySim", () => {
     },
   );
 
-  it("Tunnel Dash+ slows ghosts to 0.3x in the tunnel; base Tunnel Dash keeps 0.6x", () => {
-    for (const [id, ratio] of [
-      ["passiveTunnelDash", 0.6],
-      ["passiveTunnelDashPlus", 0.3],
-    ] as const) {
-      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [id] });
-      const ghost = query(sim.world, [Ghost, Position])[0]!;
-      GhostPhase.value[ghost] = GHOST_PHASE.active;
-      Position.x[ghost] = cellCenterX(0);
-      Position.y[ghost] = cellCenterY(horizontalTunnelRows()[0]!);
-      runFrames(sim, 1);
-      expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
-    }
-  });
-
   it("spawns no pellets in a generated board's tunnels, up to the first turn-off", () => {
     for (let i = 0; i < 20; i += 1) {
       const sim = startSim({ level: 2 }, `tunnel-${i}`);
@@ -721,7 +720,11 @@ describe("PlaySim", () => {
   });
 
   it("skips the offer when no upgrade is eligible", () => {
-    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: [...ALL_UPGRADE_IDS] });
+    const sim = startSim({
+      jumpToUpgrade: true,
+      level: 4,
+      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_LOW_POWER],
+    });
     runFrames(sim, 90);
     expect(sim.offer()).toBeNull();
     runUntil(sim, () => sim.snapshot().levelTransition, 900, { acknowledge: true });
@@ -1798,7 +1801,10 @@ describe("PlaySim", () => {
     });
 
     it("trades into a rare even when the shelf already shows one", () => {
-      const owned = ALL_UPGRADE_IDS.filter((id) => !isRare(id));
+      const owned = [
+        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isLowPowerId(id)),
+        ...MAXED_LOW_POWER,
+      ];
       const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
       const shelf = (
         sim.snapshot().storeStock!.filter((s) => !s.includes(":")) as BaseUpgradeId[]
@@ -5108,26 +5114,6 @@ describe("Shield bounce", () => {
     expect(Facing.direction[ghost]).not.toBe(DIRECTION.none);
   });
 
-  it("does not start a Tunnel Dash while Dot-Man is airborne", () => {
-    const sim = startSim({
-      level: 2,
-      maze: "maze1",
-      enableUpgrades: ["passiveStartingShield", "passiveTunnelDash"],
-    });
-    const ghost = query(sim.world, [Ghost, Position])[0]!;
-    GhostPhase.value[ghost] = GHOST_PHASE.active;
-    const at = { x: cellCenterX(6), y: cellCenterY(horizontalTunnelRows()[0]!) };
-    place(playerEid(sim), at);
-    place(ghost, at, NUDGE_PX);
-    runFrames(sim, 1);
-    expect(sim.snapshot().shieldBounce.player?.step).toEqual({ dx: -1, dy: 0 });
-    runUntil(sim, () => sim.snapshot().shieldBounce.player === null, 30, {
-      keys: { ...NO_KEYS_HELD },
-    });
-    expect(sim["tunnelDashAnim"]).toBeNull();
-    expect(Position.x[playerEid(sim)]!).toBeLessThan(cellCenterX(6));
-  });
-
   it("bounces only Dot-Man when Reactive Armor sends the ghost home", () => {
     const sim = startSim({
       level: 2,
@@ -5744,17 +5730,6 @@ describe("Tunnel Sanctuary", () => {
     expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(ratio);
   });
 
-  it("keeps the faster ghost tunnel speed when Tunnel Dash+ is also owned", () => {
-    const sim = startSim({
-      level: 2,
-      maze: "maze1",
-      enableUpgrades: ["passiveTunnelDashPlus", "passiveTunnelSanctuary"],
-    });
-    const ghost = ghostInTunnelMouth(sim);
-    runFrames(sim, 1);
-    expect(Speed.px[ghost]! / Speed.px[playerEid(sim)]!).toBeCloseTo(0.9);
-  });
-
   it.each(["passiveTunnelSanctuary", "passiveTunnelSanctuaryPlus"] as const)(
     "%s grants 1s of Ghost Proof on coming out of a tunnel",
     (id) => {
@@ -5809,31 +5784,6 @@ describe("Tunnel Sanctuary", () => {
     expect(Math.abs(Position.x[playerEid(sim)]! - before.x)).toBeGreaterThan(0);
     expect(sim.snapshot().timers.invulnMs).toBe(0);
     expect(sim.snapshot().runLog.tunnelWraps).toBe(0);
-  });
-
-  it("grants Ghost Proof when a Tunnel Dash lands the player at the far mouth", () => {
-    const sim = startSim({
-      level: 2,
-      maze: "maze1",
-      enableUpgrades: ["passiveTunnelSanctuary", "passiveTunnelDash"],
-    });
-    teleportPlayer(sim, cellCenterX(3), cellCenterY(tunnelRow()));
-    runUntil(sim, () => sim.snapshot().timers.invulnMs > 0, 240, { keys: held("left") });
-    expect(sim.snapshot().timers.invulnMs).toBeLessThanOrEqual(1000);
-  });
-
-  it("starts the Tunnel Dash pull only once the player reaches the band tile's centre", () => {
-    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveTunnelDash"] });
-    const bandCol = 5;
-    teleportPlayer(sim, cellCenterX(bandCol + 3), cellCenterY(tunnelRow()));
-    runUntil(sim, () => worldToCol(Position.x[playerEid(sim)]!) === bandCol, 360, {
-      keys: held("left"),
-    });
-    runFrames(sim, 1, { keys: held("left") });
-    expect(Position.x[playerEid(sim)]!).toBeGreaterThan(cellCenterX(bandCol));
-    runUntil(sim, () => Position.x[playerEid(sim)]! > cellCenterX(20), 360, {
-      keys: held("left"),
-    });
   });
 
   it("lets a ghost wrap through the tunnel in the base form and blocks it in the enhanced form", () => {
@@ -6536,40 +6486,6 @@ describe("timed tunnels", () => {
     wrapLeftFromMouth(sim, row);
     expect(sim.snapshot().timedTunnel!.phase).toBe("closed");
     expect(sim.renderOptions().timedTunnel?.gateVisible).toBe(true);
-  });
-
-  it("cancels an in-flight Tunnel Dash when the gate closes", () => {
-    const sim = startSim(
-      {
-        level: 7,
-        maze: "maze1",
-        infiniteLives: true,
-        enableUpgrades: ["passiveTunnelDash"],
-      },
-      "tt-dash",
-    );
-    const row = sim.snapshot().timedTunnel!.row;
-    runUntil(
-      sim,
-      () => {
-        const state = sim.snapshot().timedTunnel!;
-        return state.phase === "warn" && state.remainingMs <= FRAME_MS * 2;
-      },
-      framesFor(20_000),
-    );
-    sim["tunnelDashAnim"] = {
-      targetX: cellCenterX(0),
-      wrapToX: cellCenterX(getActiveLayout().cols - 1),
-      y: cellCenterY(row),
-    };
-    Position.x[playerEid(sim)] = MAZE_OFFSET_X - 20;
-    Position.y[playerEid(sim)] = cellCenterY(row);
-    advanceToPhase(sim, "closed");
-    expect(sim["tunnelDashAnim"]).toBeNull();
-    expect(Position.x[playerEid(sim)]!).toBeLessThan(cellCenterX(6));
-    const x = Position.x[playerEid(sim)]!;
-    expect(x).toBeGreaterThanOrEqual(clampToGridCenters(-1e9, 0).x);
-    expect(x).toBeLessThanOrEqual(clampToGridCenters(1e9, 0).x);
   });
 });
 
@@ -7721,50 +7637,6 @@ describe("power pellet break VFX", () => {
     expect(sim.snapshot().powerPelletBreaks).toHaveLength(2);
   });
 
-  it("emits a facing-biased break when Tunnel Dash sweeps a power pellet", () => {
-    const sim = startSim(
-      { level: 2, maze: "maze1", enableUpgrades: ["passiveTunnelDash"] },
-      "pp-break-dash",
-    );
-    const row = horizontalTunnelRows()[0]!;
-    const power = query(sim.world, [PowerPellet, Position])[0]!;
-    const x = cellCenterX(1);
-    const y = cellCenterY(row);
-    Position.x[power] = x;
-    Position.y[power] = y;
-    teleportPlayer(sim, cellCenterX(3), y);
-    Facing.direction[playerEid(sim)] = DIRECTION.left;
-    const left = { keys: held("left") };
-    const events = runFrames(sim, 1, left);
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: "powerPelletBreak",
-        id: 1,
-        x,
-        y,
-        facingDx: -1,
-        facingDy: 0,
-        progress: 0,
-      }),
-    );
-    expect(sim.snapshot().powerPelletBreaks).toEqual([
-      expect.objectContaining({ id: 1, progress: 0 }),
-    ]);
-    const done = runUntil(sim, () => sim.snapshot().powerPelletBreaks.length === 0, 60, left);
-    expect(done).toContainEqual(
-      expect.objectContaining({
-        type: "powerPelletBreak",
-        id: 1,
-        x,
-        y,
-        facingDx: -1,
-        facingDy: 0,
-        progress: 1,
-      }),
-    );
-    expect(sim.snapshot().powerPelletBreaks).toEqual([]);
-  });
-
   it("clears in-flight breaks on board reset", () => {
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: [] }, "pp-break-reset");
     const power = query(sim.world, [PowerPellet, Position])[0]!;
@@ -8373,27 +8245,6 @@ describe("Mirror", () => {
       const withTwin = pelletsGone(["powerPelletExtraHungry", "powerPelletMirror"]);
       expect(withTwin - solo).toBe(8);
     });
-
-    it("gets Tunnel Dash sweeps", () => {
-      const row = horizontalTunnelRows()[0]!;
-      const sweep = (enableUpgrades: UpgradeId[]): [boolean, boolean] => {
-        const sim = start(enableUpgrades);
-        clearGhosts(sim);
-        arm(sim);
-        const [near, far] = regularPelletEids(sim).slice(0, 2) as [number, number];
-        Position.x[near] = cellCenterX(1);
-        Position.y[near] = cellCenterY(row);
-        Position.x[far] = cellCenterX(mirror(1));
-        Position.y[far] = cellCenterY(row);
-        teleportPlayer(sim, cellCenterX(3), cellCenterY(row));
-        Facing.direction[playerEid(sim)] = DIRECTION.left;
-        runFrames(sim, 1, { keys: held("left") });
-        const left = query(sim.world, [Pellet]);
-        return [!left.includes(near), !left.includes(far)];
-      };
-      expect(sweep(["powerPelletMirror"])).toEqual([false, false]);
-      expect(sweep(["powerPelletMirror", "passiveTunnelDash"])).toEqual([true, true]);
-    });
   });
 
   it("ignores power pellets while active", () => {
@@ -8979,6 +8830,173 @@ describe("Reactive Armor", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().timers.shieldsBanked).toBe(1);
     expect(ghostPhase(sim, contact)).not.toBe("inHouse");
+  });
+});
+
+describe("PlaySim low-power upgrades", () => {
+  const copies = (id: UpgradeId, n: number): UpgradeId[] => Array.from({ length: n }, () => id);
+  const speedOf = (eid: number): number => Speed.px[eid]!;
+
+  function activeGhost(sim: PlaySim, kind: GhostKindId): number {
+    const eid = query(sim.world, [Ghost, GhostKind]).find((e) => GhostKind.kind[e] === kind)!;
+    GhostPhase.value[eid] = GHOST_PHASE.active;
+    Position.x[eid] = cellCenterX(13);
+    Position.y[eid] = cellCenterY(11);
+    return eid;
+  }
+
+  function playerSpeedAt(upgrades: UpgradeId[], col: number, row: number): number {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: upgrades });
+    teleportPlayer(sim, cellCenterX(col), cellCenterY(row));
+    runFrames(sim, 1);
+    return speedOf(playerEid(sim));
+  }
+
+  function ghostSpeedOf(
+    upgrades: UpgradeId[],
+    kind: GhostKindId,
+    at = { col: 13, row: 11 },
+  ): number {
+    const sim = startSim({ level: 2, maze: "maze1", roster: 0, enableUpgrades: upgrades });
+    const eid = activeGhost(sim, kind);
+    Position.x[eid] = cellCenterX(at.col);
+    Position.y[eid] = cellCenterY(at.row);
+    runFrames(sim, 1);
+    return speedOf(eid);
+  }
+
+  it.each(LOW_POWER_IDS)("%s stacks up to the cap and no further", (id) => {
+    const sim = startSim({
+      level: 2,
+      enableUpgrades: copies(id, LOW_POWER_MAX_COPIES + 3),
+    });
+    expect(sim.snapshot().upgrades.filter((owned) => owned === id)).toHaveLength(
+      LOW_POWER_MAX_COPIES,
+    );
+  });
+
+  it("Speed adds a flat share of Dot-Man's speed per copy", () => {
+    const base = playerSpeedAt([], 13, 11);
+    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+    expect(playerSpeedAt(copies("lowSpeed", 3), 13, 11) / base).toBeCloseTo(
+      1 + 3 * LOW_POWER_SPEED_ADD,
+    );
+  });
+
+  it("Tunnel Speed only speeds Dot-Man up inside a tunnel", () => {
+    const tunnelRow = horizontalTunnelRows()[0]!;
+    const base = playerSpeedAt([], 0, tunnelRow);
+    expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 0, tunnelRow) / base).toBeCloseTo(
+      1 + 2 * LOW_POWER_TUNNEL_SPEED_ADD,
+    );
+    expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 13, 11)).toBeCloseTo(
+      playerSpeedAt([], 13, 11),
+    );
+  });
+
+  it("Tunnel Vortex slows every ghost in a tunnel and none outside", () => {
+    const tunnel = { col: 0, row: horizontalTunnelRows()[0]! };
+    const base = ghostSpeedOf([], GHOST_KIND.blinky, tunnel);
+    expect(
+      ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky, tunnel) / base,
+    ).toBeCloseTo(1 - 2 * LOW_POWER_VORTEX_CUT);
+    expect(ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky)).toBeCloseTo(
+      ghostSpeedOf([], GHOST_KIND.blinky),
+    );
+  });
+
+  it("a ghost slowdown slows only the named ghost", () => {
+    const base = ghostSpeedOf([], GHOST_KIND.blinky);
+    expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.blinky) / base).toBeCloseTo(
+      1 - 3 * LOW_POWER_SLOWDOWN_CUT,
+    );
+    expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.inky)).toBeCloseTo(
+      ghostSpeedOf([], GHOST_KIND.inky),
+    );
+  });
+
+  it("Turning Speed widens the window Dot-Man can corner early in", () => {
+    const turnedAfter = (upgrades: UpgradeId[]): boolean => {
+      const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: upgrades });
+      const cx = cellCenterX(6);
+      const cy = cellCenterY(5);
+      const eid = playerEid(sim);
+      teleportPlayer(sim, cellCenterX(7), cy);
+      runUntil(sim, () => Position.x[eid]! <= cx + 12, 60, { keys: held("left") });
+      teleportPlayer(sim, cx + 5, cy);
+      runFrames(sim, 1, { keys: held("up") });
+      return sim.snapshot().player!.facing === "up";
+    };
+    expect(turnedAfter([])).toBe(false);
+    expect(turnedAfter(copies("lowTurning", 3))).toBe(true);
+  });
+
+  it("Ghost Traction drags only the named ghost for a moment after it turns", () => {
+    const dragged = (upgrades: UpgradeId[], kind: GhostKindId): boolean => {
+      const sim = startSim({ level: 2, maze: "maze1", roster: 0, enableUpgrades: upgrades });
+      const eid = activeGhost(sim, kind);
+      Facing.direction[eid] = DIRECTION.left;
+      runFrames(sim, 1);
+      const before = speedOf(eid);
+      Facing.direction[eid] = DIRECTION.up;
+      runFrames(sim, 1);
+      return speedOf(eid) < before * (1 - LOW_POWER_TRACTION_CUT / 2);
+    };
+    expect(dragged(["lowTractionBlinky"], GHOST_KIND.blinky)).toBe(true);
+    expect(dragged(["lowTractionBlinky"], GHOST_KIND.inky)).toBe(false);
+    expect(dragged([], GHOST_KIND.blinky)).toBe(false);
+  });
+
+  it("a ghost house delay holds the named ghost in the house longer", () => {
+    const releaseMs = (upgrades: UpgradeId[]): number => {
+      const sim = startSim({ level: 2, maze: "maze1", roster: 0, enableUpgrades: upgrades });
+      const blinky = query(sim.world, [Ghost, GhostKind]).find(
+        (e) => GhostKind.kind[e] === GHOST_KIND.blinky,
+      )!;
+      let frames = 0;
+      while (GhostPhase.value[blinky] === GHOST_PHASE.inHouse && frames < 2000) {
+        runFrames(sim, 1, { keys: held("left") });
+        frames += 1;
+      }
+      return frames * FRAME_MS;
+    };
+    const plain = releaseMs([]);
+    const delayed = releaseMs(copies("lowHouseDelayBlinky", 2));
+    expect(delayed - plain).toBeGreaterThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS - 2 * FRAME_MS);
+    expect(delayed - plain).toBeLessThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS + 2 * FRAME_MS);
+  });
+
+  it("offers a ghost's upgrades only when the ghost is in the run's roster", () => {
+    const rostered = GHOST_ROSTERS[0]!;
+    const missing = (Object.values(GHOST_KIND) as GhostKindId[]).find(
+      (kind) => !rostered.includes(kind),
+    )!;
+    const offered = new Set<string>();
+    for (let i = 0; i < 60; i += 1) {
+      const sim = startSim({ jumpToUpgrade: true, level: 4, roster: 0 }, `roster-offer-${i}`);
+      runFrames(sim, 90);
+      for (const id of sim.offer()?.upgrades ?? []) {
+        offered.add(id);
+      }
+    }
+    expect([...offered].some((id) => isLowPowerId(id))).toBe(true);
+    const ghostName = Object.entries(GHOST_KIND).find(([, v]) => v === missing)![0];
+    const suffix = ghostName.charAt(0).toUpperCase() + ghostName.slice(1);
+    expect([...offered].filter((id) => id.endsWith(suffix) && isLowPowerId(id))).toEqual([]);
+  });
+
+  it("taking an owned low-power upgrade from an offer adds another copy", () => {
+    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: ["lowSpeed"] });
+    drainToOffer(sim);
+    sim.chooseUpgrade({ kind: "upgrade", id: "lowSpeed" });
+    expect(sim.snapshot().upgrades.filter((id) => id === "lowSpeed")).toHaveLength(2);
+  });
+
+  it("the cap keeps any low-power upgrade out of the pool once it is reached", () => {
+    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_LOW_POWER });
+    runFrames(sim, 90);
+    const offered = sim.offer()?.upgrades ?? [];
+    expect(offered.filter((id) => isLowPowerId(id))).toEqual([]);
   });
 });
 

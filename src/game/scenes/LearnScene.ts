@@ -64,6 +64,11 @@ import {
   type UpgradeDef,
   type UpgradeId,
 } from "../../domain/upgrades";
+import {
+  isLowPowerId,
+  lowPowerCopyControls,
+  type LowPowerUpgradeId,
+} from "../../domain/lowPowerUpgrades";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -128,6 +133,12 @@ const UPGRADE_PLUS_INSET = 6;
 const UPGRADE_PLUS_ZONE_WIDTH = 14;
 const UPGRADE_PLUS_BOX_SIZE = 10;
 const UPGRADE_PLUS_ON_TINT = 0x101820;
+const COPIES_RIGHT_INSET = 2;
+const COPIES_CHEVRON_W = 5;
+const COPIES_CHEVRON_H = 8;
+const COPIES_NUMBER_W = 16;
+const COPIES_GAP = 2;
+const COPIES_DISABLED_ALPHA = 0.3;
 const NO_EFFECT_BANNER_Y = SLOT_Y + SLOT_SIZE / 2 + 10;
 const STATUS_GAP_Y = 10;
 const POPUP_RISE_PX = 28;
@@ -139,8 +150,17 @@ type UpgradeHeader = {
   baseY: number;
   label: Phaser.GameObjects.BitmapText;
 };
+type CopiesControl = {
+  text: Phaser.GameObjects.BitmapText;
+  textX: number;
+  left: Phaser.GameObjects.Triangle;
+  right: Phaser.GameObjects.Triangle;
+  leftZone: Phaser.GameObjects.Zone;
+  rightZone: Phaser.GameObjects.Zone;
+};
 type UpgradeRow = {
   id: BaseUpgradeId;
+  copies: CopiesControl | null;
   column: LearnColumn;
   baseY: number;
   labelX: number;
@@ -335,6 +355,11 @@ export class LearnScene extends Phaser.Scene {
     this.refreshNoEffectBanner();
   }
 
+  private adjustCopies(id: LowPowerUpgradeId, delta: number): void {
+    this.applyEvents(this.sim.adjustUpgradeCopies(id, delta));
+    this.refreshUpgradeRows();
+  }
+
   private toggleEnhanced(id: BaseUpgradeId): void {
     this.applyEvents(this.sim.toggleEnhanced(id));
     this.refreshUpgradeRows();
@@ -511,6 +536,7 @@ export class LearnScene extends Phaser.Scene {
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
     this.upgradeRows.push({
       id: def.baseId,
+      copies: isLowPowerId(def.baseId) ? this.buildCopiesControl(def.baseId, columnX, y) : null,
       column,
       baseY: y,
       labelX,
@@ -524,6 +550,46 @@ export class LearnScene extends Phaser.Scene {
       labelZone,
       plusZone,
     });
+  }
+
+  private copiesLayout(columnX: number): { left: number; text: number; right: number } {
+    const edge = columnX + LEARN_UPGRADE_ROW_WIDTH - COPIES_RIGHT_INSET;
+    return {
+      left: edge - COPIES_NUMBER_W - 2 * COPIES_GAP - 2 * COPIES_CHEVRON_W + COPIES_CHEVRON_W / 2,
+      text: edge - COPIES_CHEVRON_W - COPIES_GAP - COPIES_NUMBER_W / 2,
+      right: edge - COPIES_CHEVRON_W / 2,
+    };
+  }
+
+  private buildCopiesControl(id: LowPowerUpgradeId, columnX: number, y: number): CopiesControl {
+    const at = this.copiesLayout(columnX);
+    const w = COPIES_CHEVRON_W;
+    const h = COPIES_CHEVRON_H;
+    const triangle = (x: number, points: [number, number, number, number, number, number]) =>
+      this.add
+        .triangle(x, y, ...points, RARE_LABEL_COLOR)
+        .setVisible(false)
+        .setDepth(UPGRADE_UI_DEPTH);
+    const left = triangle(at.left, [w, 0, w, h, 0, h / 2]);
+    const right = triangle(at.right, [0, 0, 0, h, w, h / 2]);
+    const text = addPixelText(this, 0, 0, "1", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
+    placePixelText(text, at.text, y, 0.5, 0.5);
+    text.setVisible(false).setDepth(UPGRADE_UI_DEPTH);
+    const rowHitH = LEARN_UPGRADE_ROW_GAP - 2;
+    const zone = (x: number, delta: number) => {
+      const hit = this.add.zone(x, y, w + COPIES_GAP * 2, rowHitH);
+      hit.on("pointerdown", () => this.adjustCopies(id, delta));
+      hit.on("pointerover", () => this.cancelUpgradePreview());
+      return hit;
+    };
+    return {
+      text,
+      textX: at.text,
+      left,
+      right,
+      leftZone: zone(at.left, -1),
+      rightZone: zone(at.right, 1),
+    };
   }
 
   private onUpgradeWheel(worldX: number, worldY: number, deltaY: number): void {
@@ -568,6 +634,12 @@ export class LearnScene extends Phaser.Scene {
       row.checkZone.setY(y);
       row.labelZone.setY(y);
       row.plusZone.setY(y);
+      if (row.copies !== null) {
+        row.copies.left.setY(y);
+        row.copies.right.setY(y);
+        row.copies.leftZone.setY(y);
+        row.copies.rightZone.setY(y);
+      }
     }
     this.refreshUpgradeRows();
     this.refreshScrollCues();
@@ -595,8 +667,10 @@ export class LearnScene extends Phaser.Scene {
       row.checkBox.setVisible(inView);
       row.label.setVisible(inView);
       row.checkMark.setVisible(inView && selected);
-      row.plus.setVisible(inView && selected);
-      row.plusBox.setVisible(inView && selected);
+      this.refreshCopiesControl(row, inView && selected);
+      const enhanceable = selected && !isLowPowerId(row.id);
+      row.plus.setVisible(inView && enhanceable);
+      row.plusBox.setVisible(inView && enhanceable);
       row.plusBox.setFillStyle(RARE_LABEL_COLOR, state === "on" ? 1 : 0);
       row.plus.setTint(state === "on" ? UPGRADE_PLUS_ON_TINT : RARE_LABEL_COLOR);
       row.label.setText(getUpgradeDef(state === "on" ? enhancedIdOf(row.id) : row.id).label);
@@ -607,13 +681,37 @@ export class LearnScene extends Phaser.Scene {
       } else {
         row.checkZone.setInteractive({ useHandCursor: true });
         row.labelZone.setInteractive({ useHandCursor: true });
-        if (selected) {
+        if (enhanceable) {
           row.plusZone.setInteractive({ useHandCursor: true });
         } else {
           row.plusZone.disableInteractive();
         }
       }
     }
+  }
+
+  private refreshCopiesControl(row: UpgradeRow, shown: boolean): void {
+    const control = row.copies;
+    if (control === null) {
+      return;
+    }
+    const copies = this.sim.upgradeCopies(row.id as LowPowerUpgradeId);
+    const { down: canDown, up: canUp } = lowPowerCopyControls(copies);
+    control.text.setText(String(Math.max(1, copies)));
+    placePixelText(
+      control.text,
+      control.textX,
+      row.baseY - this.scrollOffset[row.column],
+      0.5,
+      0.5,
+    );
+    control.text.setVisible(shown);
+    control.left.setVisible(shown).setAlpha(canDown ? 1 : COPIES_DISABLED_ALPHA);
+    control.right.setVisible(shown).setAlpha(canUp ? 1 : COPIES_DISABLED_ALPHA);
+    const enable = (zone: Phaser.GameObjects.Zone, on: boolean) =>
+      on ? zone.setInteractive({ useHandCursor: true }) : zone.disableInteractive();
+    enable(control.leftZone, shown && canDown);
+    enable(control.rightZone, shown && canUp);
   }
 
   private refreshStatus(): void {
