@@ -3167,13 +3167,25 @@ export class PlaySim {
     }));
   }
 
+  private playerInSinkhole(): boolean {
+    const eid = query(this.world, [Player, Position])[0];
+    return (
+      eid !== undefined &&
+      (this.sinkholeChain ?? []).some(
+        (cell) =>
+          cell.col === worldToCol(Position.x[eid]!) && cell.row === worldToRow(Position.y[eid]!),
+      )
+    );
+  }
+
   private syncSinkholeFloat(): void {
     if (this.sinkholeLayouts === null) {
       return;
     }
-    const wanted = floatsOverHazards(this.effectiveUpgrades())
-      ? this.sinkholeLayouts.open
-      : this.sinkholeLayouts.blocked;
+    const wanted =
+      floatsOverHazards(this.effectiveUpgrades()) || this.playerInSinkhole()
+        ? this.sinkholeLayouts.open
+        : this.sinkholeLayouts.blocked;
     if (getActiveLayout() !== wanted) {
       setActiveLayout(wanted);
     }

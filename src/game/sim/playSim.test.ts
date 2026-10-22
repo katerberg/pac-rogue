@@ -9012,6 +9012,31 @@ describe("sinkhole", () => {
     }
   });
 
+  it("lets Dot-Man walk out if he loses Floating inside it, then blocks him again", () => {
+    const sim = startSim({ level: 6, enableUpgrades: ["passiveFloating"] }, SEED);
+    const cells = sim.snapshot().sinkhole.cells!;
+    const inChain = new Set(cells.map(cellKey));
+    const mid = cells[Math.floor(cells.length / 2)]!;
+    teleportPlayer(sim, cellCenterX(mid.col), cellCenterY(mid.row));
+    runFrames(sim, 5);
+    expect(sim.salvageOwned("passiveFloating").length).toBeGreaterThan(0);
+    runFrames(sim, 2);
+    const eid = playerEid(sim);
+    const at = () => ({ col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) });
+    const towardStart = cells.slice(0, cells.indexOf(mid) + 1).reverse();
+    const keyBetween = (from: MazeTile, to: MazeTile) =>
+      to.col > from.col ? "right" : to.col < from.col ? "left" : to.row > from.row ? "down" : "up";
+    for (let i = 0; i + 1 < towardStart.length; i += 1) {
+      runFrames(sim, 40, { keys: held(keyBetween(towardStart[i]!, towardStart[i + 1]!)) });
+    }
+    const [end, beforeEnd] = [cells[0]!, cells[1]!];
+    runFrames(sim, 60, { keys: held(keyBetween(beforeEnd, end)) });
+    expect(inChain.has(cellKey(at()))).toBe(false);
+    for (const { col, row } of cells) {
+      expect(getActiveLayout().playerSolids[row]![col]).toBe(true);
+    }
+  });
+
   it("flags only the level-6 sinkhole as fresh and runs its opening clock to full length", () => {
     expect(sinkholeAt(6).fresh).toBe(true);
     expect(sinkholeAt(7).fresh).toBe(false);
