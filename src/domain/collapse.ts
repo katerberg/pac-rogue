@@ -1,10 +1,9 @@
 import { MAX_LEVEL } from "./levelRules";
-import type { MazeTile } from "./maze";
+import { PELLET_CHARS, type MazeTile } from "./maze";
 
 export const COLLAPSE_LEVELS = [4, 5, 7] as const;
 export const SINKHOLE_LEVEL = 6;
 
-const PELLET_CHARS = ".@";
 const MIN_RUN_CELLS = 3;
 const MAX_RUN_CELLS = 5;
 const KEEP_OUT_TILES = 3;
@@ -47,7 +46,7 @@ export function applySinkhole(ascii: string, chain: CollapseChain | null): strin
   }
   const lines = ascii.split("\n").map((line) => [...line]);
   for (const cell of chain) {
-    if (PELLET_CHARS.includes(lines[cell.row]![cell.col]!)) {
+    if (PELLET_CHARS.has(lines[cell.row]![cell.col]!)) {
       lines[cell.row]![cell.col] = " ";
     }
   }
