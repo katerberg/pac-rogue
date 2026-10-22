@@ -9,7 +9,6 @@ import {
 import {
   FRUIT_FEAST_GAP_MS,
   FRUIT_FLICKER_MS,
-  FRUIT_KINDS,
   FRUIT_LIFETIME_MS,
   fruitFlickerAlpha,
   extendFruitLifetime,
@@ -17,7 +16,6 @@ import {
   cornucopiaSpawnDecision,
   mergeCornucopiaMode,
   CORNUCOPIA_SPAWN_DEBOUNCE_MS,
-  fruitArtPath,
   fruitDrawableId,
   fruitKindFromDrawableId,
   fruitSpawnCenter,
@@ -29,6 +27,7 @@ import {
   tickFruitPresence,
   type FruitKind,
 } from "./fruit";
+import { FRUIT_KINDS } from "../game/fruitArt";
 
 const FEAST = BASE_FEAST_FRUIT_SPAWN_THRESHOLDS;
 
@@ -52,23 +51,15 @@ describe("fruitFlickerAlpha", () => {
   });
 });
 
-describe("fruitArtPath", () => {
-  it("maps every kind to art/fruit/<kind>.png", () => {
-    for (const kind of FRUIT_KINDS) {
-      expect(fruitArtPath(kind)).toBe(`art/fruit/${kind}.png`);
-    }
-  });
-});
-
 describe("fruit drawable ids", () => {
   it("round-trips kind through drawable id", () => {
     for (const kind of FRUIT_KINDS) {
       const id = fruitDrawableId(kind);
       expect(isFruitDrawableId(id)).toBe(true);
-      expect(fruitKindFromDrawableId(id)).toBe(kind);
+      expect(fruitKindFromDrawableId(id, FRUIT_KINDS)).toBe(kind);
     }
     expect(isFruitDrawableId("fruit")).toBe(false);
-    expect(fruitKindFromDrawableId("pellet")).toBe(null);
+    expect(fruitKindFromDrawableId("pellet", FRUIT_KINDS)).toBe(null);
   });
 });
 
@@ -79,6 +70,7 @@ describe("nextFruitKind", () => {
     previousLevelFirstKind: null as FruitKind | null,
     onBoard: [] as FruitKind[],
     alreadyChosen: undefined as FruitKind | undefined,
+    kinds: FRUIT_KINDS,
   };
 
   it("is stable for the same seed, level, and spawn index", () => {
@@ -101,10 +93,10 @@ describe("nextFruitKind", () => {
   });
 
   it("avoids kinds already on the board when possible", () => {
-    const onBoard = FRUIT_KINDS.slice(0, 5) as FruitKind[];
+    const onBoard = FRUIT_KINDS.slice(0, -1);
     const kind = nextFruitKind({ ...base, spawnIndex: 1, onBoard });
     expect(onBoard).not.toContain(kind);
-    expect(kind).toBe(FRUIT_KINDS[5]);
+    expect(kind).toBe(FRUIT_KINDS[FRUIT_KINDS.length - 1]);
   });
 
   it("allows a duplicate when every kind is on the board", () => {
@@ -129,8 +121,8 @@ describe("nextFruitKind", () => {
 
   it("takeFruitKind advances the sequence and sticks on replay", () => {
     const empty = { sequence: [] as FruitKind[], spawnIndex: 0, previousLevelFirstKind: null };
-    const first = takeFruitKind(empty, "seq", 2, []);
-    const replay = takeFruitKind({ ...first.state, spawnIndex: 0 }, "seq", 2, []);
+    const first = takeFruitKind(empty, "seq", 2, [], FRUIT_KINDS);
+    const replay = takeFruitKind({ ...first.state, spawnIndex: 0 }, "seq", 2, [], FRUIT_KINDS);
     expect(replay.kind).toBe(first.kind);
     expect(replay.state.spawnIndex).toBe(1);
   });

@@ -32,6 +32,7 @@ export type SimRenderOptions = {
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
   dimGhostEid?: number | null;
+  possessedGhostEid?: number | null;
   playerAlpha?: number;
   entityAlpha?: number;
   wallAlpha?: number;

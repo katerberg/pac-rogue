@@ -13,11 +13,12 @@ export type KnobGroup =
   | "Scatter"
   | "Visuals";
 
-export type VisualsSubgroup = "Walls" | "Dot-Man" | "Bracelet" | "Background";
+export type VisualsSubgroup = "Walls" | "Dot-Man" | "Speed lanes" | "Bracelet" | "Background";
 
 export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
   "Walls",
   "Dot-Man",
+  "Speed lanes",
   "Bracelet",
   "Background",
 ];
@@ -114,6 +115,17 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   { key: "wallColor", group: "Visuals", label: "Wall color", kind: "color", subgroup: "Walls" },
   range("wallCornerRadius", "Visuals", "Corner radius", 0, 24, 1, "px", "Walls"),
   range("dotManChompSpeed", "Visuals", "Dot-Man chomp", 0.25, 8, 0.25, "×", "Dot-Man"),
+  range(
+    "speedZoneDustEntry",
+    "Visuals",
+    "Dust entry speed",
+    0.05,
+    4,
+    0.05,
+    "tiles/s",
+    "Speed lanes",
+  ),
+  range("speedZoneDustExit", "Visuals", "Dust exit speed", 0.1, 16, 0.1, "tiles/s", "Speed lanes"),
   {
     key: "charmTail",
     group: "Visuals",
@@ -236,6 +248,9 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   wallColor: "Color of the wall outline (overrides the Settings maze color while knobs are on).",
   dotManChompSpeed:
     "How fast Dot-Man's mouth cycles while moving. 1× = one beat every 12 px of travel; default 1.25×. Visual only.",
+  speedZoneDustEntry:
+    "Speed of speed-lane dust as it enters the lane (slow end). It accelerates steadily to the exit speed. Visual only.",
+  speedZoneDustExit: "Speed of speed-lane dust as it leaves the lane (fast end). Visual only.",
   charmTail:
     "Show the shield bracelet: one square per banked shield on a chain behind Dot-Man. Visual only.",
   charmSize:

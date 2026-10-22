@@ -265,6 +265,9 @@ const ALL_IDS: BaseUpgradeId[] = [
   "powerPelletTithe",
   "passiveMole",
   "passiveBananaShield",
+  "passiveTunnelBoring",
+  "passiveMartyr",
+  "passivePossession",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
@@ -569,6 +572,8 @@ describe("rare upgrades", () => {
     "passiveEcho",
     "powerPelletProgrammer",
     "powerPelletMirror",
+    "passiveMartyr",
+    "passivePossession",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {
@@ -829,6 +834,7 @@ describe("grantUpgrade", () => {
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -849,6 +855,7 @@ describe("grantUpgrade", () => {
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     });
   });
 
@@ -910,6 +917,7 @@ describe("freeze / power pellet", () => {
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -938,6 +946,7 @@ describe("freeze / power pellet", () => {
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     });
   });
 });
@@ -1049,6 +1058,7 @@ describe("invuln / power pellet", () => {
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -1268,6 +1278,7 @@ describe("passiveOvercharge", () => {
       cornucopiaFruit: null,
       programmerStarted: false,
       mirrorStarted: false,
+      tunnelBoringRecharge: false,
     });
   });
 });
@@ -1725,6 +1736,8 @@ describe("enhanced upgrades", () => {
       EXTRA_HUNGRY_ENHANCED_COUNT,
     );
     expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
+    expect(apply("passiveTunnelBoring").tunnelBoringRecharge).toBe(false);
+    expect(apply("passiveTunnelBoringPlus").tunnelBoringRecharge).toBe(true);
   });
 
   it("Warp Farthest Plus shields for 2s and Overcharge does not triple it", () => {

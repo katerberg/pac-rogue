@@ -1,37 +1,55 @@
-import { clamp } from "./clamp";
-import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
+import { bananaGrab } from "./intermissionBananaGrab";
+import { blinkyChase } from "./intermissionBlinkyChase";
+import { defyDeath } from "./intermissionDefyDeath";
+import { freeze } from "./intermissionFreeze";
+import { ghostPass } from "./intermissionGhostPass";
+import { scatterBurst } from "./intermissionScatterBurst";
+import { shieldBounce } from "./intermissionShieldBounce";
+import { speedBurst } from "./intermissionSpeedBurst";
+import {
+  DEFAULT_INTERMISSION_CAST,
+  type IntermissionBeat,
+  type IntermissionCast,
+  type IntermissionScript,
+} from "./intermissionScript";
 
 export const INTERMISSION_AFTER_LEVEL = 2;
-export const INTERMISSION_MS = 4000;
-export const INTERMISSION_ACTOR_SIZE = 56;
-export const INTERMISSION_CHASE_GAP_PX = 130;
-const BOB_STEP_MS = 120;
-const BOB_PX = 3;
 
-export type IntermissionFrame = {
-  dotManX: number;
-  blinkyX: number;
-  y: number;
-  bobPx: number;
-  done: boolean;
-};
+const INTERMISSION_SCRIPTS = {
+  blinkyChase,
+  bananaGrab,
+  shieldBounce,
+  ghostPass,
+  speedBurst,
+  freeze,
+  scatterBurst,
+  defyDeath,
+} satisfies Record<string, IntermissionScript>;
+
+export type IntermissionId = keyof typeof INTERMISSION_SCRIPTS;
+
+export const INTERMISSION_IDS = Object.keys(INTERMISSION_SCRIPTS) as IntermissionId[];
+
+export type IntermissionFrame = IntermissionBeat & { id: IntermissionId; done: boolean };
 
 export function hasIntermissionAfter(levelIndex: number): boolean {
   return levelIndex === INTERMISSION_AFTER_LEVEL;
 }
 
-export function intermissionFrame(elapsedMs: number): IntermissionFrame {
-  const progress = clamp(elapsedMs / INTERMISSION_MS, 0, 1);
-  const half = INTERMISSION_ACTOR_SIZE / 2;
-  const startX = -half - INTERMISSION_CHASE_GAP_PX;
-  const endX = PLAYFIELD_WIDTH + half;
-  const blinkyX = startX + (endX - startX) * progress;
-  const bobUp = Math.floor(elapsedMs / BOB_STEP_MS) % 2 === 0;
-  return {
-    dotManX: blinkyX + INTERMISSION_CHASE_GAP_PX,
-    blinkyX,
-    y: PLAYFIELD_HEIGHT / 2,
-    bobPx: bobUp ? -BOB_PX : BOB_PX,
-    done: elapsedMs >= INTERMISSION_MS,
-  };
+export function pickIntermission(next: () => number): IntermissionId {
+  return INTERMISSION_IDS[Math.floor(next() * INTERMISSION_IDS.length)]!;
+}
+
+export function intermissionFrame(
+  id: IntermissionId,
+  elapsedMs: number,
+  cast: IntermissionCast = DEFAULT_INTERMISSION_CAST,
+): IntermissionFrame {
+  const script = INTERMISSION_SCRIPTS[id];
+  return { id, ...script.beatAt(elapsedMs, cast), done: elapsedMs >= script.durationMs };
+}
+
+export function parseIntermissionParam(params: URLSearchParams): IntermissionId | null {
+  const raw = params.get("intermission");
+  return INTERMISSION_IDS.find((id) => id === raw) ?? null;
 }

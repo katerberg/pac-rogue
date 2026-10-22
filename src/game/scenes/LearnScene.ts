@@ -314,6 +314,9 @@ export class LearnScene extends Phaser.Scene {
     for (const event of events) {
       if (event.type === "releaseDrawable") {
         this.playRender.releaseDrawable(event.eid);
+      } else if (event.type === "resetBoard") {
+        this.playRender.resetForNewBoard();
+        this.powerPelletBreakFx.clear();
       } else if (event.type === "draw") {
         this.playRender.draw(this.sim.world, event.options);
       } else if (event.type === "bouncePowerPellet") {

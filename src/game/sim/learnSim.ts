@@ -37,6 +37,7 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
+import { FRUIT_KINDS } from "../fruitArt";
 import type { GhostDir } from "../../domain/ghostPath";
 import type { GhostTarget } from "../../domain/ghostTarget";
 import { predictGhostPath } from "../../domain/learnOverlay";
@@ -53,7 +54,9 @@ import {
   pelletCellCenters,
   worldToCol,
   worldToRow,
+  type MazeTile,
 } from "../../domain/maze";
+import { mergeBoredCells, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
 import { bananaPeelSprites } from "../../domain/bananaPeel";
 import type { TailBead } from "../../domain/charmTail";
 import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
@@ -124,9 +127,16 @@ import {
   pickFruitPowerBases,
   queueEcho,
   armHaunt,
+  armPossession,
+  endPossession,
   hauntedGhost,
   hauntedGhostEid,
+  possessionActive,
+  possessedGhostEid,
+  possessionDurationMs,
+  possessionHauntMs,
   tickHaunt,
+  tickPossession,
   tickWallDrop,
   HAUNTING_MS,
   frozenGhostEid,
@@ -155,6 +165,7 @@ import {
   endMirror,
   mirrorSavesLife,
 } from "../../domain/upgrades";
+import { shouldFireMartyr, shouldStartPossession } from "../../domain/possession";
 import {
   advanceUpgradeTimers,
   upgradeTimerFractions,
@@ -189,6 +200,11 @@ import { chaffSprites, decoyFacing, decoyPx, decoyTile, nearestDecoy } from "../
 import { advanceChaff } from "../systems/chaff";
 import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "../systems/wallDrop";
 import {
+  adoptTunnelBoringFacing,
+  applyBoredCellsToActiveLayout,
+  tryTunnelBoring,
+} from "../systems/tunnelBoring";
+import {
   followProgrammer,
   holdPlayerForProgramming,
   recordProgrammerKeys,
@@ -203,6 +219,7 @@ import {
   collectPelletsForBodies,
 } from "../systems/collectBodies";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
+import { harvestPelletsByGhost } from "../systems/possessionHarvest";
 import {
   ghostAi,
   ghostAiContext,
@@ -217,6 +234,7 @@ import {
   NO_KEYS_HELD,
   anyKeyHeld,
   applyHeldKeys,
+  applyHeldKeysToEid,
   isPerpendicularTurn,
   type HeldKeys,
   type TurnTap,
@@ -240,7 +258,12 @@ import {
   tickPowerPelletBreaks,
   type ActivePowerPelletBreak,
 } from "./powerPelletBreaks";
-import { catchPlayer, edibleGhostsTouchingPlayer, type CatchOptions } from "../systems/catchPlayer";
+import {
+  catchPlayer,
+  edibleGhostsTouchingEid,
+  edibleGhostsTouchingPlayer,
+  type CatchOptions,
+} from "../systems/catchPlayer";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
@@ -316,6 +339,8 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveInheritance",
   "powerPelletMirror",
   "passiveBananaShield",
+  "passiveMartyr",
+  "passivePossession",
 ];
 
 export class LearnSim {
@@ -335,6 +360,8 @@ export class LearnSim {
   private firedUpgrades: BaseUpgradeId[] = [];
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
+  private tunnelBoringCharges = 0;
+  private tunnelBoredCells: MazeTile[] = [];
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
@@ -471,12 +498,22 @@ export class LearnSim {
     const bouncing = this.shieldBounce.player !== null;
     const diagonalAllowed = wallPassActive(this.learnUpgrades);
     const programming = this.learnUpgrades.programmer !== null;
+    const possessing = possessionActive(this.learnUpgrades);
+    const possessedEid = possessedGhostEid(this.learnUpgrades);
     const turnTuningOpts =
-      !diagonalAllowed && !programming && hasUpgrade(this.learnUpgrades.owned, "passiveTurnTuning")
+      !diagonalAllowed &&
+      !programming &&
+      !possessing &&
+      hasUpgrade(this.learnUpgrades.owned, "passiveTurnTuning")
         ? { prevKeys: this.prevKeys, solids: getActiveLayout().playerSolids }
         : undefined;
     let turnTap: TurnTap | null = null;
-    if (programming) {
+    if (possessing && possessedEid !== null) {
+      applyHeldKeysToEid(possessedEid, keys);
+      for (const eid of query(this.world, [Player, Input])) {
+        Input.direction[eid] = DIRECTION.none;
+      }
+    } else if (programming) {
       this.learnUpgrades = {
         ...this.learnUpgrades,
         programmer: recordProgrammerKeys(
@@ -505,6 +542,7 @@ export class LearnSim {
         ),
       );
     }
+    const prevKeys = this.prevKeys;
     this.prevKeys = keys;
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
@@ -528,7 +566,15 @@ export class LearnSim {
     this.tickChaff(delta);
     this.fireDueEchoes(delta);
     this.tickHaunt(delta);
-    this.tickFright(delta);
+    if (possessionActive(this.learnUpgrades)) {
+      const possessed = this.learnUpgrades.possessedGhostEid;
+      this.learnUpgrades = tickPossession(this.learnUpgrades, delta);
+      if (!possessionActive(this.learnUpgrades)) {
+        this.finishLearnPossession(possessed);
+      }
+    } else {
+      this.tickFright(delta);
+    }
     this.turnTuning.tick(delta);
     this.catchGraceMs = Math.max(0, this.catchGraceMs - delta);
     this.releaseHeldGhost(delta, anyKeyHeld(keys));
@@ -560,7 +606,7 @@ export class LearnSim {
         : levelSpeedMul * hyperspeedMultiplier(this.learnUpgrades.owned);
     const programmerPhase = this.learnUpgrades.programmer?.phase ?? null;
     const rawPlayerSpeedMul =
-      programmerPhase === "recording" || warping || bouncing
+      programmerPhase === "recording" || warping || bouncing || possessing
         ? 0
         : programmerPhase === "running"
           ? levelSpeedMul * HYPERSPEED_MUL
@@ -590,6 +636,7 @@ export class LearnSim {
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
+    this.tryBoreTunnel(prevKeys, keys);
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
@@ -658,13 +705,25 @@ export class LearnSim {
         : [];
 
     this.tickMirror(delta);
-    const playerFrame = mergePlayerPelletFrames(this.hyperspeedPellets, this.collectBodyPellets());
+    const playerFrame = possessionActive(this.learnUpgrades)
+      ? emptyPlayerPelletFrame()
+      : mergePlayerPelletFrames(this.hyperspeedPellets, this.collectBodyPellets());
     this.hyperspeedPellets = emptyPlayerPelletFrame();
     const ghostFrame = ghostHarvestActive(this.learnUpgrades)
       ? harvestPelletsByGhosts(this.world)
       : { powerRemoved: 0, removedEids: [], removedPowerPositions: [] };
-    const removedEids = [...playerFrame.removedEids, ...ghostFrame.removedEids];
-    const powerRemoved = playerFrame.powerRemoved + ghostFrame.powerRemoved;
+    const possessed = possessedGhostEid(this.learnUpgrades);
+    const possessionFrame =
+      possessed === null
+        ? { powerRemoved: 0, removedEids: [] as number[], removedPowerPositions: [] }
+        : harvestPelletsByGhost(this.world, possessed);
+    const removedEids = [
+      ...playerFrame.removedEids,
+      ...ghostFrame.removedEids,
+      ...possessionFrame.removedEids,
+    ];
+    const powerRemoved =
+      playerFrame.powerRemoved + ghostFrame.powerRemoved + possessionFrame.powerRemoved;
     this.nextPowerPelletBreakId = startPowerPelletBreaks(
       this.world,
       this.powerPelletBreaks,
@@ -707,7 +766,12 @@ export class LearnSim {
       NO_ELROY_PELLETS,
       undefined,
       ghostsBlockedFromTunnels(this.learnUpgrades.owned),
-      frightenedGhostEids(this.learnUpgrades),
+      new Set([
+        ...frightenedGhostEids(this.learnUpgrades),
+        ...(possessedGhostEid(this.learnUpgrades) === null
+          ? []
+          : [possessedGhostEid(this.learnUpgrades)!]),
+      ]),
       null,
       this.learnUpgrades.droppedWall,
       this.twinBody(),
@@ -756,6 +820,8 @@ export class LearnSim {
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         dimGhostEid: this.helperBlinky,
+        possessedGhostEid: possessedGhostEid(this.learnUpgrades),
+        ...(possessionActive(this.learnUpgrades) ? { playerAlpha: 0 } : {}),
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
         playerSpeedTrail: this.speedTrailActive()
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
@@ -836,6 +902,12 @@ export class LearnSim {
     this.applyToggled(toggled);
     if (turningOn && baseIdOf(id) === "passivePelletToPower") {
       this.applyPelletSurge(pelletSurgeCount([id]));
+    }
+    if (turningOn && baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+    if (!turningOn && baseIdOf(id) === "passiveTunnelBoring") {
+      this.tunnelBoringCharges = 0;
     }
     if (baseIdOf(id) === "passiveLazyLooper") {
       this.tagOptionalPellets();
@@ -1138,6 +1210,24 @@ export class LearnSim {
     if (powerEffects.cornucopiaFruit !== null) {
       this.spawnCornucopiaFruit(powerEffects.cornucopiaFruit);
     }
+    if (powerEffects.tunnelBoringRecharge) {
+      this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+  }
+
+  private tryBoreTunnel(prevKeys: HeldKeys, keys: HeldKeys): void {
+    if (!hasUpgrade(this.learnUpgrades.owned, "passiveTunnelBoring")) {
+      return;
+    }
+    const attempt = tryTunnelBoring(this.world, this.tunnelBoringCharges, prevKeys, keys);
+    if (attempt === null) {
+      return;
+    }
+    this.tunnelBoredCells = mergeBoredCells(this.tunnelBoredCells, attempt.cells);
+    this.tunnelBoringCharges = attempt.charges;
+    applyBoredCellsToActiveLayout(this.tunnelBoredCells);
+    adoptTunnelBoringFacing(this.world, attempt.direction);
+    this.events.push({ type: "resetBoard" });
   }
 
   private stepStreakEngine(cells: readonly Cell[], delta: number): void {
@@ -1202,10 +1292,15 @@ export class LearnSim {
 
   private eatFrightenedGhosts(): void {
     const gliding = glidingGhostEids(this.ghostCornerWarps);
-    for (const eid of edibleGhostsTouchingPlayer(
-      this.world,
-      new Set([...frightenedGhostEids(this.learnUpgrades)].filter((eid) => !gliding.has(eid))),
-    )) {
+    const edible = new Set(
+      [...frightenedGhostEids(this.learnUpgrades)].filter((eid) => !gliding.has(eid)),
+    );
+    const possessed = possessedGhostEid(this.learnUpgrades);
+    const eaten =
+      possessed === null
+        ? edibleGhostsTouchingPlayer(this.world, edible)
+        : edibleGhostsTouchingEid(this.world, possessed, edible);
+    for (const eid of eaten) {
       if (eid === frozenGhostEid(this.learnUpgrades)) {
         this.learnUpgrades = { ...this.learnUpgrades, freezeRemainingMs: 0, frozenGhostEid: null };
       }
@@ -1519,9 +1614,15 @@ export class LearnSim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...(possessedGhostEid(this.learnUpgrades) === null
+          ? []
+          : [possessedGhostEid(this.learnUpgrades)!]),
       ]),
       edibleGhostEids: frightenedGhostEids(this.learnUpgrades),
-      playerInvulnerable: playerIsInvulnerable(this.learnUpgrades) || this.catchGraceMs > 0,
+      playerInvulnerable:
+        playerIsInvulnerable(this.learnUpgrades) ||
+        this.catchGraceMs > 0 ||
+        possessionActive(this.learnUpgrades),
       turnCatchGrace: this.turnCatchGraceMs > 0,
     };
   }
@@ -1608,9 +1709,38 @@ export class LearnSim {
       this.learnUpgrades = { ...this.learnUpgrades, defyDeathRemainingMs: 0 };
     }
     const outcome = this.runState.caught(owned, defied);
+    const saved = outcome.kind === "saved";
+    const lifeLost = outcome.kind === "lost" || outcome.kind === "reset";
     lines.push(
       outcome.kind === "saved" ? "SAVED" : outcome.kind === "reset" ? "LIVES RESET" : "LIFE LOST",
     );
+    if (
+      shouldFireMartyr(owned, {
+        infiniteLives: false,
+        lifeLost,
+        saved,
+      })
+    ) {
+      this.firePowerPelletEffects(1);
+      lines.push("MARTYR");
+    }
+    if (
+      shouldStartPossession(owned, {
+        infiniteLives: false,
+        lifeLost,
+        lava: false,
+        caughtBy,
+      })
+    ) {
+      const duration = possessionDurationMs(owned) ?? 0;
+      const others = [...query(this.world, [Ghost, GhostPhase])].filter(
+        (eid) => eid !== caughtBy && GhostPhase.value[eid] !== GHOST_PHASE.inHouse,
+      );
+      this.learnUpgrades = armPossession(this.learnUpgrades, caughtBy, duration, others);
+      lines.push("POSSESSING");
+      this.popup(lines.join("\n"));
+      return;
+    }
     const hauntCatcher = hasUpgrade(owned, "passiveHaunting") ? caughtBy : null;
     if (hauntCatcher !== null) {
       this.releaseHauntedGhost();
@@ -1636,6 +1766,20 @@ export class LearnSim {
     }
     this.catchGraceMs = LEARN_CATCH_GRACE_MS;
     this.popup(lines.join("\n"));
+  }
+
+  private finishLearnPossession(possessedEid: number | null): void {
+    const hauntMs = possessionHauntMs(this.learnUpgrades.owned);
+    this.learnUpgrades = endPossession(this.learnUpgrades);
+    if (possessedEid !== null && hauntMs !== null) {
+      this.releaseHauntedGhost();
+      this.seatGhostAtExit(possessedEid);
+      this.learnUpgrades = armHaunt(this.learnUpgrades, possessedEid, hauntMs);
+      this.popup("POSSESSED\nHAUNTED");
+    } else {
+      this.popup("POSSESSED");
+    }
+    this.catchGraceMs = LEARN_CATCH_GRACE_MS;
   }
 
   private tickCornucopiaFruit(delta: number): void {
@@ -1839,6 +1983,7 @@ export class LearnSim {
       this.random.seed,
       LEARN_LEVEL,
       fruitKindsOnBoard(this.world),
+      FRUIT_KINDS,
     );
     this.fruitSequence = rolled.state;
     return rolled.kind;

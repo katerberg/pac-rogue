@@ -30,7 +30,9 @@ import {
   SPEED_ZONE_MAX_COUNT,
   speedZoneGlowMask,
   speedZoneParticles,
+  DEFAULT_SPEED_ZONE_DUST_SPEEDS,
   type SpeedZone,
+  type SpeedZoneDustSpeeds,
 } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import {
@@ -93,13 +95,7 @@ import {
 } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
 import { pelletTint } from "../../domain/lazyLooper";
-import {
-  FRUIT_KINDS,
-  fruitArtPath,
-  fruitDrawableId,
-  fruitFlickerAlpha,
-  isFruitDrawableId,
-} from "../../domain/fruit";
+import { fruitDrawableId, fruitFlickerAlpha, isFruitDrawableId } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
@@ -159,6 +155,7 @@ import {
 } from "../../domain/charmTailParams";
 import { schoolArtPath, schoolArtTextureKey } from "../../domain/schoolArt";
 import { upgradeArtTextureKey } from "../../domain/upgradeArt";
+import { FRUIT_ART_URLS } from "../fruitArt";
 import { UPGRADE_ART_URLS } from "../upgradeArt";
 import { resizeTail, stepTail, type TailBead } from "../../domain/charmTail";
 import { UPGRADE_SCHOOL_ORDER, type HauntedGhost } from "../../domain/upgrades";
@@ -185,6 +182,7 @@ const SPUNKY_TEXTURE_KEY = "ghost-spunky";
 const WARDY_TEXTURE_KEY = "ghost-wardy";
 const FRIGHTENED_GHOST_TEXTURE_KEY = "ghost-frightened";
 const GHOST_FROZEN_TINT = 0x7ec8ff;
+const GHOST_POSSESSED_COLOR = 0xffee00;
 export const GHOST_TEXTURE_BY_ID: Record<string, string> = {
   [BLINKY_DRAWABLE_ID]: BLINKY_TEXTURE_KEY,
   [PINKY_DRAWABLE_ID]: PINKY_TEXTURE_KEY,
@@ -414,6 +412,7 @@ export type GhostSpriteHandle = {
   destroy(): void;
   setSkirtPhase(phase: number): void;
   setLook(look: GhostLook): void;
+  setPupilLook(look: PupilLook): void;
 };
 
 export type GhostLook = "normal" | "frightened" | "frozen";
@@ -483,6 +482,12 @@ export function addGhostSprite(
       horns?.setVisible(!frightened);
       pupils?.setVisible(!frightened);
     },
+    setPupilLook(next) {
+      if (pupils !== null) {
+        pupils.clear();
+        fillGhostPupils(pupils, 0, 0, crisp.size, next);
+      }
+    },
   };
 }
 
@@ -505,6 +510,33 @@ export function addQuarterIcon(
   size: number,
 ): Phaser.GameObjects.Image {
   return scene.add.image(x, y, QUARTER_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
+export function addPowerPelletIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, POWER_PELLET_TEXTURE_KEY).setDisplaySize(size, size);
+}
+
+export function addBubbleShieldIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, BUBBLE_SHIELD_SINGLE_KEY).setDisplaySize(size, size);
+}
+
+export function addBananaPeelIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, BANANA_PEEL_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
 export function addPennyIcon(
@@ -559,8 +591,8 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   scene.load.image(SPUNKY_TEXTURE_KEY, "art/ghosts/spunky.png");
   scene.load.image(WARDY_TEXTURE_KEY, "art/ghosts/wardy.png");
   scene.load.image(FRIGHTENED_GHOST_TEXTURE_KEY, "art/ghosts/blue_ghost.png");
-  for (const kind of FRUIT_KINDS) {
-    scene.load.image(fruitDrawableId(kind), fruitArtPath(kind));
+  for (const [kind, url] of FRUIT_ART_URLS) {
+    scene.load.image(fruitDrawableId(kind), url);
   }
   for (const school of UPGRADE_SCHOOL_ORDER) {
     scene.load.image(schoolArtTextureKey(school), schoolArtPath(school));
@@ -627,6 +659,7 @@ export type RenderOptions = {
   wallPassLoopActive?: boolean;
   turnFlashRemainingMs?: number;
   dimGhostEid?: number | null;
+  possessedGhostEid?: number | null;
   playerAlpha?: number;
   entityAlpha?: number;
   wallAlpha?: number;
@@ -671,6 +704,7 @@ export type PlayRender = {
   queuePeelCrack: (x: number, y: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
   setDotManLook: (look: { chompSpeed: number }) => void;
+  setSpeedZoneDust: (speeds: SpeedZoneDustSpeeds) => void;
   setCharmTuning: (tuning: CharmTuning) => void;
   playerSpriteRotation: () => number | null;
 };
@@ -796,11 +830,12 @@ function drawSpeedZoneParticles(
   graphics: Phaser.GameObjects.Graphics,
   zone: SpeedZone,
   nowMs: number,
+  speeds: SpeedZoneDustSpeeds,
 ): void {
   const { tileSize } = getActiveLayout();
   const originX = cellOriginX(0);
   const originY = cellOriginY(0);
-  for (const particle of speedZoneParticles(zone, nowMs)) {
+  for (const particle of speedZoneParticles(zone, nowMs, speeds)) {
     graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
     const size = particle.size < 1 ? 2 : 3;
     const x = originX + particle.col * tileSize - size / 2;
@@ -854,6 +889,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const speedZoneParticleGraphics = scene.add.graphics();
   speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH);
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
+  let speedZoneDustSpeeds = DEFAULT_SPEED_ZONE_DUST_SPEEDS;
   const clearSpeedZones = (): void => {
     speedZoneLayer.removeAll(true);
     speedZoneParticleGraphics.clear();
@@ -1035,6 +1071,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const draw = (world: World, opts?: RenderOptions): void => {
     const frozenEid = opts?.frozenGhostEid ?? null;
     const dimGhostEid = opts?.dimGhostEid ?? null;
+    const possessedEid = opts?.possessedGhostEid ?? null;
     const entityAlpha = opts?.entityAlpha ?? 1;
     const playerAlphaOpt = opts?.playerAlpha;
     const playerAlpha = (playerAlphaOpt ?? 1) * entityAlpha;
@@ -1337,8 +1374,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           ? GHOST_FROZEN_TINT
           : null;
       const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
+      const possessedLook = ghostTexture !== undefined && eid === possessedEid;
       const frightenedLook =
         ghostTexture !== undefined &&
+        !possessedLook &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse &&
         showsFrightenedLook(opts?.frightenedGhosts, eid, scene.time.now);
 
@@ -1381,7 +1420,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           go.setTexture(ghostKey);
         }
         const applyGhostTint = (target: Phaser.GameObjects.Image): void => {
-          if (ghostTint === null) {
+          target.setTintMode(possessedLook ? Phaser.TintModes.FILL : Phaser.TintModes.MULTIPLY);
+          if (possessedLook) {
+            target.setTint(GHOST_POSSESSED_COLOR);
+          } else if (ghostTint === null) {
             target.clearTint();
           } else {
             target.setTint(ghostTint);
@@ -1427,7 +1469,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           0,
           crisp.size,
           skirt.phase,
-          multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+          possessedLook
+            ? GHOST_POSSESSED_COLOR
+            : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
         );
         const hornsShown = id === BLINKY_DRAWABLE_ID && !frightenedLook && bodyAlpha > 0;
         const pupilsShown =
@@ -1469,7 +1513,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             crisp.size,
             turn.lean,
             look.dy,
-            multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
+            possessedLook
+              ? GHOST_POSSESSED_COLOR
+              : multiplyTint(skirtBaseColor(scene, go.texture.key), ghostTint),
           );
         }
         skirt.pupils.setPosition(crisp.x, crisp.y);
@@ -1690,7 +1736,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
     speedZoneParticleGraphics.clear();
     for (const zone of speedZones) {
-      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now);
+      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now, speedZoneDustSpeeds);
     }
 
     timedTunnelGraphics.clear();
@@ -1855,6 +1901,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     chompPixelsPerFrame = dotManChompPixelsPerFrame(look.chompSpeed);
   };
 
+  const setSpeedZoneDust = (speeds: SpeedZoneDustSpeeds): void => {
+    speedZoneDustSpeeds = speeds;
+  };
+
   return {
     draw,
     releaseDrawable,
@@ -1863,6 +1913,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     queuePeelCrack,
     setWallStyle,
     setDotManLook,
+    setSpeedZoneDust,
     setCharmTuning,
     playerSpriteRotation,
   };

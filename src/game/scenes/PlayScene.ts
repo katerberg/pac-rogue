@@ -218,6 +218,7 @@ export class PlayScene extends Phaser.Scene {
       options.jumpToUpgrade = false;
       options.jumpToSpinner = false;
       options.store = null;
+      options.intermission = null;
     }
     options.forceStartingUpgrade = preferredStartingUpgrade(storedRunCount());
     const tuning = options.knobs ? loadDebugTuning() : DEFAULT_TUNING;
@@ -351,6 +352,10 @@ export class PlayScene extends Phaser.Scene {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
     this.playRender.setDotManLook({ chompSpeed: tuning.dotManChompSpeed });
+    this.playRender.setSpeedZoneDust({
+      entryTilesPerSec: tuning.speedZoneDustEntry,
+      exitTilesPerSec: tuning.speedZoneDustExit,
+    });
     this.playRender.setCharmTuning(tuning);
   }
 
