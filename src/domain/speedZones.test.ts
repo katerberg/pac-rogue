@@ -126,7 +126,9 @@ describe("speedZoneParticles", () => {
       });
     }
     const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-    expect(mean(late)).toBeGreaterThan(mean(early) * 3);
+    const ratio = mean(late) / mean(early);
+    expect(ratio).toBeGreaterThan(1.5);
+    expect(ratio).toBeLessThan(2.2);
   });
 
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {

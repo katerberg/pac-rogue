@@ -20,7 +20,7 @@ const SPEED_ZONE_PARTICLE_MIN_TILES_PER_SEC = 0.5;
 const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.6;
 const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
 const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
-const SPEED_ZONE_PARTICLE_LINEAR_SHARE = 0.2;
+const SPEED_ZONE_PARTICLE_LINEAR_SHARE = 2 / 3;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
