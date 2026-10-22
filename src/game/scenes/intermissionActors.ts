@@ -12,7 +12,6 @@ import {
   addDotManIcon,
   addGhostSprite,
   addPowerPelletIcon,
-  type GhostSpriteHandle,
 } from "../systems/render";
 
 const INTERMISSION_DEPTH = 700;
@@ -28,7 +27,7 @@ type ActorView = {
 };
 
 function ghostView(scene: Phaser.Scene, drawableId: string): ActorView {
-  const ghost: GhostSpriteHandle = addGhostSprite(scene, drawableId, 0, 0, INTERMISSION_ACTOR_SIZE);
+  const ghost = addGhostSprite(scene, drawableId, 0, 0, INTERMISSION_ACTOR_SIZE);
   ghost.setDepth(INTERMISSION_DEPTH);
   let lastX: number | null = null;
   let skirtPhase = 0;
