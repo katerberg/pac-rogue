@@ -83,6 +83,42 @@ function punchSolidRun(
   return { cells, hitCorridor: false, exitedMap: true };
 }
 
+function thinWallKeys(ascii: string): Set<string> {
+  const grid = ascii.split("\n");
+  const isWall = (col: number, row: number): boolean => {
+    const line = grid[row];
+    return line === undefined || line[col] === undefined || line[col] === WALL_CHAR;
+  };
+  const thin = new Set<string>();
+  grid.forEach((line, row) => {
+    for (let col = 0; col < line.length; col += 1) {
+      if (!isWall(col, row)) {
+        continue;
+      }
+      const inBlock = [-1, 0].some((dRow) =>
+        [-1, 0].some((dCol) =>
+          [0, 1].every((i) => [0, 1].every((j) => isWall(col + dCol + i, row + dRow + j))),
+        ),
+      );
+      if (!inBlock) {
+        thin.add(`${col},${row}`);
+      }
+    }
+  });
+  return thin;
+}
+
+/** A bore may not leave any wall cell outside a 2x2 wall block (no single-line walls). */
+function leavesThinWall(ascii: string, cells: readonly MazeTile[]): boolean {
+  const before = thinWallKeys(ascii);
+  for (const key of thinWallKeys(applyTunnelBoringAscii(ascii, cells))) {
+    if (!before.has(key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function mergeBoredCells(prior: readonly MazeTile[], next: readonly MazeTile[]): MazeTile[] {
   const seen = new Set<string>();
   const out: MazeTile[] = [];
@@ -102,6 +138,17 @@ export function mergeBoredCells(prior: readonly MazeTile[], next: readonly MazeT
  * corridor. At the map edge, also opens the opposite edge (wrap tunnel).
  */
 export function tunnelBoringCells(
+  col: number,
+  row: number,
+  dx: number,
+  dy: number,
+  layout: MazeLayout = getActiveLayout(),
+): MazeTile[] | null {
+  const cells = boreRun(col, row, dx, dy, layout);
+  return cells === null || leavesThinWall(layout.ascii, cells) ? null : cells;
+}
+
+function boreRun(
   col: number,
   row: number,
   dx: number,

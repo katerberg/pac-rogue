@@ -102,18 +102,19 @@ describe("tunnelBoringCells", () => {
 
   it("punches every solid cell until the far corridor", () => {
     const layout = getActiveLayout();
-    // mazeSmall row 2: ##########.######.########## — six-wall span between corridors
+    expect(isWalkable(13, 1, layout.playerSolids)).toBe(true);
+    expect(tunnelBoringCells(13, 1, 0, 1, layout)).toEqual([
+      { col: 13, row: 2 },
+      { col: 13, row: 3 },
+    ]);
+  });
+
+  it("refuses a bore that would leave a single-line wall", () => {
+    const layout = getActiveLayout();
+    // mazeSmall row 2: ##########.######.########## — only two rows thick, so one row would remain
     expect(isWalkable(10, 2, layout.playerSolids)).toBe(true);
     expect(isWalkable(17, 2, layout.playerSolids)).toBe(true);
-    const cells = tunnelBoringCells(10, 2, 1, 0, layout);
-    expect(cells).toEqual([
-      { col: 11, row: 2 },
-      { col: 12, row: 2 },
-      { col: 13, row: 2 },
-      { col: 14, row: 2 },
-      { col: 15, row: 2 },
-      { col: 16, row: 2 },
-    ]);
+    expect(tunnelBoringCells(10, 2, 1, 0, layout)).toBeNull();
   });
 
   it("opens both edges into a wrap tunnel when boring out the exterior", () => {

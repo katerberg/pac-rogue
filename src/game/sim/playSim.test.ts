@@ -9237,6 +9237,42 @@ describe("Tunnel Boring", () => {
     expect(sim.snapshot().tunnelBoring.cells.length).toBeGreaterThan(0);
   });
 
+  it("does not bore a wall that would leave a single-line wall", () => {
+    const sim = start();
+    const layout = getActiveLayout();
+    const eid = playerEid(sim);
+    const dirs = [
+      { dx: 1, dy: 0, dir: "right" as const },
+      { dx: -1, dy: 0, dir: "left" as const },
+      { dx: 0, dy: 1, dir: "down" as const },
+      { dx: 0, dy: -1, dir: "up" as const },
+    ];
+    let thin: { col: number; row: number; dir: "left" | "right" | "up" | "down" } | null = null;
+    for (let row = 1; row < layout.rows - 1 && thin === null; row += 1) {
+      for (let col = 1; col < layout.cols - 1 && thin === null; col += 1) {
+        for (const step of dirs) {
+          const tc = col + step.dx;
+          const tr = row + step.dy;
+          if (
+            isWalkable(col, row) &&
+            !isWalkable(tc, tr) &&
+            layout.ascii.split("\n")[tr]?.[tc] === "#" &&
+            tunnelBoringCells(col, row, step.dx, step.dy) === null
+          ) {
+            thin = { col, row, dir: step.dir };
+            break;
+          }
+        }
+      }
+    }
+    expect(thin).not.toBeNull();
+    teleportPlayer(sim, cellCenterX(thin!.col), cellCenterY(thin!.row));
+    Facing.direction[eid] = DIRECTION.none;
+    runFrames(sim, 1, { keys: held(thin!.dir) });
+    expect(sim.snapshot().tunnelBoring.charges).toBe(1);
+    expect(sim.snapshot().tunnelBoring.cells).toHaveLength(0);
+  });
+
   it("does nothing without the upgrade", () => {
     const sim = start([]);
     const spot = boreSpot();
