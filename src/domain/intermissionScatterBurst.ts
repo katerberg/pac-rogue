@@ -9,6 +9,7 @@ import {
   intermissionBobPx,
   msToLeave,
   pelletActors,
+  walkingDotMan,
   type IntermissionActor,
   type IntermissionScript,
 } from "./intermissionScript";
@@ -68,12 +69,7 @@ export const scatterBurst: IntermissionScript = {
     if (elapsedMs < SCATTER_BURST_GONE_MS) {
       actors.push(...PACK.map((ghost) => packGhost(ghost, elapsedMs, bob)));
     }
-    actors.push({
-      kind: "dotMan",
-      key: "dotMan",
-      x: dotManApproachX(elapsedMs),
-      y: INTERMISSION_Y - bob,
-    });
+    actors.push(walkingDotMan(elapsedMs));
     const beats = [
       ["chase", INTERMISSION_PELLET_MS],
       ["scatter", SCATTER_BURST_GONE_MS],

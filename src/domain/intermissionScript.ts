@@ -42,6 +42,15 @@ export function dotManApproachX(elapsedMs: number): number {
   return OFF_LEFT_X + INTERMISSION_DOT_MAN_SPEED * elapsedMs;
 }
 
+export function walkingDotMan(elapsedMs: number): IntermissionActor {
+  return {
+    kind: "dotMan",
+    key: "dotMan",
+    x: dotManApproachX(elapsedMs),
+    y: INTERMISSION_Y - intermissionBobPx(elapsedMs),
+  };
+}
+
 export function chaserX(elapsedMs: number, gapAtPelletPx: number, speed: number): number {
   return INTERMISSION_PELLET_X - gapAtPelletPx + speed * (elapsedMs - INTERMISSION_PELLET_MS);
 }

@@ -12,6 +12,7 @@ import {
   intermissionBobPx,
   msToLeave,
   pelletActors,
+  walkingDotMan,
   type IntermissionActor,
   type IntermissionScript,
 } from "./intermissionScript";
@@ -60,12 +61,7 @@ export const bananaGrab: IntermissionScript = {
     if (elapsedMs >= INTERMISSION_PELLET_MS && elapsedMs < BOUNCE_END_MS) {
       actors.push({ kind: "bananaPeel", key: "peel", x: BANANA_GRAB_PEEL_X, y: INTERMISSION_Y });
     }
-    actors.push(clyde(elapsedMs, bob), {
-      kind: "dotMan",
-      key: "dotMan",
-      x: dotManApproachX(elapsedMs),
-      y: INTERMISSION_Y - bob,
-    });
+    actors.push(clyde(elapsedMs, bob), walkingDotMan(elapsedMs));
     const beats = [
       ["chase", INTERMISSION_PELLET_MS],
       ["peel", BANANA_GRAB_HIT_MS],

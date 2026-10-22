@@ -5,10 +5,10 @@ import {
   INTERMISSION_Y,
   beatAtMs,
   chaserX,
-  dotManApproachX,
   intermissionBobPx,
   msToLeave,
   pelletActors,
+  walkingDotMan,
   type IntermissionActor,
   type IntermissionScript,
 } from "./intermissionScript";
@@ -38,12 +38,7 @@ export const freeze: IntermissionScript = {
   beatAt(elapsedMs) {
     const bob = intermissionBobPx(elapsedMs);
     const actors = pelletActors(elapsedMs);
-    actors.push(clyde(elapsedMs, bob), {
-      kind: "dotMan",
-      key: "dotMan",
-      x: dotManApproachX(elapsedMs),
-      y: INTERMISSION_Y - bob,
-    });
+    actors.push(clyde(elapsedMs, bob), walkingDotMan(elapsedMs));
     const beats = [
       ["chase", INTERMISSION_PELLET_MS],
       ["frozen", FREEZE_THAW_MS],
