@@ -17,6 +17,7 @@ const TIMER_READINGS: Partial<Record<BaseUpgradeId, (state: RunUpgrades) => numb
   powerPelletWallDrop: (s) => finite(s.droppedWall?.remainingMs ?? 0),
   passiveDefyDeath: (s) => s.defyDeathRemainingMs,
   passiveHaunting: (s) => finite(s.hauntRemainingMs),
+  passivePossession: (s) => s.possessionRemainingMs,
   passiveEcho: (s) => Math.max(0, ...s.pendingEchoes.map((echo) => echo.remainingMs)),
 };
 

@@ -67,17 +67,50 @@ export function edibleGhostsTouchingPlayer(
   if (playerEid === undefined || edibleGhostEids.size === 0) {
     return [];
   }
-  const px = Position.x[playerEid] ?? 0;
-  const py = Position.y[playerEid] ?? 0;
-  const pr = Drawable.radius[playerEid] ?? 0;
+  return edibleGhostsTouchingAt(
+    world,
+    Position.x[playerEid] ?? 0,
+    Position.y[playerEid] ?? 0,
+    Drawable.radius[playerEid] ?? 0,
+    edibleGhostEids,
+  );
+}
+
+export function edibleGhostsTouchingEid(
+  world: World,
+  eaterEid: number,
+  edibleGhostEids: ReadonlySet<number>,
+): number[] {
+  return edibleGhostsTouchingAt(
+    world,
+    Position.x[eaterEid] ?? 0,
+    Position.y[eaterEid] ?? 0,
+    Drawable.radius[eaterEid] ?? 0,
+    edibleGhostEids,
+    eaterEid,
+  );
+}
+
+function edibleGhostsTouchingAt(
+  world: World,
+  x: number,
+  y: number,
+  radius: number,
+  edibleGhostEids: ReadonlySet<number>,
+  skipEid?: number,
+): number[] {
+  if (edibleGhostEids.size === 0) {
+    return [];
+  }
   return [...query(world, [Ghost, GhostPhase, Position, Drawable])].filter(
     (eid) =>
+      eid !== skipEid &&
       edibleGhostEids.has(eid) &&
       GhostPhase.value[eid] !== GHOST_PHASE.inHouse &&
       circlesOverlap(
-        px,
-        py,
-        pr,
+        x,
+        y,
+        radius,
         Position.x[eid] ?? 0,
         Position.y[eid] ?? 0,
         Drawable.radius[eid] ?? 0,
