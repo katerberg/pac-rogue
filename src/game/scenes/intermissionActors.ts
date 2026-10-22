@@ -6,10 +6,13 @@ import {
   INTERMISSION_ACTOR_SIZE,
   INTERMISSION_PEEL_SIZE,
   INTERMISSION_PELLET_SIZE,
+  INTERMISSION_SHIELD_SIZE,
   type IntermissionActor,
+  type IntermissionGhostLook,
 } from "../../domain/intermissionScript";
 import {
   addBananaPeelIcon,
+  addBubbleShieldIcon,
   addDotManIcon,
   addGhostSprite,
   addPowerPelletIcon,
@@ -33,6 +36,7 @@ function ghostView(scene: Phaser.Scene, drawableId: string): ActorView {
   let lastX: number | null = null;
   let skirtPhase = 0;
   let lastFacing: GhostDir | null = null;
+  let lastLook: IntermissionGhostLook = "normal";
   return {
     place(actor) {
       if (actor.kind !== "ghost") {
@@ -47,13 +51,40 @@ function ghostView(scene: Phaser.Scene, drawableId: string): ActorView {
         lastFacing = actor.facing;
         ghost.setPupilLook(ghostPupilLookOffset(actor.facing));
       }
+      const look = actor.look ?? "normal";
+      if (look !== lastLook) {
+        lastLook = look;
+        ghost.setLook(look);
+      }
+      ghost.container.setAlpha(actor.alpha ?? 1);
       ghost.setPosition(actor.x, actor.y);
     },
     destroy: () => ghost.destroy(),
   };
 }
 
-function objectView(object: Phaser.GameObjects.Image | Phaser.GameObjects.Container): ActorView {
+function dotManView(scene: Phaser.Scene): ActorView {
+  const dotMan = addDotManIcon(scene, 0, 0, INTERMISSION_ACTOR_SIZE);
+  dotMan.setDepth(INTERMISSION_DEPTH);
+  const parts = dotMan.list as Phaser.GameObjects.Image[];
+  return {
+    place(actor) {
+      if (actor.kind !== "dotMan") {
+        return;
+      }
+      const scale = (actor.size ?? INTERMISSION_ACTOR_SIZE) / INTERMISSION_ACTOR_SIZE;
+      dotMan.setScale(actor.flipX === true ? -scale : scale, scale);
+      parts.forEach((part) =>
+        actor.tint === undefined ? part.clearTint() : part.setTint(actor.tint),
+      );
+      dotMan.setAlpha(actor.alpha ?? 1);
+      dotMan.setPosition(Math.round(actor.x), Math.round(actor.y));
+    },
+    destroy: () => dotMan.destroy(),
+  };
+}
+
+function objectView(object: Phaser.GameObjects.Image): ActorView {
   object.setDepth(INTERMISSION_DEPTH);
   return {
     place: (actor) => object.setPosition(Math.round(actor.x), Math.round(actor.y)),
@@ -66,11 +97,13 @@ function createView(scene: Phaser.Scene, actor: IntermissionActor): ActorView {
     case "ghost":
       return ghostView(scene, actor.drawableId);
     case "dotMan":
-      return objectView(addDotManIcon(scene, 0, 0, INTERMISSION_ACTOR_SIZE));
+      return dotManView(scene);
     case "powerPellet":
       return objectView(addPowerPelletIcon(scene, 0, 0, INTERMISSION_PELLET_SIZE));
     case "bananaPeel":
       return objectView(addBananaPeelIcon(scene, 0, 0, INTERMISSION_PEEL_SIZE));
+    case "bubbleShield":
+      return objectView(addBubbleShieldIcon(scene, 0, 0, INTERMISSION_SHIELD_SIZE));
   }
 }
 

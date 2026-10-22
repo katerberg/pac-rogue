@@ -42,7 +42,12 @@ import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { INTERMISSION_IDS } from "../../domain/intermission";
-import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
+import {
+  GHOST_DRAWABLE_BY_KIND,
+  ghostRadius,
+  PLAYER_SPEED,
+  playerRadius,
+} from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import {
   offeredUpgradeIds,
@@ -900,13 +905,42 @@ describe("PlaySim", () => {
 
   it("picks the level-2 intermission at random per seed from every registered one", () => {
     const picked = new Set<string>();
-    for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
-      const sim = startSim({ jumpToUpgrade: true }, seed);
+    for (let i = 0; i < 80 && picked.size < INTERMISSION_IDS.length; i++) {
+      const sim = startSim({ jumpToUpgrade: true }, `pick${i}`);
       takeFirstOffered(sim);
       runUntil(sim, () => sim.snapshot().intermission !== null, 120);
       picked.add(sim.snapshot().intermission!.id);
     }
     expect(picked).toEqual(new Set(INTERMISSION_IDS));
+  });
+
+  it.each(INTERMISSION_IDS)("?intermission=%s plays that cutscene through to level 3", (id) => {
+    const sim = new PlaySim({ ...defaultPlayOptions(), intermission: id, level: 2 }, "each");
+    sim.start();
+    expect(sim.snapshot().intermission).toMatchObject({ id, done: false });
+    runUntil(sim, () => sim.snapshot().level === 3, 600);
+    expect(sim.snapshot().level).toBe(3);
+    expect(sim.snapshot().intermission).toBeNull();
+  });
+
+  it("casts the scatter-burst pack from the ghosts on the cleared board", () => {
+    const ghosts = [GHOST_KIND.wardy, GHOST_KIND.spunky, GHOST_KIND.inky];
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), intermission: "scatterBurst", level: 2, ghosts },
+      "cast",
+    );
+    sim.start();
+    const onScreen = sim
+      .snapshot()
+      .intermission!.actors.filter((actor) => actor.kind === "ghost")
+      .map((actor) => (actor.kind === "ghost" ? actor.drawableId : null));
+    expect(onScreen).toEqual(ghosts.map((kind) => GHOST_DRAWABLE_BY_KIND[kind]));
+    const rostered = startSim({ jumpToUpgrade: true, intermission: "scatterBurst" }, "roster");
+    takeFirstOffered(rostered);
+    runUntil(rostered, () => rostered.snapshot().intermission !== null, 120);
+    expect(
+      rostered.snapshot().intermission!.actors.filter((actor) => actor.kind === "ghost"),
+    ).toHaveLength(rostered.snapshot().ghosts.length);
   });
 
   it("opens ?intermission=bananaGrab straight into the banana grab, then plays level 3", () => {
