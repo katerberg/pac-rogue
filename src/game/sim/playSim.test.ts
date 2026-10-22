@@ -9193,6 +9193,19 @@ describe("Martyr", () => {
     expect(sim.snapshot().timers.invulnMs).toBe(0);
   });
 
+  it("animates Scatter Burst's ghost glides through the death hold", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "powerPelletScatterBurst"],
+    });
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    const draws = runFrames(sim, 12).flatMap((e) => (e.type === "draw" ? [e.options] : []));
+    expect(sim.snapshot().dying).toBe(true);
+    expect(draws.some((d) => Object.keys(d.ghostWarpGlides ?? {}).length > 0)).toBe(true);
+  });
+
   it("restores the life when Martyr clears the board on a would-be game over", () => {
     const sim = startSim({
       level: 2,
@@ -9237,6 +9250,15 @@ describe("Possession", () => {
     expect(sim.snapshot().dying).toBe(false);
     return killer;
   }
+
+  it("hides the player and marks the possessed ghost for the renderer", () => {
+    const sim = startPossession(["passivePossession"]);
+    expect(sim.renderOptions().playerAlpha).toBeUndefined();
+    const killer = enterPossession(sim);
+    const options = sim.renderOptions();
+    expect(options.playerAlpha).toBe(0);
+    expect(options.possessedGhostEid).toBe(killer);
+  });
 
   it("possesses the catching ghost and frightens the others", () => {
     const sim = startPossession(["passivePossession"]);

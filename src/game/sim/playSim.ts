@@ -974,6 +974,8 @@ export class PlaySim {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
+      possessedGhostEid: possessedGhostEid(this.runUpgrades),
+      ...(possessionActive(this.runUpgrades) ? { playerAlpha: 0 } : {}),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       fruitRemainingMs: this.flickerFruitMs(),
       wallPassActive: wallPassActive(this.runUpgrades),
@@ -1267,6 +1269,7 @@ export class PlaySim {
       }
       this.tickReviveSplash(delta);
       this.tickMoneyTalks(delta);
+      this.tickDeathEffects(delta);
       if (this.runEndElapsedMs !== null) {
         this.runEndElapsedMs += delta;
       }
@@ -1953,7 +1956,9 @@ export class PlaySim {
         })
       ) {
         this.recorder.activation("martyr");
-        if (this.firePowerPelletEffects(1)) {
+        const cleared = this.firePowerPelletEffects(1);
+        this.emitDraw();
+        if (cleared) {
           this.lives = lifeAfterDeathClear(livesBefore);
           this.emit({ type: "lives", pulse: true });
           this.replayRecorder.death(this.world);
@@ -4037,6 +4042,17 @@ export class PlaySim {
         }
         this.emit({ type: "loopStart", id: "gameplayMusic" });
         break;
+    }
+  }
+
+  private tickDeathEffects(delta: number): void {
+    this.tickChaff(delta);
+    if (
+      this.ghostCornerWarps.length > 0 ||
+      this.warpGlide !== null ||
+      this.runUpgrades.chaff !== null
+    ) {
+      this.emitDraw();
     }
   }
 

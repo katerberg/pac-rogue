@@ -838,6 +838,8 @@ export class LearnSim {
         wallPassLoopActive:
           wallPassActive(this.learnUpgrades) && wallPassLoopOwned(this.learnUpgrades.owned),
         dimGhostEid: this.helperBlinky,
+        possessedGhostEid: possessedGhostEid(this.learnUpgrades),
+        ...(possessionActive(this.learnUpgrades) ? { playerAlpha: 0 } : {}),
         playerWarpGlide: this.warpGlide === null ? undefined : warpGlideSprites(this.warpGlide),
         playerSpeedTrail: this.speedTrailActive()
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
