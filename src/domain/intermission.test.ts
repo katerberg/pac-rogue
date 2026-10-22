@@ -72,8 +72,25 @@ function durationOf(id: (typeof INTERMISSION_IDS)[number]): number {
 }
 
 describe("intermission", () => {
-  it("plays only after level 2", () => {
-    expect([1, 2, 3, 9].map(hasIntermissionAfter)).toEqual([false, true, false, false]);
+  it("plays only after levels 2 and 4", () => {
+    expect([1, 2, 3, 4, 5, 9].map(hasIntermissionAfter)).toEqual([
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it("never repeats the previous intermission", () => {
+    const n = INTERMISSION_IDS.length;
+    for (const previous of INTERMISSION_IDS) {
+      for (let i = 0; i < n * 4; i++) {
+        expect(pickIntermission(() => i / (n * 4), previous)).not.toBe(previous);
+      }
+      expect(pickIntermission(() => 0.9999, previous)).not.toBe(previous);
+    }
   });
 
   it("picks every registered intermission across the random range", () => {
