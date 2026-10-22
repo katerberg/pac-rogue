@@ -1070,9 +1070,7 @@ export class PlayScene extends Phaser.Scene {
     y: number;
     size: number;
   }[] {
-    const knobs = this.knobsPanel !== null;
-    const size = knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X);
-    const left = knobs ? MAZE_OFFSET_X + 4 : undefined;
+    const { size, left } = this.hudIconGeometry();
     return ownedUpgradeStacks(this.sim.hud().upgrades)
       .filter(({ id }) => !isTrinketId(id))
       .map(({ id, copies }, i) => ({
@@ -1083,10 +1081,16 @@ export class PlayScene extends Phaser.Scene {
       }));
   }
 
-  public trinketPoolCards() {
+  private hudIconGeometry(): { size: number; left: number | undefined } {
     const knobs = this.knobsPanel !== null;
-    const size = knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X);
-    const left = knobs ? MAZE_OFFSET_X + 4 : undefined;
+    return {
+      size: knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X),
+      left: knobs ? MAZE_OFFSET_X + 4 : undefined,
+    };
+  }
+
+  public trinketPoolCards() {
+    const { size, left } = this.hudIconGeometry();
     const stacks = ownedUpgradeStacks(this.sim.hud().upgrades);
     return trinketPoolLayout(
       stacks.filter(({ id }) => isTrinketId(id)),
@@ -1158,7 +1162,6 @@ export class PlayScene extends Phaser.Scene {
       }
       this.salvageUi.openPicker(this.salvageItems(), {
         onPick: (id) => this.applyEvents(this.sim.salvageReplace(id), 0),
-        onClose: () => {},
       });
     });
   }

@@ -50,7 +50,7 @@ export type SalvageOverlay = {
       start?: number;
       confirming?: boolean;
       onPick: (id: UpgradeId) => void;
-      onClose: () => void;
+      onClose?: () => void;
     },
   ) => void;
   reveal: (gained: UpgradeId | null, target: PoolTarget | null, onDone: () => void) => void;
@@ -247,7 +247,7 @@ export function createSalvageOverlay(scene: Phaser.Scene): SalvageOverlay {
         if (outcome.kind === "salvage") {
           onPick(items[outcome.index]!);
         } else {
-          onClose();
+          onClose?.();
         }
       };
       yes.setInteractive({ useHandCursor: true }).on("pointerdown", () => {

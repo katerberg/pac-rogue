@@ -8,9 +8,14 @@ import {
   rollTrinket,
   salvageNew,
   salvageUpgrade,
-  slotCount,
 } from "./salvage";
-import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId, trinketEligible } from "./trinkets";
+import {
+  TRINKET_IDS,
+  TRINKET_MAX_COPIES,
+  isTrinketId,
+  slotCount,
+  trinketEligible,
+} from "./trinkets";
 import { MAX_RUN_UPGRADES, createRunUpgrades, type UpgradeId } from "./upgrades";
 
 const ROSTER = [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde];

@@ -246,7 +246,6 @@ import {
   needsSalvage,
   salvageNew,
   salvageUpgrade,
-  slotCount,
   type SalvageResult,
 } from "../../domain/salvage";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
@@ -539,6 +538,7 @@ import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
   isTrinketId,
+  slotCount,
   trinketCounts,
   trinketKindReleaseAdds,
   trinketPlayerSpeedMul,

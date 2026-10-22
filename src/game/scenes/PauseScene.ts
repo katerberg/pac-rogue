@@ -327,7 +327,6 @@ export class PauseScene extends Phaser.Scene {
           );
         }
       },
-      onClose: () => {},
     });
   }
 

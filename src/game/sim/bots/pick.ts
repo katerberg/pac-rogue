@@ -1,5 +1,4 @@
-import { slotCount } from "../../../domain/salvage";
-import { isTrinketId } from "../../../domain/trinkets";
+import { isTrinketId, slotCount } from "../../../domain/trinkets";
 import {
   baseIdOf,
   enhancedIdOf,

@@ -12,8 +12,6 @@ import {
   type UpgradeId,
 } from "./upgrades";
 
-export { slotCount };
-
 export type SalvageResult = {
   state: RunUpgrades;
   gained: UpgradeId | null;
@@ -41,7 +39,7 @@ export function rollTrinket(
   return pool.length === 0 ? null : takeRandomFrom(pool, rng);
 }
 
-function payTrinket(
+export function salvageNew(
   state: RunUpgrades,
   roster: readonly GhostKindId[] | undefined,
   rng: () => number,
@@ -62,13 +60,5 @@ export function salvageUpgrade(
     return { state, gained: null, quarters: 0 };
   }
   const revoked = revokeUpgrade(state, id);
-  return payTrinket(clearStaleUpgradeTimers(revoked.owned, revoked), roster, rng);
-}
-
-export function salvageNew(
-  state: RunUpgrades,
-  roster: readonly GhostKindId[] | undefined,
-  rng: () => number,
-): SalvageResult {
-  return payTrinket(state, roster, rng);
+  return salvageNew(clearStaleUpgradeTimers(revoked.owned, revoked), roster, rng);
 }
