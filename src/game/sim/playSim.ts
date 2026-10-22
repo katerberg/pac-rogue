@@ -60,6 +60,7 @@ import {
   type IntermissionId,
 } from "../../domain/intermission";
 import type { IntermissionCast } from "../../domain/intermissionScript";
+
 import {
   beginDeathSequence,
   tickDeathSequence,
@@ -574,6 +575,8 @@ export const RUN_END_MENU_ARM_MS = 1000;
 
 export type RunEndChoice = "newGame" | "menu";
 
+type IntermissionRun = { id: IntermissionId; elapsedMs: number; cast: IntermissionCast };
+
 export type SlotView = {
   spin: SlotSpin;
   timeline: SlotTimeline;
@@ -641,8 +644,7 @@ export class PlaySim {
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
   private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
-  private intermission: { id: IntermissionId; elapsedMs: number; cast: IntermissionCast } | null =
-    null;
+  private intermission: IntermissionRun | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runEndElapsedMs: number | null = null;
@@ -3154,10 +3156,7 @@ export class PlaySim {
     this.emit({ type: "musicAfterFanfare", id: "interstitialMusic" });
   }
 
-  private tickIntermission(
-    intermission: { id: IntermissionId; elapsedMs: number; cast: IntermissionCast },
-    delta: number,
-  ): void {
+  private tickIntermission(intermission: IntermissionRun, delta: number): void {
     intermission.elapsedMs += delta;
     const frame = intermissionFrame(intermission.id, intermission.elapsedMs, intermission.cast);
     if (!frame.done) {

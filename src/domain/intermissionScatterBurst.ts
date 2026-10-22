@@ -1,6 +1,5 @@
 import { GHOST_DIR } from "./ghostPath";
-import type { GhostKindId } from "./ghostKind";
-import { GHOST_KIND } from "./ghostKind";
+import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import {
   blinkyScatterTarget,
   clydeScatterTarget,
@@ -74,8 +73,12 @@ function pack(cast: IntermissionCast): PackGhost[] {
   });
 }
 
+function packGoneMs(ghosts: readonly PackGhost[]): number {
+  return Math.max(INTERMISSION_PELLET_MS, ...ghosts.map((ghost) => ghost.goneMs));
+}
+
 export function scatterBurstGoneMs(cast: IntermissionCast): number {
-  return Math.max(INTERMISSION_PELLET_MS, ...pack(cast).map((ghost) => ghost.goneMs));
+  return packGoneMs(pack(cast));
 }
 
 function packGhost(ghost: PackGhost, elapsedMs: number, bob: number): IntermissionActor {
@@ -115,7 +118,7 @@ export const scatterBurst: IntermissionScript = {
     );
     const beats = [
       ["chase", INTERMISSION_PELLET_MS],
-      ["scatter", scatterBurstGoneMs(cast)],
+      ["scatter", packGoneMs(ghosts)],
     ] as const;
     return { beat: beatAtMs(elapsedMs, beats, "exit"), actors };
   },
