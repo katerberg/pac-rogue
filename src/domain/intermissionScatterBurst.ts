@@ -19,7 +19,7 @@ import {
   PINKY_DRAWABLE_ID,
 } from "./playfield";
 
-const FLING_SPEED = 1;
+const FLING_SPEED = 0.5;
 const PACK = [
   { key: "blinky", drawableId: BLINKY_DRAWABLE_ID, gapPx: 120, vx: 0.6, vy: -0.8 },
   { key: "pinky", drawableId: PINKY_DRAWABLE_ID, gapPx: 180, vx: -0.6, vy: -0.8 },

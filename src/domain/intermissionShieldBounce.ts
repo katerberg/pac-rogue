@@ -18,7 +18,7 @@ import {
 } from "./intermissionScript";
 import { PINKY_DRAWABLE_ID } from "./playfield";
 
-const PINKY_GAP_AT_PELLET_PX = 200;
+const PINKY_GAP_AT_PELLET_PX = 400;
 const PINKY_SPEED = 0.42;
 const PINKY_HIT_X = INTERMISSION_PELLET_X - INTERMISSION_SHIELD_SIZE / 2 - INTERMISSION_HALF * 0.6;
 export const SHIELD_BOUNCE_HIT_MS =

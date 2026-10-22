@@ -16,11 +16,10 @@ import {
 import { INKY_DRAWABLE_ID } from "./playfield";
 import { PLAYER_INVULN_TINT } from "./playerTint";
 
-const INKY_GAP_AT_PELLET_PX = 260;
+const INKY_GAP_AT_PELLET_PX = 330;
 const INKY_SPEED = 0.42;
-const POWER_UP_MS = 300;
+const POWER_UP_MS = 600;
 const WALK_START_MS = INTERMISSION_PELLET_MS + POWER_UP_MS;
-const GHOST_PROOF_ALPHA = 0.6;
 export const GHOST_PASS_MEET_MS =
   INTERMISSION_PELLET_MS +
   (INKY_GAP_AT_PELLET_PX + INTERMISSION_DOT_MAN_SPEED * POWER_UP_MS) /
@@ -32,12 +31,7 @@ function dotMan(elapsedMs: number, bob: number): IntermissionActor {
   if (elapsedMs < INTERMISSION_PELLET_MS) {
     return { ...at, x: dotManApproachX(elapsedMs) };
   }
-  const ghostProof = {
-    ...at,
-    flipX: true,
-    tint: PLAYER_INVULN_TINT,
-    alpha: GHOST_PROOF_ALPHA,
-  } as const;
+  const ghostProof = { ...at, flipX: true, tint: PLAYER_INVULN_TINT } as const;
   if (elapsedMs < WALK_START_MS) {
     return { ...ghostProof, x: INTERMISSION_PELLET_X, y: INTERMISSION_Y };
   }

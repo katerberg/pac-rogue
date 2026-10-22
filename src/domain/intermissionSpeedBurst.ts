@@ -16,7 +16,7 @@ import { BLINKY_DRAWABLE_ID } from "./playfield";
 
 const BLINKY_GAP_AT_PELLET_PX = 160;
 const BLINKY_SPEED = 0.42;
-const DASH_SPEED = 0.9;
+const DASH_SPEED = 0.7;
 const TRAIL_STEP_PX = 26;
 const TRAIL_ALPHAS = [0.45, 0.3, 0.15];
 const BRAKE_MS = 700;
