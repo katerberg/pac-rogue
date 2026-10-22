@@ -102,7 +102,6 @@ import {
   HAUNT_GHOST_COLOR,
   HAUNT_LOCK_KEY,
   HAUNT_LOCK_PATH,
-  hauntLockDisplaySize,
   hauntLockVisible,
 } from "../../domain/hauntLock";
 import { ghostHornRects, stepGhostHornTurn, type HornTurnState } from "../../domain/ghostHorns";
@@ -1720,12 +1719,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
     }
 
-    if (haunted !== null && hauntedEid !== null) {
-      const lockSize = hauntLockDisplaySize(
-        displaySizeForDrawable(Drawable.id[haunted.eid] ?? "unknown"),
-      );
+    if (hauntedEid !== null) {
+      const lockSize = displaySizeForDrawable(Drawable.id[hauntedEid] ?? "unknown");
       hauntLock
-        .setPosition(Position.x[haunted.eid] ?? 0, Position.y[haunted.eid] ?? 0)
+        .setPosition(Position.x[hauntedEid] ?? 0, Position.y[hauntedEid] ?? 0)
         .setDisplaySize(lockSize, lockSize)
         .setVisible(true);
     } else {
