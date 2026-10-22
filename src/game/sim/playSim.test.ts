@@ -9065,7 +9065,7 @@ describe("PlaySim low-power upgrades", () => {
     );
   });
 
-  it("Turning Speed widens the window Dot-Man can corner early in", () => {
+  it("Traction widens the window Dot-Man can corner early in", () => {
     const turnedAfter = (upgrades: UpgradeId[]): boolean => {
       const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: upgrades });
       const cx = cellCenterX(6);
