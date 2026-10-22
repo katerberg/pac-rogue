@@ -14,6 +14,9 @@ const SNAP_LINKS = 4;
 const MAX_STEP_MS = 40;
 const BOBBLE_PHASE = 1.1;
 const RING_POINTS = 8;
+/** Cap how far a stretch correction may move a bead in one step (avoids reverse/turn teleports). */
+const MAX_CORRECT_LINKS = 0.4;
+const RAY_PLACE_STEPS = 10;
 
 function behind(anchor: TailAnchor, backPx: number): { x: number; y: number } {
   return {
@@ -35,6 +38,27 @@ function hitsWall(x: number, y: number, radiusPx: number, blocked: TailEnv["bloc
   return false;
 }
 
+function placeBehind(
+  anchor: TailAnchor,
+  backPx: number,
+  radiusPx: number,
+  blocked: TailEnv["blocked"],
+): { x: number; y: number } {
+  const target = behind(anchor, backPx);
+  if (!hitsWall(target.x, target.y, radiusPx, blocked)) {
+    return target;
+  }
+  for (let i = RAY_PLACE_STEPS - 1; i >= 1; i -= 1) {
+    const t = i / RAY_PLACE_STEPS;
+    const x = anchor.x + (target.x - anchor.x) * t;
+    const y = anchor.y + (target.y - anchor.y) * t;
+    if (!hitsWall(x, y, radiusPx, blocked)) {
+      return { x, y };
+    }
+  }
+  return { x: anchor.x, y: anchor.y };
+}
+
 export function layoutTail(
   count: number,
   anchor: TailAnchor,
@@ -43,9 +67,13 @@ export function layoutTail(
 ): TailBead[] {
   const beads: TailBead[] = [];
   for (let i = 0; i < count; i++) {
-    const pos = behind(anchor, layout.anchorBackPx + layout.linkPx * (i + 1));
-    const free = !hitsWall(pos.x, pos.y, layout.radiusPx, blocked);
-    beads.push({ x: free ? pos.x : anchor.x, y: free ? pos.y : anchor.y, vx: 0, vy: 0 });
+    const pos = placeBehind(
+      anchor,
+      layout.anchorBackPx + layout.linkPx * (i + 1),
+      layout.radiusPx,
+      blocked,
+    );
+    beads.push({ x: pos.x, y: pos.y, vx: 0, vy: 0 });
   }
   return beads;
 }
@@ -72,14 +100,18 @@ export function stepTail(
 ): TailBead[] {
   const hook = behind(anchor, layout.anchorBackPx);
   const first = beads[0];
+  // Resnap only on a true teleport: far from the hook *and* the anchor. A reverse
+  // flips the hook to the far side while beads stay next to Dot-Man — let them slide.
   if (
     first !== undefined &&
-    Math.hypot(first.x - hook.x, first.y - hook.y) > layout.linkPx * SNAP_LINKS
+    Math.hypot(first.x - hook.x, first.y - hook.y) > layout.linkPx * SNAP_LINKS &&
+    Math.hypot(first.x - anchor.x, first.y - anchor.y) > layout.linkPx * SNAP_LINKS
   ) {
     return layoutTail(beads.length, anchor, layout, env.blocked);
   }
   const dt = Math.min(Math.max(env.dtMs, 0), MAX_STEP_MS);
   const damp = Math.exp(-layout.damping * dt);
+  const maxCorrect = layout.linkPx * MAX_CORRECT_LINKS;
   const next: TailBead[] = [];
   let leader = hook;
   beads.forEach((bead, index) => {
@@ -118,9 +150,17 @@ export function stepTail(
       const uy = stretch < 1e-6 ? dy / dist : (y - leader.y) / stretch;
       const cx = leader.x + ux * clamped;
       const cy = leader.y + uy * clamped;
-      if (!hitsWall(cx, cy, layout.radiusPx, env.blocked)) {
-        x = cx;
-        y = cy;
+      const corrDx = cx - x;
+      const corrDy = cy - y;
+      const corr = Math.hypot(corrDx, corrDy);
+      if (corr > 1e-9) {
+        const scale = Math.min(1, maxCorrect / corr);
+        const nx = x + corrDx * scale;
+        const ny = y + corrDy * scale;
+        if (!hitsWall(nx, ny, layout.radiusPx, env.blocked)) {
+          x = nx;
+          y = ny;
+        }
       }
     }
     const moved = { x, y, vx, vy };
