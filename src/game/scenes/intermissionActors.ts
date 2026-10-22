@@ -1,3 +1,4 @@
+import type { GhostDir } from "../../domain/ghostPath";
 import { ghostPupilLookOffset } from "../../domain/ghostPupils";
 import { advanceGhostSkirtPhase } from "../../domain/ghostSkirt";
 import type { IntermissionFrame } from "../../domain/intermission";
@@ -31,6 +32,7 @@ function ghostView(scene: Phaser.Scene, drawableId: string): ActorView {
   ghost.setDepth(INTERMISSION_DEPTH);
   let lastX: number | null = null;
   let skirtPhase = 0;
+  let lastFacing: GhostDir | null = null;
   return {
     place(actor) {
       if (actor.kind !== "ghost") {
@@ -41,7 +43,10 @@ function ghostView(scene: Phaser.Scene, drawableId: string): ActorView {
         ghost.setSkirtPhase(skirtPhase);
       }
       lastX = actor.x;
-      ghost.setPupilLook(ghostPupilLookOffset(actor.facing));
+      if (actor.facing !== lastFacing) {
+        lastFacing = actor.facing;
+        ghost.setPupilLook(ghostPupilLookOffset(actor.facing));
+      }
       ghost.setPosition(actor.x, actor.y);
     },
     destroy: () => ghost.destroy(),
