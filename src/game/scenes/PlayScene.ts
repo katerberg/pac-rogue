@@ -1122,12 +1122,8 @@ export class PlayScene extends Phaser.Scene {
     return cards[cards.length - 1] ?? null;
   }
 
-  public salvageItems(): UpgradeId[] {
-    return this.upgradeHudSlots().map(({ id }) => id);
-  }
-
   public canSalvageNow(): boolean {
-    return this.sim.canSalvageNow() && this.salvageItems().length > 0;
+    return this.sim.canSalvageNow() && this.upgradeHudSlots().length > 0;
   }
 
   public salvageFromPause(id: UpgradeId): { gained: UpgradeId | null } | null {

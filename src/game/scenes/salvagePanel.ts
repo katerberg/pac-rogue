@@ -32,7 +32,6 @@ export type SalvagePanelMode = "alert" | "select";
 
 export type SalvagePanel = {
   mode: () => SalvagePanelMode | null;
-  selected: () => number | null;
   open: (options: {
     items: readonly PanelItem[];
     text: PanelText;
@@ -95,7 +94,6 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
   let parts: Phaser.GameObjects.GameObject[] = [];
   let toastParts: Phaser.GameObjects.GameObject[] = [];
   let toastElapsed = 0;
-  let toastText: Phaser.GameObjects.BitmapText | null = null;
   let armed = false;
   let elapsed = 0;
   let index = 0;
@@ -120,7 +118,6 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
   const clearToast = (): void => {
     toastParts.forEach((part) => part.destroy());
     toastParts = [];
-    toastText = null;
   };
 
   const anyHeld = (): boolean => keys.some(({ keys: list }) => list.some((key) => key.isDown));
@@ -136,7 +133,6 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
 
   return {
     mode: () => mode,
-    selected: () => (mode === "select" ? index : null),
 
     open: ({ items, text: at, alert, cancellable, start = 0, onPick, onClose }) => {
       clear();
@@ -261,7 +257,7 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
       clearToast();
       toastElapsed = 0;
       const label = gained === null ? "+1 QUARTER" : `+ ${getUpgradeDef(gained).label}`;
-      toastText = track(
+      const toastText = track(
         toastParts,
         addPixelText(
           scene,

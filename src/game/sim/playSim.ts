@@ -622,7 +622,7 @@ export class PlaySim {
   private timePennyDrain: TimePennyDrain | null = null;
   private slotQueue: QuarterSource[] = [];
   private salvageQueue: { incoming: UpgradeId; source: UpgradeSource }[] = [];
-  private awaitingSalvageReveal = false;
+  private awaitingSalvageClose = false;
   private slot:
     (SlotView & { source: QuarterSource; resultSounded: boolean; megaSounded: boolean }) | null =
     null;
@@ -971,7 +971,7 @@ export class PlaySim {
       this.recorder.gained(result.gained, "salvage", this.levelIndex);
     }
     this.grantQuarters(result.quarters, "salvage", true);
-    this.awaitingSalvageReveal = true;
+    this.awaitingSalvageClose = true;
     this.recordSeenUpgrades();
     this.emit({ type: "salvage", gained: result.gained, quarters: result.quarters });
     this.emit({ type: "upgrades" });
@@ -1410,11 +1410,11 @@ export class PlaySim {
       return;
     }
 
-    if (this.awaitingSalvageReveal) {
+    if (this.awaitingSalvageClose) {
       if (input.uiOpen) {
         return;
       }
-      this.awaitingSalvageReveal = false;
+      this.awaitingSalvageClose = false;
       this.suppressInputUntilKeyRelease = true;
     }
 
