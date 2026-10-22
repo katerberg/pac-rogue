@@ -33,7 +33,9 @@ import {
   TILE_SIZE,
   worldToCol,
   worldToRow,
+  type MazeTile,
 } from "../../domain/maze";
+import { tunnelBoringCells } from "../../domain/tunnelBoring";
 import { ghostBaseSpeedRatio, speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
@@ -9174,7 +9176,7 @@ describe("Tunnel Boring", () => {
                 layout.house[target.row + dy!]?.[target.col + dx!] ||
                 layout.door[target.row + dy!]?.[target.col + dx!],
             );
-            if (!nearHouse) {
+            if (!nearHouse && tunnelBoringCells(col, row, step.dx, step.dy) !== null) {
               return { col, row, ...step };
             }
           }
@@ -9184,15 +9186,16 @@ describe("Tunnel Boring", () => {
     throw new Error("no bore spot");
   }
 
-  function pressBore(sim: PlaySim): { col: number; row: number } {
+  function pressBore(sim: PlaySim): MazeTile[] {
     const spot = boreSpot();
+    const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
     const eid = playerEid(sim);
     teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
     Facing.direction[eid] = DIRECTION.none;
     Velocity.x[eid] = 0;
     Velocity.y[eid] = 0;
     runFrames(sim, 1, { keys: held(spot.dir) });
-    return { col: spot.col + spot.dx, row: spot.row + spot.dy };
+    return expected;
   }
 
   it("does nothing without the upgrade", () => {
@@ -9207,14 +9210,17 @@ describe("Tunnel Boring", () => {
     expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells: [] });
   });
 
-  it("while stopped, pressing into a wall bores it open and spends the charge", () => {
+  it("while stopped, pressing into a wall punches through and spends the charge", () => {
     const sim = start();
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
-    const cell = pressBore(sim);
-    expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells: [cell] });
-    expect(isWalkable(cell.col, cell.row)).toBe(true);
+    const cells = pressBore(sim);
+    expect(cells.length).toBeGreaterThan(0);
+    expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells });
+    for (const cell of cells) {
+      expect(isWalkable(cell.col, cell.row)).toBe(true);
+    }
     pressBore(sim);
-    expect(sim.snapshot().tunnelBoring.cells).toEqual([cell]);
+    expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
   });
 
   it("press-through adopts facing into the opened cell", () => {
@@ -9266,14 +9272,16 @@ describe("Tunnel Boring", () => {
       "tunnelPersist",
     );
     expect(sim.snapshot().layout.startsWith("pool-")).toBe(true);
-    const cell = pressBore(sim);
-    expect(sim.snapshot().tunnelBoring.cells).toEqual([cell]);
+    const cells = pressBore(sim);
+    expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
     const mapKey = sim.snapshot().layout;
     sim["levelIndex"] = 3;
     sim["startBoard"](null);
     expect(sim.snapshot().layout).toBe(mapKey);
-    expect(sim.snapshot().tunnelBoring.cells).toEqual([cell]);
-    expect(isWalkable(cell.col, cell.row)).toBe(true);
+    expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+    for (const cell of cells) {
+      expect(isWalkable(cell.col, cell.row)).toBe(true);
+    }
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
   });
 });

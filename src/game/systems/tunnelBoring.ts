@@ -3,7 +3,7 @@ import { activateAsciiLayout, getActiveLayout, type MazeTile } from "../../domai
 import {
   applyTunnelBoringAscii,
   openBoredCellsOnLayout,
-  tunnelBoringTarget,
+  tunnelBoringCells,
 } from "../../domain/tunnelBoring";
 import { Facing } from "../components/Facing";
 import { DIRECTION, Input, type Direction } from "../components/Input";
@@ -13,7 +13,7 @@ import { playerCell } from "./playerCell";
 import { playerFacing } from "./playerDirection";
 
 export type TunnelBoringAttempt = {
-  cell: MazeTile;
+  cells: MazeTile[];
   direction: Direction;
   charges: number;
 };
@@ -42,12 +42,12 @@ export function tryTunnelBoring(world: World, charges: number): TunnelBoringAtte
   if (cell === null) {
     return null;
   }
-  const target = tunnelBoringTarget(cell.col, cell.row, step.dx, step.dy);
-  if (target === null) {
+  const cells = tunnelBoringCells(cell.col, cell.row, step.dx, step.dy);
+  if (cells === null || cells.length === 0) {
     return null;
   }
   return {
-    cell: target,
+    cells,
     direction: intent,
     charges: Math.max(0, charges - 1),
   };

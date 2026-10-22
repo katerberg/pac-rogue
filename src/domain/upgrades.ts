@@ -1075,12 +1075,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Tunnel Boring",
     school: "speed",
     description:
-      "Once per level, while stopped, press into a wall to bore it open for the rest of the map.",
+      "Once per level, while stopped, press into a wall to punch through until open space — exterior walls open a wrap tunnel to the far side.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Tunnel Boring drills also recharge when you chomp a power pellet.",
       description:
-        "Once per level, while stopped, press into a wall to bore it open for the rest of the map. Power pellets recharge the drill.",
+        "Once per level, while stopped, press into a wall to punch through until open space — exterior walls open a wrap tunnel to the far side. Power pellets recharge the drill.",
       onPowerPellet: { tunnelBoringRecharge: true },
     },
   },

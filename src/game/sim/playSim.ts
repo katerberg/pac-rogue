@@ -161,6 +161,7 @@ import {
 } from "../../domain/collapse";
 import {
   applyTunnelBoringAscii,
+  mergeBoredCells,
   openBoredCellsOnLayout,
   tunnelBoringChargesForBoard,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
@@ -2954,10 +2955,9 @@ export class PlaySim {
       return;
     }
     const mapKey = this.boardLayoutLabel;
-    const cells =
-      this.tunnelBored !== null && this.tunnelBored.mapKey === mapKey
-        ? [...this.tunnelBored.cells, attempt.cell]
-        : [attempt.cell];
+    const prior =
+      this.tunnelBored !== null && this.tunnelBored.mapKey === mapKey ? this.tunnelBored.cells : [];
+    const cells = mergeBoredCells(prior, attempt.cells);
     this.tunnelBored = { mapKey, cells };
     this.tunnelBoringCharges = attempt.charges;
     applyBoredCellsToActiveLayout(cells);

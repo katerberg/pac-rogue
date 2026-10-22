@@ -55,7 +55,7 @@ import {
   worldToRow,
   type MazeTile,
 } from "../../domain/maze";
-import { TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
+import { mergeBoredCells, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
 import { bananaPeelSprites } from "../../domain/bananaPeel";
 import type { TailBead } from "../../domain/charmTail";
 import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
@@ -1174,7 +1174,7 @@ export class LearnSim {
     if (attempt === null) {
       return;
     }
-    this.tunnelBoredCells = [...this.tunnelBoredCells, attempt.cell];
+    this.tunnelBoredCells = mergeBoredCells(this.tunnelBoredCells, attempt.cells);
     this.tunnelBoringCharges = attempt.charges;
     applyBoredCellsToActiveLayout(this.tunnelBoredCells);
     adoptTunnelBoringFacing(this.world, attempt.direction);

@@ -25,6 +25,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { tunnelBoringCells } from "../../domain/tunnelBoring";
 import {
   TITHE_SPEED_MUL,
   INVULN_MS,
@@ -2070,7 +2071,7 @@ describe("LearnSim upgrade demos", () => {
                   layout.house[target.row + dy!]?.[target.col + dx!] ||
                   layout.door[target.row + dy!]?.[target.col + dx!],
               );
-              if (!fromHouse) {
+              if (!fromHouse && tunnelBoringCells(col, row, step.dx, step.dy) !== null) {
                 return { col, row, ...step };
               }
             }
@@ -2080,22 +2081,23 @@ describe("LearnSim upgrade demos", () => {
       throw new Error("no bore spot");
     }
 
-    it("while stopped, pressing into a wall bores it open once", () => {
+    it("while stopped, pressing into a wall punches through once", () => {
       const { sim, player } = setup("passiveTunnelBoring");
       expect(sim["tunnelBoringCharges"]).toBe(1);
       const spot = boreSpot();
+      const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
       moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
       Facing.direction[player] = DIRECTION.none;
       Velocity.x[player] = 0;
       Velocity.y[player] = 0;
       sim.step(held(spot.dir), FRAME_MS);
       expect(sim["tunnelBoringCharges"]).toBe(0);
-      expect(sim["tunnelBoredCells"]).toEqual([
-        { col: spot.col + spot.dx, row: spot.row + spot.dy },
-      ]);
-      expect(isWalkable(spot.col + spot.dx, spot.row + spot.dy)).toBe(true);
+      expect(sim["tunnelBoredCells"]).toEqual(expected);
+      for (const cell of expected) {
+        expect(isWalkable(cell.col, cell.row)).toBe(true);
+      }
       sim.step(held(spot.dir), FRAME_MS);
-      expect(sim["tunnelBoredCells"]).toHaveLength(1);
+      expect(sim["tunnelBoredCells"]).toEqual(expected);
     });
 
     it("Plus recharges the drill on a power pellet", () => {

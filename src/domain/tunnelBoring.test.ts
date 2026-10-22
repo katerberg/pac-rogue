@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { activateLayout, getActiveLayout, isWalkable, layoutFromAscii } from "./maze";
+import {
+  activateAsciiLayout,
+  activateLayout,
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  isWalkable,
+  layoutFromAscii,
+  wrapPosition,
+} from "./maze";
 import {
   applyTunnelBoringAscii,
+  mergeBoredCells,
   openBoredCellsOnLayout,
   TUNNEL_BORING_CHARGES_PER_LEVEL,
   tunnelBoringChargesForBoard,
+  tunnelBoringCells,
   tunnelBoringTarget,
 } from "./tunnelBoring";
 
@@ -92,6 +103,78 @@ describe("tunnelBoringTarget", () => {
   });
 });
 
+describe("tunnelBoringCells", () => {
+  beforeEach(() => {
+    activateLayout("mazeSmall");
+  });
+
+  it("punches every solid cell until the far corridor", () => {
+    const layout = getActiveLayout();
+    // mazeSmall row 2: ##########.######.########## — six-wall span between corridors
+    expect(isWalkable(10, 2, layout.playerSolids)).toBe(true);
+    expect(isWalkable(17, 2, layout.playerSolids)).toBe(true);
+    const cells = tunnelBoringCells(10, 2, 1, 0, layout);
+    expect(cells).toEqual([
+      { col: 11, row: 2 },
+      { col: 12, row: 2 },
+      { col: 13, row: 2 },
+      { col: 14, row: 2 },
+      { col: 15, row: 2 },
+      { col: 16, row: 2 },
+    ]);
+  });
+
+  it("opens both edges into a wrap tunnel when boring out the exterior", () => {
+    const layout = getActiveLayout();
+    expect(isWalkable(10, 1, layout.playerSolids)).toBe(true);
+    expect(isWalkable(10, 0, layout.playerSolids)).toBe(false);
+    const cells = tunnelBoringCells(10, 1, 0, -1, layout);
+    expect(cells).not.toBeNull();
+    expect(cells![0]).toEqual({ col: 10, row: 0 });
+    expect(cells!.some((c) => c.col === 10 && c.row === layout.rows - 1)).toBe(true);
+
+    const boredAscii = applyTunnelBoringAscii(layout.ascii, cells!);
+    const rebuilt = activateAsciiLayout(boredAscii, "generated");
+    openBoredCellsOnLayout(rebuilt, cells!);
+    expect(isWalkable(10, 0, rebuilt.playerSolids)).toBe(true);
+    expect(isWalkable(10, rebuilt.rows - 1, rebuilt.playerSolids)).toBe(true);
+    const pastTop = cellCenterY(0) - rebuilt.tileSize;
+    const wrapped = wrapPosition(cellCenterX(10), pastTop, rebuilt.playerSolids);
+    expect(wrapped.y).toBeCloseTo(cellCenterY(rebuilt.rows - 1));
+  });
+
+  it("refuses a wrap that would sit next to an existing horizontal tunnel", () => {
+    const layout = getActiveLayout();
+    // Row 10 is the side tunnel; row 9 is adjacent — left exterior bore must refuse.
+    expect(isWalkable(0, 10, layout.playerSolids)).toBe(true);
+    expect(isWalkable(layout.cols - 1, 10, layout.playerSolids)).toBe(true);
+    expect(isWalkable(4, 9, layout.playerSolids)).toBe(true);
+    expect(isWalkable(3, 9, layout.playerSolids)).toBe(false);
+    expect(tunnelBoringCells(4, 9, -1, 0, layout)).toBeNull();
+  });
+});
+
+describe("mergeBoredCells", () => {
+  it("appends without duplicating", () => {
+    expect(
+      mergeBoredCells(
+        [
+          { col: 1, row: 2 },
+          { col: 2, row: 2 },
+        ],
+        [
+          { col: 2, row: 2 },
+          { col: 3, row: 2 },
+        ],
+      ),
+    ).toEqual([
+      { col: 1, row: 2 },
+      { col: 2, row: 2 },
+      { col: 3, row: 2 },
+    ]);
+  });
+});
+
 describe("applyTunnelBoringAscii / openBoredCellsOnLayout", () => {
   it("turns wall chars into empty corridors", () => {
     const ascii = ["####", "#--#", "####"].join("\n");
@@ -102,19 +185,21 @@ describe("applyTunnelBoringAscii / openBoredCellsOnLayout", () => {
   it("keeps edge bored cells open after opposite-edge safety", () => {
     activateLayout("mazeSmall");
     const layout = getActiveLayout();
-    let cell: { col: number; row: number } | null = null;
+    let from: { col: number; row: number } | null = null;
     for (let col = 1; col < layout.cols - 1; col += 1) {
       if (layout.walls[0]?.[col] && tunnelBoringTarget(col, 1, 0, -1, layout) !== null) {
-        cell = { col, row: 0 };
+        from = { col, row: 1 };
         break;
       }
     }
-    expect(cell).not.toBeNull();
-    const boredAscii = applyTunnelBoringAscii(layout.ascii, [cell!]);
+    expect(from).not.toBeNull();
+    const cells = tunnelBoringCells(from!.col, from!.row, 0, -1, layout);
+    expect(cells).not.toBeNull();
+    const boredAscii = applyTunnelBoringAscii(layout.ascii, cells!);
     const rebuilt = layoutFromAscii(boredAscii, "generated");
-    openBoredCellsOnLayout(rebuilt, [cell!]);
-    expect(isWalkable(cell!.col, cell!.row, rebuilt.playerSolids)).toBe(true);
-    expect(isWalkable(cell!.col, cell!.row, rebuilt.ghostSolids)).toBe(true);
+    openBoredCellsOnLayout(rebuilt, cells!);
+    expect(isWalkable(from!.col, 0, rebuilt.playerSolids)).toBe(true);
+    expect(isWalkable(from!.col, 0, rebuilt.ghostSolids)).toBe(true);
   });
 });
 
