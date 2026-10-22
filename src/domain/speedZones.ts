@@ -98,8 +98,8 @@ export type SpeedZoneParticle = { col: number; row: number; alpha: number; size:
 export type SpeedZoneDustSpeeds = { entryTilesPerSec: number; exitTilesPerSec: number };
 
 export const DEFAULT_SPEED_ZONE_DUST_SPEEDS: SpeedZoneDustSpeeds = {
-  entryTilesPerSec: 0.25,
-  exitTilesPerSec: 8,
+  entryTilesPerSec: 0.2,
+  exitTilesPerSec: 11,
 };
 
 function unitHash(n: number): number {
