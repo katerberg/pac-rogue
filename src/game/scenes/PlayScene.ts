@@ -1090,11 +1090,12 @@ export class PlayScene extends Phaser.Scene {
 
   private makeUpgradeIconsHoverable(): void {
     this.upgradeHoverPreview?.hide();
-    this.upgradeHoverPreview = createUpgradeHoverPreview(this, RUN_END_HUD_DEPTH + 1);
+    const preview = createUpgradeHoverPreview(this, RUN_END_HUD_DEPTH + 1);
+    this.upgradeHoverPreview = preview;
     const slots = this.upgradeHudSlots();
     this.upgradeIcons.forEach(({ mark }, i) => {
       const { id, copies, size } = slots[i]!;
-      this.upgradeHoverPreview!.attach(mark, { id, copies, size });
+      preview.attach(mark, { id, copies, size });
     });
   }
 
