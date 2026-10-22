@@ -519,6 +519,15 @@ export function addPowerPelletIcon(
   return scene.add.image(x, y, POWER_PELLET_TEXTURE_KEY).setDisplaySize(size, size);
 }
 
+export function addBubbleShieldIcon(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+): Phaser.GameObjects.Image {
+  return scene.add.image(x, y, BUBBLE_SHIELD_SINGLE_KEY).setDisplaySize(size, size);
+}
+
 export function addBananaPeelIcon(
   scene: Phaser.Scene,
   x: number,

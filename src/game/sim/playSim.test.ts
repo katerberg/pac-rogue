@@ -898,13 +898,22 @@ describe("PlaySim", () => {
 
   it("picks the level-2 intermission at random per seed from every registered one", () => {
     const picked = new Set<string>();
-    for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
-      const sim = startSim({ jumpToUpgrade: true }, seed);
+    for (let i = 0; i < 80 && picked.size < INTERMISSION_IDS.length; i++) {
+      const sim = startSim({ jumpToUpgrade: true }, `pick${i}`);
       takeFirstOffered(sim);
       runUntil(sim, () => sim.snapshot().intermission !== null, 120);
       picked.add(sim.snapshot().intermission!.id);
     }
     expect(picked).toEqual(new Set(INTERMISSION_IDS));
+  });
+
+  it.each(INTERMISSION_IDS)("?intermission=%s plays that cutscene through to level 3", (id) => {
+    const sim = new PlaySim({ ...defaultPlayOptions(), intermission: id, level: 2 }, "each");
+    sim.start();
+    expect(sim.snapshot().intermission).toMatchObject({ id, done: false });
+    runUntil(sim, () => sim.snapshot().level === 3, 600);
+    expect(sim.snapshot().level).toBe(3);
+    expect(sim.snapshot().intermission).toBeNull();
   });
 
   it("opens ?intermission=bananaGrab straight into the banana grab, then plays level 3", () => {
