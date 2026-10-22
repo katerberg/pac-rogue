@@ -12,7 +12,7 @@ import { BLINKY_CHASE_GAP_PX, BLINKY_CHASE_MS } from "./intermissionBlinkyChase"
 import { DEFY_DEATH_CATCH_MS } from "./intermissionDefyDeath";
 import { FREEZE_THAW_MS } from "./intermissionFreeze";
 import { GHOST_PASS_MEET_MS } from "./intermissionGhostPass";
-import { SCATTER_BURST_GONE_MS } from "./intermissionScatterBurst";
+import { scatterBurstGoneMs } from "./intermissionScatterBurst";
 import {
   INTERMISSION_ACTOR_SIZE,
   INTERMISSION_PELLET_MS,
@@ -21,7 +21,9 @@ import {
 } from "./intermissionScript";
 import { SHIELD_BOUNCE_HIT_MS } from "./intermissionShieldBounce";
 import { SPEED_BURST_TURN_MS } from "./intermissionSpeedBurst";
+import { GHOST_KIND } from "./ghostKind";
 import { GHOST_DIR } from "./ghostPath";
+import { GHOST_DRAWABLE_BY_KIND } from "./playfield";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 import { PLAYER_INVULN_TINT } from "./playerTint";
 
@@ -217,7 +219,7 @@ describe("intermission", () => {
     expect(actor(leaving, "blinky")!.x).toBeLessThan(actor(stareB, "blinky")!.x);
   });
 
-  it("freezes Clyde in place while Dot-Man runs off, then thaws him to leave the other way", () => {
+  it("freezes Clyde in place while Dot-Man runs off, then thaws him to chase on after", () => {
     const a = intermissionFrame("freeze", INTERMISSION_PELLET_MS + 100);
     const b = intermissionFrame("freeze", FREEZE_THAW_MS - 1);
     expect(actor(a, "clyde")).toMatchObject({ look: "frozen", y: INTERMISSION_Y });
@@ -225,28 +227,50 @@ describe("intermission", () => {
     expect(actor(b, "dotMan")!.x).toBeGreaterThan(actor(a, "dotMan")!.x);
     const thawed = intermissionFrame("freeze", FREEZE_THAW_MS + 200);
     expect(actor(thawed, "clyde")!.look).toBeUndefined();
-    expect(actor(thawed, "clyde")).toMatchObject({ facing: GHOST_DIR.left });
-    expect(actor(thawed, "clyde")!.x).toBeLessThan(actor(b, "clyde")!.x);
+    expect(actor(thawed, "clyde")).toMatchObject({ facing: GHOST_DIR.right });
+    expect(actor(thawed, "clyde")!.x).toBeGreaterThan(actor(b, "clyde")!.x);
+    const end = intermissionFrame("freeze", durationOf("freeze"));
+    expect(actor(end, "clyde")!.x).toBeGreaterThanOrEqual(PLAYFIELD_WIDTH + HALF - 0.001);
   });
 
-  it("flings the whole pack off screen in four directions while Dot-Man walks on", () => {
-    const keys = ["blinky", "pinky", "inky", "clyde"];
-    const chase = intermissionFrame("scatterBurst", INTERMISSION_PELLET_MS - 1);
-    expect(keys.every((key) => actor(chase, key) !== undefined)).toBe(true);
-    const flung = intermissionFrame("scatterBurst", INTERMISSION_PELLET_MS + 200);
-    const quadrants = keys.map((key) => {
+  it("flings each cast ghost toward its own scatter corner while Dot-Man walks on", () => {
+    const cast = {
+      ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
+    };
+    const chase = intermissionFrame("scatterBurst", INTERMISSION_PELLET_MS - 1, cast);
+    const flung = intermissionFrame("scatterBurst", INTERMISSION_PELLET_MS + 200, cast);
+    const heading = (key: string) => {
       const from = actor(chase, key)!;
       const to = actor(flung, key)!;
       return `${Math.sign(to.x - from.x)},${Math.sign(to.y - from.y)}`;
-    });
-    expect(new Set(quadrants).size).toBe(4);
-    const gone = intermissionFrame("scatterBurst", SCATTER_BURST_GONE_MS);
+    };
+    expect(["ghost0", "ghost1", "ghost2", "ghost3"].map(heading)).toEqual([
+      "1,-1",
+      "-1,-1",
+      "1,1",
+      "-1,1",
+    ]);
+    const goneMs = scatterBurstGoneMs(cast);
+    const gone = intermissionFrame("scatterBurst", goneMs, cast);
     expect(gone.beat).toBe("exit");
     expect(gone.actors.map((a) => a.key)).toEqual(["dotMan"]);
-    const last = intermissionFrame("scatterBurst", SCATTER_BURST_GONE_MS - 1);
+    const last = intermissionFrame("scatterBurst", goneMs - 1, cast);
     const lastGhosts = last.actors.filter((a) => a.kind === "ghost");
     expect(lastGhosts.length).toBeGreaterThan(0);
     expect(lastGhosts.every((a) => offScreen(a, 2))).toBe(true);
+  });
+
+  it("casts the scatter pack from the run's own ghosts", () => {
+    const cast = { ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.wardy, GHOST_KIND.spunky] };
+    const frame = intermissionFrame("scatterBurst", 1000, cast);
+    expect(frame.actors.filter((a) => a.kind === "ghost")).toMatchObject([
+      { drawableId: GHOST_DRAWABLE_BY_KIND[GHOST_KIND.blinky] },
+      { drawableId: GHOST_DRAWABLE_BY_KIND[GHOST_KIND.wardy] },
+      { drawableId: GHOST_DRAWABLE_BY_KIND[GHOST_KIND.spunky] },
+    ]);
+    const flung = intermissionFrame("scatterBurst", INTERMISSION_PELLET_MS + 200, cast);
+    expect(actor(flung, "ghost1")!.y).toBeGreaterThan(INTERMISSION_Y);
+    expect(actor(flung, "ghost2")!.y).toBeLessThan(INTERMISSION_Y);
   });
 
   it("lets Blinky catch Dot-Man, who revives behind him and walks off the other way", () => {

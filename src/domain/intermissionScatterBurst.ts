@@ -1,4 +1,15 @@
 import { GHOST_DIR } from "./ghostPath";
+import type { GhostKindId } from "./ghostKind";
+import { GHOST_KIND } from "./ghostKind";
+import {
+  blinkyScatterTarget,
+  clydeScatterTarget,
+  inkyScatterTarget,
+  pinkyScatterTarget,
+  spunkyPostTarget,
+  wardyScatterTarget,
+  type GhostTarget,
+} from "./ghostTarget";
 import {
   INTERMISSION_DOT_MAN_SPEED,
   INTERMISSION_PELLET_MS,
@@ -11,68 +22,100 @@ import {
   pelletActors,
   walkingDotMan,
   type IntermissionActor,
+  type IntermissionCast,
   type IntermissionScript,
 } from "./intermissionScript";
-import {
-  BLINKY_DRAWABLE_ID,
-  CLYDE_DRAWABLE_ID,
-  INKY_DRAWABLE_ID,
-  PINKY_DRAWABLE_ID,
-} from "./playfield";
+import { GHOST_DRAWABLE_BY_KIND } from "./playfield";
+import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 const FLING_SPEED = 0.5;
-const PACK = [
-  { key: "blinky", drawableId: BLINKY_DRAWABLE_ID, gapPx: 120, vx: 0.6, vy: -0.8 },
-  { key: "pinky", drawableId: PINKY_DRAWABLE_ID, gapPx: 180, vx: -0.6, vy: -0.8 },
-  { key: "inky", drawableId: INKY_DRAWABLE_ID, gapPx: 240, vx: 0.6, vy: 0.8 },
-  { key: "clyde", drawableId: CLYDE_DRAWABLE_ID, gapPx: 300, vx: -0.6, vy: 0.8 },
-] as const;
+const FIRST_GAP_PX = 120;
+const GAP_STEP_PX = 60;
+const CORNER_GRID = { cols: 28, rows: 31 };
 
-function packGhost(
-  ghost: (typeof PACK)[number],
-  elapsedMs: number,
-  bob: number,
-): IntermissionActor {
+const CORNER_BY_KIND: Record<GhostKindId, GhostTarget> = {
+  [GHOST_KIND.blinky]: blinkyScatterTarget(CORNER_GRID.cols),
+  [GHOST_KIND.pinky]: pinkyScatterTarget(),
+  [GHOST_KIND.inky]: inkyScatterTarget(CORNER_GRID.cols, CORNER_GRID.rows),
+  [GHOST_KIND.clyde]: clydeScatterTarget(CORNER_GRID.rows),
+  [GHOST_KIND.spunky]: spunkyPostTarget(CORNER_GRID.cols),
+  [GHOST_KIND.wardy]: wardyScatterTarget(CORNER_GRID.cols, CORNER_GRID.rows),
+};
+
+type PackGhost = {
+  key: string;
+  drawableId: string;
+  atPelletX: number;
+  gapPx: number;
+  vx: number;
+  vy: number;
+  goneMs: number;
+};
+
+function pack(cast: IntermissionCast): PackGhost[] {
+  return cast.ghostKinds.map((kind, i) => {
+    const gapPx = FIRST_GAP_PX + GAP_STEP_PX * i;
+    const atPelletX = chaserX(INTERMISSION_PELLET_MS, gapPx, INTERMISSION_DOT_MAN_SPEED);
+    const corner = CORNER_BY_KIND[kind];
+    const dx = ((corner.col + 0.5) / CORNER_GRID.cols) * PLAYFIELD_WIDTH - atPelletX;
+    const dy = ((corner.row + 0.5) / CORNER_GRID.rows) * PLAYFIELD_HEIGHT - INTERMISSION_Y;
+    const length = Math.hypot(dx, dy);
+    const vx = (dx / length) * FLING_SPEED;
+    const vy = (dy / length) * FLING_SPEED;
+    return {
+      key: `ghost${i}`,
+      drawableId: GHOST_DRAWABLE_BY_KIND[kind],
+      atPelletX,
+      gapPx,
+      vx,
+      vy,
+      goneMs: INTERMISSION_PELLET_MS + msToLeave(atPelletX, INTERMISSION_Y, vx, vy),
+    };
+  });
+}
+
+export function scatterBurstGoneMs(cast: IntermissionCast): number {
+  return Math.max(INTERMISSION_PELLET_MS, ...pack(cast).map((ghost) => ghost.goneMs));
+}
+
+function packGhost(ghost: PackGhost, elapsedMs: number, bob: number): IntermissionActor {
   const at = { kind: "ghost", key: ghost.key, drawableId: ghost.drawableId } as const;
-  const atPelletX = chaserX(INTERMISSION_PELLET_MS, ghost.gapPx, INTERMISSION_DOT_MAN_SPEED);
   if (elapsedMs < INTERMISSION_PELLET_MS) {
     const x = chaserX(elapsedMs, ghost.gapPx, INTERMISSION_DOT_MAN_SPEED);
     return { ...at, facing: GHOST_DIR.right, x, y: INTERMISSION_Y + bob };
   }
-  const t = (elapsedMs - INTERMISSION_PELLET_MS) * FLING_SPEED;
+  const t = elapsedMs - INTERMISSION_PELLET_MS;
   return {
     ...at,
     facing: ghost.vy < 0 ? GHOST_DIR.up : GHOST_DIR.down,
-    x: atPelletX + ghost.vx * t,
+    x: ghost.atPelletX + ghost.vx * t,
     y: INTERMISSION_Y + ghost.vy * t,
   };
 }
 
-export const SCATTER_BURST_GONE_MS =
-  INTERMISSION_PELLET_MS +
-  Math.max(
-    ...PACK.map((ghost) =>
-      msToLeave(
-        chaserX(INTERMISSION_PELLET_MS, ghost.gapPx, INTERMISSION_DOT_MAN_SPEED),
-        INTERMISSION_Y,
-        ghost.vx * FLING_SPEED,
-        ghost.vy * FLING_SPEED,
-      ),
-    ),
-  );
+const ALL_KINDS = Object.values(GHOST_KIND);
+const SLOWEST_CAST_GONE_MS = Math.max(
+  ...ALL_KINDS.map((kind) => scatterBurstGoneMs({ ghostKinds: ALL_KINDS.map(() => kind) })),
+);
 
 export const scatterBurst: IntermissionScript = {
-  durationMs: msToLeave(dotManApproachX(0), INTERMISSION_Y, INTERMISSION_DOT_MAN_SPEED),
-  beatAt(elapsedMs) {
+  durationMs: Math.max(
+    msToLeave(dotManApproachX(0), INTERMISSION_Y, INTERMISSION_DOT_MAN_SPEED),
+    SLOWEST_CAST_GONE_MS,
+  ),
+  beatAt(elapsedMs, cast) {
     const bob = intermissionBobPx(elapsedMs);
     const actors = pelletActors(elapsedMs);
-    if (elapsedMs < SCATTER_BURST_GONE_MS) {
-      actors.push(...PACK.map((ghost) => packGhost(ghost, elapsedMs, bob)));
-    }
-    actors.push(walkingDotMan(elapsedMs));
+    const ghosts = pack(cast);
+    actors.push(
+      ...ghosts
+        .filter((ghost) => elapsedMs < ghost.goneMs)
+        .map((ghost) => packGhost(ghost, elapsedMs, bob)),
+      walkingDotMan(elapsedMs),
+    );
     const beats = [
       ["chase", INTERMISSION_PELLET_MS],
-      ["scatter", SCATTER_BURST_GONE_MS],
+      ["scatter", scatterBurstGoneMs(cast)],
     ] as const;
     return { beat: beatAtMs(elapsedMs, beats, "exit"), actors };
   },

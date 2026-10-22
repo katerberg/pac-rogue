@@ -1,4 +1,6 @@
+import type { GhostKindId } from "./ghostKind";
 import type { GhostDir } from "./ghostPath";
+import { GHOST_ROSTERS } from "./ghostRoster";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "./playfieldBounds";
 
 export const INTERMISSION_ACTOR_SIZE = 56;
@@ -29,9 +31,13 @@ export type IntermissionActor =
 
 export type IntermissionBeat = { beat: string; actors: IntermissionActor[] };
 
+export type IntermissionCast = { ghostKinds: readonly GhostKindId[] };
+
+export const DEFAULT_INTERMISSION_CAST: IntermissionCast = { ghostKinds: GHOST_ROSTERS[0]! };
+
 export type IntermissionScript = {
   durationMs: number;
-  beatAt(elapsedMs: number): IntermissionBeat;
+  beatAt(elapsedMs: number, cast: IntermissionCast): IntermissionBeat;
 };
 
 export function intermissionBobPx(elapsedMs: number): number {

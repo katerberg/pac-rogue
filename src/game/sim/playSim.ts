@@ -59,6 +59,7 @@ import {
   pickIntermission,
   type IntermissionId,
 } from "../../domain/intermission";
+import type { IntermissionCast } from "../../domain/intermissionScript";
 import {
   beginDeathSequence,
   tickDeathSequence,
@@ -640,7 +641,8 @@ export class PlaySim {
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
   private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
-  private intermission: { id: IntermissionId; elapsedMs: number } | null = null;
+  private intermission: { id: IntermissionId; elapsedMs: number; cast: IntermissionCast } | null =
+    null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runEndElapsedMs: number | null = null;
@@ -1192,7 +1194,11 @@ export class PlaySim {
       intermission:
         this.intermission === null
           ? null
-          : intermissionFrame(this.intermission.id, this.intermission.elapsedMs),
+          : intermissionFrame(
+              this.intermission.id,
+              this.intermission.elapsedMs,
+              this.intermission.cast,
+            ),
       runComplete: this.runEndElapsedMs !== null && this.recorder.outcome === "complete",
       runEnd: this.runEndElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
@@ -3137,19 +3143,23 @@ export class PlaySim {
 
   private beginIntermission(): void {
     const id = this.options.intermission ?? pickIntermission(this.random.stream("intermission"));
-    this.intermission = { id, elapsedMs: 0 };
+    const ghostKinds = [...query(this.world, [Ghost, GhostKind])].map(
+      (eid) => GhostKind.kind[eid] as GhostKindId,
+    );
+    const cast = { ghostKinds };
+    this.intermission = { id, elapsedMs: 0, cast };
     this.bossStageDraw = { entityAlpha: 0, wallAlpha: 0 };
     this.emitDraw();
-    this.emit({ type: "intermission", frame: intermissionFrame(id, 0) });
+    this.emit({ type: "intermission", frame: intermissionFrame(id, 0, cast) });
     this.emit({ type: "musicAfterFanfare", id: "interstitialMusic" });
   }
 
   private tickIntermission(
-    intermission: { id: IntermissionId; elapsedMs: number },
+    intermission: { id: IntermissionId; elapsedMs: number; cast: IntermissionCast },
     delta: number,
   ): void {
     intermission.elapsedMs += delta;
-    const frame = intermissionFrame(intermission.id, intermission.elapsedMs);
+    const frame = intermissionFrame(intermission.id, intermission.elapsedMs, intermission.cast);
     if (!frame.done) {
       this.emit({ type: "intermission", frame });
       return;
