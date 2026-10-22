@@ -129,6 +129,7 @@ describe("speedZoneParticles", () => {
     const ratio = mean(late) / mean(early);
     expect(ratio).toBeGreaterThan(1.5);
     expect(ratio).toBeLessThan(2.2);
+    expect(Math.min(...late)).toBeGreaterThan(Math.max(...early));
   });
 
   it("keeps every particle inside the lane, faint, and fading at the ends", () => {
