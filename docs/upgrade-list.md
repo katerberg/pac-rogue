@@ -73,21 +73,21 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +8% Dot-Man speed inside tunnels. Stacks. |  |
 | `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 8% slower inside tunnels. Stacks. |  |
 | `lowTurning` | Turning Speed | neutral | Dot-Man corners 0.6px earlier. Stacks. |  |
-| `lowSlowdownBlinky` | Blinky Slowdown | neutral | Blinky moves 4% slower. Stacks. |  |
-| `lowHouseDelayBlinky` | Blinky House Delay | neutral | Blinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionBlinky` | Blinky Traction | neutral | Blinky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownPinky` | Pinky Slowdown | neutral | Pinky moves 4% slower. Stacks. |  |
-| `lowHouseDelayPinky` | Pinky House Delay | neutral | Pinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionPinky` | Pinky Traction | neutral | Pinky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownInky` | Inky Slowdown | neutral | Inky moves 4% slower. Stacks. |  |
-| `lowHouseDelayInky` | Inky House Delay | neutral | Inky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionInky` | Inky Traction | neutral | Inky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownClyde` | Clyde Slowdown | neutral | Clyde moves 4% slower. Stacks. |  |
-| `lowHouseDelayClyde` | Clyde House Delay | neutral | Clyde leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionClyde` | Clyde Traction | neutral | Clyde loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownSpunky` | Spunky Slowdown | neutral | Spunky moves 4% slower. Stacks. |  |
-| `lowHouseDelaySpunky` | Spunky House Delay | neutral | Spunky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionSpunky` | Spunky Traction | neutral | Spunky loses 8% speed after each turn. Stacks. |  |
-| `lowSlowdownWardy` | Wardy Slowdown | neutral | Wardy moves 4% slower. Stacks. |  |
-| `lowHouseDelayWardy` | Wardy House Delay | neutral | Wardy leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
-| `lowTractionWardy` | Wardy Traction | neutral | Wardy loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownBlinky` | Slowdown: Blinky | neutral | Blinky moves 4% slower. Stacks. |  |
+| `lowHouseDelayBlinky` | Delay: Blinky | neutral | Blinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionBlinky` | Traction: Blinky | neutral | Blinky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownPinky` | Slowdown: Pinky | neutral | Pinky moves 4% slower. Stacks. |  |
+| `lowHouseDelayPinky` | Delay: Pinky | neutral | Pinky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionPinky` | Traction: Pinky | neutral | Pinky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownInky` | Slowdown: Inky | neutral | Inky moves 4% slower. Stacks. |  |
+| `lowHouseDelayInky` | Delay: Inky | neutral | Inky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionInky` | Traction: Inky | neutral | Inky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownClyde` | Slowdown: Clyde | neutral | Clyde moves 4% slower. Stacks. |  |
+| `lowHouseDelayClyde` | Delay: Clyde | neutral | Clyde leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionClyde` | Traction: Clyde | neutral | Clyde loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownSpunky` | Slowdown: Spunky | neutral | Spunky moves 4% slower. Stacks. |  |
+| `lowHouseDelaySpunky` | Delay: Spunky | neutral | Spunky leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionSpunky` | Traction: Spunky | neutral | Spunky loses 8% speed after each turn. Stacks. |  |
+| `lowSlowdownWardy` | Slowdown: Wardy | neutral | Wardy moves 4% slower. Stacks. |  |
+| `lowHouseDelayWardy` | Delay: Wardy | neutral | Wardy leaves the ghost house 0.75s (or 1 pellet) later. Stacks. |  |
+| `lowTractionWardy` | Traction: Wardy | neutral | Wardy loses 8% speed after each turn. Stacks. |  |
