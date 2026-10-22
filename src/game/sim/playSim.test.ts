@@ -39,6 +39,7 @@ import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
+import { INTERMISSION_IDS } from "../../domain/intermission";
 import { ghostRadius, PLAYER_SPEED, playerRadius } from "../../domain/playfield";
 import { PLAYER_INVULN_TINT, brightenColor, playerTint } from "../../domain/playerTint";
 import {
@@ -873,26 +874,62 @@ describe("PlaySim", () => {
     expect(sim.snapshot().upgrades).toContain(chosen);
   });
 
-  it("plays the Blinky chase intermission between level 2 and level 3", () => {
-    const sim = startSim({ jumpToUpgrade: true });
+  it("plays the forced intermission between level 2 and level 3", () => {
+    const sim = startSim({ jumpToUpgrade: true, intermission: "blinkyChase" });
     takeFirstOffered(sim);
     const events = runUntil(sim, () => sim.snapshot().intermission !== null, 120);
     expect(sim.snapshot().level).toBe(2);
     expect(sim.snapshot().levelTransition).toBe(false);
     const first = sim.snapshot().intermission!;
+    expect(first.id).toBe("blinkyChase");
     runFrames(sim, 60);
     const later = sim.snapshot().intermission!;
-    expect(later.blinkyX).toBeGreaterThan(first.blinkyX);
-    expect(later.dotManX).toBeGreaterThan(later.blinkyX);
+    const x = (frame: typeof first, key: string) => frame.actors.find((a) => a.key === key)!.x;
+    expect(x(later, "blinky")).toBeGreaterThan(x(first, "blinky"));
+    expect(x(later, "dotMan")).toBeGreaterThan(x(later, "blinky"));
     expect(sim.snapshot().level).toBe(2);
     const rest = runUntil(sim, () => sim.snapshot().level === 3, 300);
     expect(sim.snapshot().intermission).toBeNull();
     const all = [...events, ...rest];
     expect(all).toContainEqual({ type: "musicAfterFanfare", id: "interstitialMusic" });
     expect(all).toContainEqual({ type: "loopStop", id: "interstitialMusic" });
-    expect(
-      [...events, ...rest].some((event) => event.type === "intermission" && event.frame === null),
-    ).toBe(true);
+    expect(all.some((event) => event.type === "intermission" && event.frame === null)).toBe(true);
+  });
+
+  it("picks the level-2 intermission at random per seed from every registered one", () => {
+    const picked = new Set<string>();
+    for (const seed of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+      const sim = startSim({ jumpToUpgrade: true }, seed);
+      takeFirstOffered(sim);
+      runUntil(sim, () => sim.snapshot().intermission !== null, 120);
+      picked.add(sim.snapshot().intermission!.id);
+    }
+    expect(picked).toEqual(new Set(INTERMISSION_IDS));
+  });
+
+  it("opens ?intermission=bananaGrab straight into the banana grab, then plays level 3", () => {
+    const sim = new PlaySim({ ...defaultPlayOptions(), intermission: "bananaGrab", level: 2 }, "t");
+    const startEvents = sim.start();
+    expect(sim.snapshot().level).toBe(2);
+    expect(sim.snapshot().intermission).toMatchObject({ id: "bananaGrab", beat: "chase" });
+    expect(startEvents).not.toContainEqual({ type: "loopStart", id: "gameplayMusic" });
+    expect(startEvents).toContainEqual({ type: "musicAfterFanfare", id: "interstitialMusic" });
+    const beats: string[] = [];
+    const rest = runUntil(
+      sim,
+      () => {
+        const beat = sim.snapshot().intermission?.beat;
+        if (beat !== undefined && beats.at(-1) !== beat) {
+          beats.push(beat);
+        }
+        return sim.snapshot().level === 3;
+      },
+      400,
+    );
+    expect(beats).toEqual(["chase", "peel", "bounce", "exit"]);
+    expect(sim.snapshot().intermission).toBeNull();
+    expect(rest).toContainEqual({ type: "loopStop", id: "interstitialMusic" });
+    expect(rest).toContainEqual({ type: "musicAfterFanfare", id: "gameplayMusic" });
   });
 
   it("offers an upgrade after clearing level 1, then skips the intermission", () => {

@@ -53,7 +53,12 @@ import {
   tickBossStageTransition,
   type BossStageTransition,
 } from "../../domain/bossStageTransition";
-import { hasIntermissionAfter, intermissionFrame } from "../../domain/intermission";
+import {
+  hasIntermissionAfter,
+  intermissionFrame,
+  pickIntermission,
+  type IntermissionId,
+} from "../../domain/intermission";
 import {
   beginDeathSequence,
   tickDeathSequence,
@@ -635,7 +640,7 @@ export class PlaySim {
   private bossMouths: BossTunnelMouth[] = [];
   private bossStageTransition: BossStageTransition | null = null;
   private bossStageDraw: { entityAlpha: number; wallAlpha: number } | null = null;
-  private intermissionElapsedMs: number | null = null;
+  private intermission: { id: IntermissionId; elapsedMs: number } | null = null;
   private levelTransitionRemainingMs = 0;
   private pendingLevelClear = false;
   private runEndElapsedMs: number | null = null;
@@ -779,6 +784,12 @@ export class PlaySim {
       this.grantSpecialistLives();
       this.recordSeenUpgrades();
     }
+    const introIntermission =
+      options.intermission !== null &&
+      !options.jumpToUpgrade &&
+      this.customMazeError === null &&
+      options.store === null &&
+      hasIntermissionAfter(this.levelIndex);
     this.emit({ type: "upgrades" });
     this.recorder.livesStart(this.lives);
     this.emit({ type: "lives", pulse: false });
@@ -791,6 +802,8 @@ export class PlaySim {
         title: "CUSTOM MAZE FAILED",
         body: `${this.customMazeError.slice(0, 80)}\nFalling back to maze2. Press any key.`,
       });
+    } else if (introIntermission) {
+      this.beginIntermission();
     } else if (startingUpgrade === null) {
       this.showLevelBanner();
     } else {
@@ -798,7 +811,9 @@ export class PlaySim {
       this.awaitingStartingCard = true;
       this.emit({ type: "startingUpgrade", id: startingUpgrade });
     }
-    this.emit({ type: "loopStart", id: "gameplayMusic" });
+    if (!introIntermission) {
+      this.emit({ type: "loopStart", id: "gameplayMusic" });
+    }
     if (options.jumpToSpinner) {
       this.emitDraw({ frozenGhostEid: null, playerInvulnRemainingMs: 0, wallPassActive: false });
       this.slotQueue.push("pennyBar");
@@ -933,7 +948,7 @@ export class PlaySim {
   }
 
   intermissionActive(): boolean {
-    return this.intermissionElapsedMs !== null;
+    return this.intermission !== null;
   }
 
   storeState(): StoreState | null {
@@ -1175,7 +1190,9 @@ export class PlaySim {
       levelTransition: this.levelTransitionRemainingMs > 0,
       bossStageTransition: this.bossStageTransition !== null,
       intermission:
-        this.intermissionElapsedMs === null ? null : intermissionFrame(this.intermissionElapsedMs),
+        this.intermission === null
+          ? null
+          : intermissionFrame(this.intermission.id, this.intermission.elapsedMs),
       runComplete: this.runEndElapsedMs !== null && this.recorder.outcome === "complete",
       runEnd: this.runEndElapsedMs !== null,
       runEndMenuArmed: this.runEndMenuArmed(),
@@ -1286,8 +1303,8 @@ export class PlaySim {
       return;
     }
 
-    if (this.intermissionElapsedMs !== null) {
-      this.tickIntermission(delta);
+    if (this.intermission !== null) {
+      this.tickIntermission(this.intermission, delta);
       return;
     }
 
@@ -3119,21 +3136,25 @@ export class PlaySim {
   }
 
   private beginIntermission(): void {
-    this.intermissionElapsedMs = 0;
+    const id = this.options.intermission ?? pickIntermission(this.random.stream("intermission"));
+    this.intermission = { id, elapsedMs: 0 };
     this.bossStageDraw = { entityAlpha: 0, wallAlpha: 0 };
     this.emitDraw();
-    this.emit({ type: "intermission", frame: intermissionFrame(0) });
+    this.emit({ type: "intermission", frame: intermissionFrame(id, 0) });
     this.emit({ type: "musicAfterFanfare", id: "interstitialMusic" });
   }
 
-  private tickIntermission(delta: number): void {
-    this.intermissionElapsedMs = (this.intermissionElapsedMs ?? 0) + delta;
-    const frame = intermissionFrame(this.intermissionElapsedMs);
+  private tickIntermission(
+    intermission: { id: IntermissionId; elapsedMs: number },
+    delta: number,
+  ): void {
+    intermission.elapsedMs += delta;
+    const frame = intermissionFrame(intermission.id, intermission.elapsedMs);
     if (!frame.done) {
       this.emit({ type: "intermission", frame });
       return;
     }
-    this.intermissionElapsedMs = null;
+    this.intermission = null;
     this.bossStageDraw = null;
     this.emit({ type: "intermission", frame: null });
     this.emit({ type: "loopStop", id: "interstitialMusic" });

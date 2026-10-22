@@ -10,7 +10,10 @@ The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `lev
 
 ## Intermission
 
-After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene (`src/domain/intermission.ts`): the board is hidden and Blinky chases Dot-Man across the screen before level 3. `PlaySim` owns the timer and emits `intermission` events with actor positions; `PlayScene` only moves two sprites (`intermissionActors.ts`). The cutscene loops `interstitialMusic` (same volume as gameplay music; the pause-menu Settings controls it via `PlayScene.currentMusicId()`). LEARN has no level progression, so it has no counterpart.
+After level 2 clears (and its upgrade choice resolves), the transition freeze is followed by a short cutscene with the board hidden, then level 3. Which cutscene plays is drawn from the `intermission` `RunRandom` stream over the registry in `src/domain/intermission.ts` (`?intermission=<id>` forces one and opens the run in it; see the README Flags).
+
+- Each cutscene is one pure script file (`intermission<Name>.ts`, type `IntermissionScript` in `intermissionScript.ts`): a duration plus `beatAt(elapsedMs)`, which returns a named beat (for probes and tests) and the actors on screen (Dot-Man, ghosts, props), each with a stable key.
+- Adding a cutscene is a new script plus one registry entry. `PlaySim` owns the timer and emits `intermission` frames; `PlayScene` (`intermissionActors.ts`) creates, moves and removes one view per actor key and needs no change unless a script uses a new actor kind. The cutscene loops `interstitialMusic` (same volume as gameplay music; the pause-menu Settings controls it via `PlayScene.currentMusicId()`). LEARN has no level progression, so it has no counterpart.
 
 ## Speed
 
