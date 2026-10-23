@@ -31,6 +31,14 @@ export function twinPoint(
   return { x: mirrorX(player.x, layout.offsetX + layout.pixelWidth / 2), y: player.y };
 }
 
+export function twinBeads<T extends { x: number }>(
+  beads: readonly T[],
+  layout: { offsetX: number; pixelWidth: number },
+): T[] {
+  const centerX = layout.offsetX + layout.pixelWidth / 2;
+  return beads.map((bead) => ({ ...bead, x: mirrorX(bead.x, centerX) }));
+}
+
 export function twinTouchesPlayer(
   player: { x: number; y: number },
   layout: { offsetX: number; pixelWidth: number; tileSize: number },

@@ -60,7 +60,7 @@ import { mergeBoredCells, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/t
 import { bananaPeelSprites } from "../../domain/bananaPeel";
 import type { TailBead } from "../../domain/charmTail";
 import { ghostTouchingPeel, stepBananaPeelTail } from "../systems/bananaPeel";
-import { playerExitedTunnel } from "../../domain/tunnelExit";
+import { playerExitedHorizontalTunnel, playerExitedTunnel } from "../../domain/tunnelExit";
 import { GHOST_DRAWABLE_BY_KIND, ghostRadius, playerPreTurnPx } from "../../domain/playfield";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
@@ -176,6 +176,7 @@ import {
   nearestBody,
   mirrorPopRender,
   tickMirrorPop,
+  twinBeads,
   twinDesynced,
   twinTouchesPlayer,
   twinPoint,
@@ -843,7 +844,7 @@ export class LearnSim {
         droppedWall: this.learnUpgrades.droppedWall,
         chaff: chaffSprites(this.learnUpgrades.chaff),
         shields: this.learnUpgrades.shieldsBanked,
-        peels: bananaPeelSprites(this.peelTail),
+        peels: bananaPeelSprites(this.peelBeads()),
         programmerQueue: this.programmerQueue(),
         mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
@@ -1043,7 +1044,11 @@ export class LearnSim {
   }
 
   private noteTunnelExit(before: { x: number; y: number } | null): void {
-    if (playerExitedTunnel(before, this.playerPosition())) {
+    const after = this.playerPosition();
+    if (this.learnUpgrades.mirrorActive && playerExitedHorizontalTunnel(before, after)) {
+      this.popMirror();
+    }
+    if (playerExitedTunnel(before, after)) {
       this.learnUpgrades = applyTunnelExitInvuln(this.learnUpgrades, this.learnUpgrades.owned);
     }
   }
@@ -1081,6 +1086,12 @@ export class LearnSim {
     }
   }
 
+  private peelBeads(): TailBead[] {
+    return this.learnUpgrades.mirrorActive
+      ? [...this.peelTail, ...twinBeads(this.peelTail, getActiveLayout())]
+      : this.peelTail;
+  }
+
   private stepPeelTail(delta: number): void {
     this.peelClockMs += Math.max(0, delta);
     const solids = this.playerSolids();
@@ -1104,7 +1115,7 @@ export class LearnSim {
     if (this.learnUpgrades.peelsBanked <= 0) {
       return false;
     }
-    const ghostEid = ghostTouchingPeel(this.world, this.peelTail, catchOptions);
+    const ghostEid = ghostTouchingPeel(this.world, this.peelBeads(), catchOptions);
     if (ghostEid === null) {
       return false;
     }
