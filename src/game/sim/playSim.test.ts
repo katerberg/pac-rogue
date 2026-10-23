@@ -10506,6 +10506,18 @@ describe("Gleaning", () => {
     expect(sim.snapshot().pennies.streak).toBe(streak);
   });
 
+  it("lets a crumb carry the streak over a Streak Engine threshold", () => {
+    const sim = startGleaning(["passiveGleaning", "passiveStreakEngine", "powerPelletInvuln"]);
+    let at = { x: 0, y: 0 };
+    for (let eaten = 0; eaten < 29; eaten += 1) {
+      at = eatOnePellet(sim);
+    }
+    expect(sim.snapshot().pennies.streak).toBe(29);
+    expect(sim["runUpgrades"].invulnRemainingMs).toBe(0);
+    ghostAt(sim, at);
+    expect(sim["runUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+  });
+
   it("does not drop a second crumb on the same tile", () => {
     const sim = startGleaning(["passiveGleaning"]);
     const at = eatOnePellet(sim);
