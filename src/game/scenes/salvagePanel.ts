@@ -23,7 +23,8 @@ const DEPTH = MODAL_DEPTH + 10;
 const ALERT_RED = 0xff3030;
 const SELECT_PAD = 3;
 const DASH = 3;
-const TEXT_LINE = 12;
+const TEXT_LINE = 14;
+const TEXT_LINE_SPACING = 3;
 const DESCRIPTION_CHARS = 20;
 
 export type PanelItem = { id: UpgradeId; x: number; y: number; size: number };
@@ -126,7 +127,7 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
     const label = track(
       parts,
       addPixelText(scene, at.x, at.y, content, UPGRADES_HUD_FONT_SIZE, color),
-    );
+    ).setLineSpacing(TEXT_LINE_SPACING);
     placePixelText(label, at.x, at.y + line * TEXT_LINE, 0.5, 0);
     return label;
   };
@@ -266,7 +267,7 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
           wrapText(label, DESCRIPTION_CHARS),
           UPGRADES_HUD_FONT_SIZE,
           TEXT_COLOR_YELLOW,
-        ),
+        ).setLineSpacing(TEXT_LINE_SPACING),
       );
       placePixelText(toastText, at.x, at.y, 0.5, 0);
       if (target !== null) {
