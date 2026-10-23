@@ -278,6 +278,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passivePossession",
   "passiveFloating",
   "passiveGleaning",
+  "passiveSonicBoom",
   "passiveScarecrow",
 ];
 

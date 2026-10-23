@@ -71,6 +71,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passivePossession` | Possession (rare) | death | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after. |
 | `passiveFloating` | Floating | speed | Pass over lava and sinkholes unharmed. | Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely. |
 | `passiveGleaning` | Gleaning | harvest | Ghosts crossing cleared tiles leave crumbs that add to your streak. | Ghosts crossing cleared tiles leave crumbs that add to your streak and pay half a penny each. |
+| `passiveSonicBoom` | Sonic Boom | speed | At top speed, a boom turns nearby ghosts around, and ripples 4 tiles down side hallways at T and X junctions. | At top speed, a boom stuns nearby ghosts for 2s and you pass through them. Ripples 4 tiles down side hallways at T and X junctions. |
 | `passiveScarecrow` | Scarecrow | harvest | Ghosts won't path within 4 tiles of fruit. | Ghosts won't path within 4 tiles of fruit, and the scent lingers 5 seconds after pickup. |
 | `lowSpeed` | Speed | neutral | +6% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +16% Dot-Man speed inside tunnels. Stacks. |  |

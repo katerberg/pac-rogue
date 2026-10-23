@@ -21,6 +21,7 @@ import {
 } from "../../domain/penniesFx";
 import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
+import { playSonicBoomEcho } from "./sonicBoomEcho";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
 import { slotHeld, stepMusicDuck } from "../../domain/slotMachine";
 import { bossTimerLabel } from "../../domain/bossRules";
@@ -577,6 +578,9 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "chaffBurst":
         playChaffBurst(this, event);
+        break;
+      case "sonicBoomEcho":
+        playSonicBoomEcho(this, event);
         break;
       case "peelCrack":
         this.playRender.queuePeelCrack(event.x, event.y);
