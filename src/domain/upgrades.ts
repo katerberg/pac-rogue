@@ -2821,9 +2821,9 @@ export function groupUpgradesBySchool(
     ];
     return {
       school,
-      defs: startingFirst
-        .sort((a, b) => kindRank(a) - kindRank(b))
-        .sort((a, b) => Number(a.rare === true) - Number(b.rare === true)),
+      defs: startingFirst.sort(
+        (a, b) => Number(a.rare === true) - Number(b.rare === true) || kindRank(a) - kindRank(b),
+      ),
     };
   }).filter((group) => group.defs.length > 0);
 }
