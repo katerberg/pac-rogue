@@ -997,14 +997,14 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Mirror",
     school: "harvest",
     description:
-      "Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. If you touch your twin it pops.",
+      "Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. If you touch your twin or take a side tunnel it pops.",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
     enhanced: {
       enhanceNote:
         "Mirror pops the twin instead of costing a life when a ghost catches either of you.",
       description:
-        "Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. If you touch your twin it pops.",
+        "Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. If you touch your twin or take a side tunnel it pops.",
       mirrorSavesLife: true,
     },
     onPowerPellet: { mirror: true },
