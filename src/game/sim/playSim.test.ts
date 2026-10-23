@@ -8028,7 +8028,7 @@ describe("Programmer", () => {
     expect(runningSpeed).toBeGreaterThan(Speed.px[playerEid(plain)]! * 9);
   });
 
-  it("marks each recorded press in the hallway where it will fire, until the run starts", () => {
+  it("marks where each recorded press leaves you in the hallway, until the run starts", () => {
     const sim = start(["powerPelletProgrammer"]);
     chompPowerPellet(sim);
     const from = cell(sim);
@@ -8044,14 +8044,8 @@ describe("Programmer", () => {
     for (const dir of program.slice(0, 4)) {
       press(sim, dir);
     }
-    const cols = getActiveLayout().cols;
     expect(pathCells()).toEqual(
-      [from, ...turnCells.slice(0, 3)].map((at, index) => ({
-        col: (at.col + STEP[program[index]!].dx + cols) % cols,
-        row: at.row + STEP[program[index]!].dy,
-        dir: program[index],
-        latest: index === 3,
-      })),
+      turnCells.map((at, index) => ({ ...at, dir: program[index], latest: index === 3 })),
     );
     press(sim, program[4]!);
     expect(sim.snapshot().timers.programmer?.phase).toBe("running");

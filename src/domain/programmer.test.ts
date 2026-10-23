@@ -159,13 +159,13 @@ describe("programmerEnterCell", () => {
 describe("programmerPathMarks", () => {
   const at = (col: number, row: number) => ({ x: cellCenterX(col), y: cellCenterY(row) });
 
-  it("marks the tile each press turns into, the newest marked latest", () => {
+  it("marks where each press leaves you, facing its way, the newest marked latest", () => {
     expect(programmerPathMarks(["right", "up"], SOLIDS, 3, 5)).toEqual([
-      { ...at(4, 5), dir: "right", latest: false },
-      { ...at(5, 4), dir: "up", latest: true },
+      { ...at(5, 5), dir: "right", latest: false },
+      { ...at(5, 2), dir: "up", latest: true },
     ]);
     expect(programmerPathMarks(["right", "right", "down"], SOLIDS, 3, 5)).toEqual([
-      { ...at(4, 5), dir: "right", latest: false },
+      { ...at(5, 5), dir: "right", latest: false },
       { ...at(6, 5), dir: "right", latest: false },
       { ...at(6, 6), dir: "down", latest: true },
     ]);
@@ -173,11 +173,11 @@ describe("programmerPathMarks", () => {
 
   it("drops presses the run would skip and stops where it would end", () => {
     expect(programmerPathMarks(["up", "right", "down"], SOLIDS, 3, 5)).toEqual([
-      { ...at(4, 5), dir: "right", latest: false },
+      { ...at(5, 5), dir: "right", latest: false },
       { ...at(5, 6), dir: "down", latest: true },
     ]);
     expect(programmerPathMarks(["up", "left"], SOLIDS, 5, 4)).toEqual([
-      { ...at(5, 3), dir: "up", latest: false },
+      { ...at(5, 2), dir: "up", latest: false },
     ]);
     expect(programmerPathMarks([], SOLIDS, 3, 5)).toEqual([]);
   });
