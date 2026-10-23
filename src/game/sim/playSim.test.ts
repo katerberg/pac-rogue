@@ -10155,6 +10155,24 @@ describe("Tunnel Boring", () => {
     return expected;
   }
 
+  it("keeps bored walls open on a board with a sinkhole", () => {
+    const sim = startSim({ level: 6, godMode: true, enableUpgrades: ["passiveTunnelBoring"] });
+    expect(sim.snapshot().sinkhole.cells).not.toBeNull();
+    const bored = pressBore(sim);
+    runFrames(sim, 120);
+    const layout = getActiveLayout();
+    for (const cell of bored) {
+      expect(isWalkable(cell.col, cell.row, layout.playerSolids), `${cell.col},${cell.row}`).toBe(
+        true,
+      );
+    }
+    for (const cell of sim.snapshot().sinkhole.cells!) {
+      expect(isWalkable(cell.col, cell.row, layout.playerSolids), `${cell.col},${cell.row}`).toBe(
+        false,
+      );
+    }
+  });
+
   it("needs a fresh press at rest: a held key never bores until released and re-pressed", () => {
     const sim = start();
     const spot = boreSpot();

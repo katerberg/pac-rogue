@@ -3310,6 +3310,14 @@ export class PlaySim {
     }
     const open = openBoredCells(this.tunnelBored.cells, this.tunnelBore);
     applyBoredCellsToActiveLayout(open);
+    if (this.sinkholeLayouts !== null) {
+      const bored = getActiveLayout();
+      this.sinkholeLayouts = {
+        open: bored,
+        blocked: withSinkholes(bored, this.sinkholeChain ?? []),
+      };
+      this.syncSinkholeFloat();
+    }
     const touchesRubble = opened.some((cell) =>
       this.collapseChains.some((chain) =>
         chain.some(
