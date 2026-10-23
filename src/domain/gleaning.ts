@@ -1,3 +1,4 @@
+import { LAZY_LOOPER_OPTIONAL_TINT } from "./lazyLooper";
 import { cellKey, type Cell } from "./pennies";
 
 export type Gleaning = {
@@ -29,4 +30,10 @@ export function stepGleaning(
     }
   }
   return crumbs.length === 0 ? { state, crumbs } : { state: { ...state, gleaned }, crumbs };
+}
+
+export const CRUMB_PAID_TINT = 0xa56b31;
+
+export function crumbTint(paid: boolean): number {
+  return paid ? CRUMB_PAID_TINT : LAZY_LOOPER_OPTIONAL_TINT;
 }

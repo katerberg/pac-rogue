@@ -141,6 +141,9 @@ import { ghostMovementRules } from "../../domain/ghostMovement";
 import { SINKHOLE_INTRO_MS } from "../../domain/sinkholeArt";
 import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
+import { Crumb } from "../components/Crumb";
+import { Drawable } from "../components/Drawable";
+import { PELLET_DRAWABLE_ID } from "../../domain/playfield";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -10516,6 +10519,33 @@ describe("Gleaning", () => {
     expect(sim["runUpgrades"].invulnRemainingMs).toBe(0);
     ghostAt(sim, at);
     expect(sim["runUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+  });
+
+  function crumbs(sim: PlaySim): number[] {
+    return [...query(sim.world, [Crumb, Position])];
+  }
+
+  it("leaves a grey crumb dot that the player clears by walking onto it", () => {
+    const sim = startGleaning(["passiveGleaning"]);
+    const at = eatOnePellet(sim);
+    eatOnePellet(sim);
+    ghostAt(sim, at);
+    const [crumb] = crumbs(sim);
+    expect(crumbs(sim)).toHaveLength(1);
+    expect(Crumb.paid[crumb!]).toBe(0);
+    expect(Drawable.id[crumb!]).toBe(PELLET_DRAWABLE_ID);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
+    teleportPlayer(sim, at.x, at.y);
+    const events = runFrames(sim, 1);
+    expect(crumbs(sim)).toHaveLength(0);
+    expect(events).toContainEqual({ type: "releaseDrawable", eid: crumb });
+  });
+
+  it("marks the crumb as paying pennies when enhanced", () => {
+    const sim = startGleaning(["passiveGleaningPlus"]);
+    ghostAt(sim, eatOnePellet(sim));
+    expect(Crumb.paid[crumbs(sim)[0]!]).toBe(1);
   });
 
   it("does not drop a second crumb on the same tile", () => {

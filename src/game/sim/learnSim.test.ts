@@ -47,6 +47,7 @@ import {
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wallDrop";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
+import { Crumb } from "../components/Crumb";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
 import { DIRECTION, Input } from "../components/Input";
@@ -1555,6 +1556,7 @@ describe("LearnSim upgrade demos", () => {
       const draws = last.filter((event) => event.type === "draw");
       const final = draws[draws.length - 1]!;
       expect(final.type === "draw" ? final.options.playerInvulnRemainingMs : 0).toBeGreaterThan(0);
+      expect(query(sim.world, [Crumb, Position])).toHaveLength(1);
     });
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createGleaning, stepGleaning } from "./gleaning";
+import { CRUMB_PAID_TINT, createGleaning, crumbTint, stepGleaning } from "./gleaning";
+import { LAZY_LOOPER_OPTIONAL_TINT } from "./lazyLooper";
 
 const A = { col: 1, row: 1 };
 const B = { col: 2, row: 1 };
@@ -30,5 +31,12 @@ describe("stepGleaning", () => {
     const idle = stepGleaning(createGleaning([A]), [A], [], false);
     expect(idle.crumbs).toEqual([]);
     expect(stepGleaning(idle.state, [A], [], true).crumbs).toEqual([A]);
+  });
+});
+
+describe("crumbTint", () => {
+  it("uses the Lazy Looper grey for crumbs and the penny colour when they pay pennies", () => {
+    expect(crumbTint(false)).toBe(LAZY_LOOPER_OPTIONAL_TINT);
+    expect(crumbTint(true)).toBe(CRUMB_PAID_TINT);
   });
 });

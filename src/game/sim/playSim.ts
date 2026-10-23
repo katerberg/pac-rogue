@@ -479,7 +479,7 @@ import {
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
 import { createGleaning, stepGleaning, type Gleaning } from "../../domain/gleaning";
-import { crumbGhostCells, pelletCells } from "../systems/gleaning";
+import { crumbGhostCells, pelletCells, takeCrumbsAt } from "../systems/gleaning";
 import { tickEchoes } from "../../domain/echo";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import {
@@ -613,6 +613,7 @@ import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import {
   spawnBoardPellets,
   spawnFruit,
+  spawnCrumb,
   spawnPellet,
   spawnPlayer,
   spawnSlotMachine,
@@ -2604,6 +2605,9 @@ export class PlaySim {
   }
 
   private gleanCrumbs(): number {
+    for (const eid of takeCrumbsAt(this.world, playerCell(this.world))) {
+      this.releaseDrawable(eid);
+    }
     const owned = this.effectiveUpgrades();
     const steps = gleaningStreakSteps(owned);
     if (steps === 0) {
@@ -2621,6 +2625,10 @@ export class PlaySim {
       return 0;
     }
     this.crumbCount += dropped;
+    const enhanced = gleaningCharge(owned) > 0;
+    for (const cell of step.crumbs) {
+      spawnCrumb(this.world, cellCenterX(cell.col), cellCenterY(cell.row), enhanced);
+    }
     const prevStreak = this.pennies.streak;
     const grown = applyStreakCrumbs(this.pennies, dropped * steps);
     const paid = addPennyCharge(grown.bar, dropped * gleaningCharge(owned));
