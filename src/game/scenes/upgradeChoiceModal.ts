@@ -57,11 +57,11 @@ const HINT_GAP = 20;
 const DESCRIPTION_GAP = 16;
 export const SCHOOL_COLORS: Record<UpgradeSchool, number> = {
   death: 0xb36bff,
-  harvest: 0xffa63d,
+  harvest: 0xff5a5a,
   speed: 0x4dd2ff,
   automation: 0xff9ce6,
   protection: 0x5ee07a,
-  disruption: 0xff5a5a,
+  disruption: 0xffe14d,
   neutral: 0xb0b0b0,
 };
 
