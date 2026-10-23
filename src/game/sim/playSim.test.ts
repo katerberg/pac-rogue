@@ -8256,6 +8256,32 @@ describe("Mirror", () => {
     expect(sim.snapshot().lives).toBe(lives);
   });
 
+  it("pops the twin when the player wraps through a horizontal tunnel", () => {
+    const sim = start(["powerPelletMirror"]);
+    clearGhosts(sim);
+    arm(sim);
+    const tunnelRow = horizontalTunnelRows()[0]!;
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow));
+    const lives = sim.snapshot().lives;
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+    expect(sim.snapshot().mirror.active).toBe(false);
+    expect(sim.snapshot().mirror.popProgress).not.toBeNull();
+    expect(sim.snapshot().lives).toBe(lives);
+  });
+
+  it("trails mirrored banana peels behind the twin", () => {
+    const sim = start(["powerPelletMirror", "passiveBananaShieldPlus"]);
+    clearGhosts(sim);
+    arm(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+    expect(sim.snapshot().peels).toHaveLength(2);
+    placeOnRow(sim, 4);
+    runFrames(sim, 20, RIGHT);
+    const [own, twin] = sim.snapshot().peels;
+    expect(twin!.x).toBeCloseTo(2 * centerX() - own!.x);
+    expect(twin!.y).toBeCloseTo(own!.y);
+  });
+
   it("eats pellets the twin stands on", () => {
     const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);

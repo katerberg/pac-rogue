@@ -10,3 +10,11 @@ export function playerExitedTunnel(before: Point | null, after: Point | null): b
   const { cols, rows, tileSize } = getActiveLayout();
   return didWrap(before.x, after.x, cols * tileSize) || didWrap(before.y, after.y, rows * tileSize);
 }
+
+export function playerExitedHorizontalTunnel(before: Point | null, after: Point | null): boolean {
+  if (before === null || after === null) {
+    return false;
+  }
+  const { cols, tileSize } = getActiveLayout();
+  return didWrap(before.x, after.x, cols * tileSize);
+}

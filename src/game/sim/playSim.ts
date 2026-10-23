@@ -274,7 +274,7 @@ import {
   salvageUpgrade,
   type SalvageResult,
 } from "../../domain/salvage";
-import { playerExitedTunnel } from "../../domain/tunnelExit";
+import { playerExitedHorizontalTunnel, playerExitedTunnel } from "../../domain/tunnelExit";
 import { ELROY_TIER, elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
@@ -435,6 +435,7 @@ import {
   sharedZoneEffect,
   mirrorPopRender,
   tickMirrorPop,
+  twinBeads,
   twinDesynced,
   twinTouchesPlayer,
   twinPoint,
@@ -1191,7 +1192,7 @@ export class PlaySim {
       chaff: chaffSprites(this.runUpgrades.chaff),
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
-      peels: bananaPeelSprites(this.peelTail),
+      peels: bananaPeelSprites(this.peelBeads()),
       programmerQueue: this.programmerQueue(),
       mirror: this.death === null ? this.twinRenderBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
@@ -1347,7 +1348,7 @@ export class PlaySim {
       speedZonesShifting: this.speedZoneShift !== null,
       playerSpeedZone: floatingZoneEffect(this.effectiveUpgrades(), this.playerSpeedZone()),
       chaff: chaffSprites(upgrades.chaff).map(({ x, y }) => ({ x, y })),
-      peels: bananaPeelSprites(this.peelTail),
+      peels: bananaPeelSprites(this.peelBeads()),
       wallDrop: {
         armed: upgrades.wallDropArmed,
         wall:
@@ -3912,6 +3913,12 @@ export class PlaySim {
     }
   }
 
+  private peelBeads(): TailBead[] {
+    return this.runUpgrades.mirrorActive
+      ? [...this.peelTail, ...twinBeads(this.peelTail, getActiveLayout())]
+      : this.peelTail;
+  }
+
   private stepPeelTail(delta: number): void {
     this.peelClockMs += Math.max(0, delta);
     const solids = this.playerSolids();
@@ -3935,7 +3942,7 @@ export class PlaySim {
     if (this.runUpgrades.peelsBanked <= 0) {
       return false;
     }
-    const ghostEid = ghostTouchingPeel(this.world, this.peelTail, catchOptions);
+    const ghostEid = ghostTouchingPeel(this.world, this.peelBeads(), catchOptions);
     return ghostEid !== null && this.breakPeel(ghostEid);
   }
 
@@ -4574,7 +4581,11 @@ export class PlaySim {
   }
 
   private noteTunnelExit(before: Point | null): void {
-    if (playerExitedTunnel(before, this.playerPosition())) {
+    const after = this.playerPosition();
+    if (this.runUpgrades.mirrorActive && playerExitedHorizontalTunnel(before, after)) {
+      this.popMirror();
+    }
+    if (playerExitedTunnel(before, after)) {
       this.runUpgrades = applyTunnelExitInvuln(this.runUpgrades, this.effectiveUpgrades());
     }
   }
