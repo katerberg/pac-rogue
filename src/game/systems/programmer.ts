@@ -54,13 +54,6 @@ function startCells(world: World, solids: SolidGrid): ProgramCell[] | null {
     : programmerStartCells(Position.x[eid] ?? 0, Position.y[eid] ?? 0, solids);
 }
 
-function moveToLaunchCell(world: World, { col, row }: ProgramCell): void {
-  for (const eid of query(world, [Player, Position])) {
-    Position.x[eid] = cellCenterX(col);
-    Position.y[eid] = cellCenterY(row);
-  }
-}
-
 function applyProgrammerStep(world: World, step: ProgrammerStep): ProgrammerState | null {
   if (step.state?.phase === "recording") {
     holdPlayerForProgramming(world);
@@ -98,7 +91,10 @@ export function recordProgrammerKeys(
     const step = recordProgrammerPress(next, dir, solids, starts);
     if (step.state?.phase === "running") {
       launched = true;
-      moveToLaunchCell(world, step.state);
+      for (const eid of query(world, [Player, Position])) {
+        Position.x[eid] = cellCenterX(step.state.col);
+        Position.y[eid] = cellCenterY(step.state.row);
+      }
     }
     next = applyProgrammerStep(world, step);
   }
