@@ -1936,8 +1936,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     programmerPathGraphics.clear();
     const pathHalf = playerDisplaySize() * PROGRAMMER_PATH_ARROW_SCALE;
     for (const mark of opts?.programmerPath ?? []) {
-      const alpha = mark.latest ? 1 : PROGRAMMER_PATH_FADED_ALPHA;
-      programmerPathGraphics.fillStyle(PLAYER_PROGRAMMING_TINT, alpha);
+      programmerPathGraphics.fillStyle(
+        PLAYER_PROGRAMMING_TINT,
+        mark.latest ? 1 : PROGRAMMER_PATH_FADED_ALPHA,
+      );
       const [a, b, c] = programmerArrowPoints(mark.x, mark.y, mark.dir, pathHalf);
       programmerPathGraphics.fillTriangle(a!.x, a!.y, b!.x, b!.y, c!.x, c!.y);
     }
