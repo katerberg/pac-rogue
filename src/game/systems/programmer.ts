@@ -2,8 +2,10 @@ import { query, type World } from "bitecs";
 import { snapToCellCenter, type SolidGrid } from "../../domain/maze";
 import {
   programmerEnterCell,
+  programmerPathMarks,
   recordProgrammerPress,
   type ProgramDir,
+  type ProgrammerPathMark,
   type ProgrammerState,
   type ProgrammerStep,
 } from "../../domain/programmer";
@@ -97,4 +99,15 @@ export function followProgrammer(
     return state;
   }
   return applyProgrammerStep(world, programmerEnterCell(state, solids, cell.col, cell.row));
+}
+
+export function programmerPath(
+  world: World,
+  state: ProgrammerState | null,
+  solids: SolidGrid,
+): ProgrammerPathMark[] {
+  const cell = playerCell(world);
+  return state?.phase === "recording" && cell !== null
+    ? programmerPathMarks(state.presses, solids, cell.col, cell.row)
+    : [];
 }

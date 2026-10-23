@@ -218,6 +218,7 @@ import {
 import {
   followProgrammer,
   holdPlayerForProgramming,
+  programmerPath,
   recordProgrammerKeys,
 } from "../systems/programmer";
 import { programmerQueueSlots, type ProgrammerQueueSlot } from "../../domain/programmer";
@@ -860,6 +861,11 @@ export class LearnSim {
         shields: this.learnUpgrades.shieldsBanked,
         peels: bananaPeelSprites(this.peelBeads()),
         programmerQueue: this.programmerQueue(),
+        programmerPath: programmerPath(
+          this.world,
+          this.learnUpgrades.programmer,
+          this.playerSolids(),
+        ),
         mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
       },

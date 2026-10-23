@@ -139,6 +139,45 @@ export function programmerQueueSlots(
   }));
 }
 
+export type ProgrammerPathMark = { x: number; y: number; dir: ProgramDir; latest: boolean };
+
+type Cell = { col: number; row: number };
+
+function nextTurnCell(solids: SolidGrid, from: Cell, heading: ProgramDir): Cell | null {
+  const rows = solids.length;
+  const cols = solids[0]?.length ?? 0;
+  let { col, row } = from;
+  for (let steps = 0; steps < rows * cols; steps += 1) {
+    col = (col + STEP[heading].dx + cols) % cols;
+    row = (row + STEP[heading].dy + rows) % rows;
+    if (isIntersection(solids, col, row, heading)) {
+      return { col, row };
+    }
+    if (!openAt(solids, col, row, heading)) {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function programmerPathMarks(
+  presses: readonly ProgramDir[],
+  solids: SolidGrid,
+  col: number,
+  row: number,
+): ProgrammerPathMark[] {
+  const marks: ProgrammerPathMark[] = [];
+  let at: Cell | null = { col, row };
+  let taken = takeFirstOpen(presses, solids, col, row);
+  while (taken !== null && at !== null) {
+    const latest = taken.rest.length === 0;
+    marks.push({ x: cellCenterX(at.col), y: cellCenterY(at.row), dir: taken.dir, latest });
+    at = latest ? null : nextTurnCell(solids, at, taken.dir);
+    taken = at === null ? null : takeFirstOpen(taken.rest, solids, at.col, at.row);
+  }
+  return marks;
+}
+
 export const PROGRAMMER_ARROW_TILES = 0.3;
 export const PROGRAMMER_EMPTY_SLOT_TILES = 0.08;
 
@@ -146,9 +185,8 @@ export function programmerArrowPoints(
   x: number,
   y: number,
   dir: ProgramDir,
-  tilePx: number,
+  half: number,
 ): { x: number; y: number }[] {
-  const half = tilePx * PROGRAMMER_ARROW_TILES;
   const { dx, dy } = STEP[dir];
   return [
     { x: x + dx * half, y: y + dy * half },

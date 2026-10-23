@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getActiveLayout, type SolidGrid } from "./maze";
+import { cellCenterX, cellCenterY, getActiveLayout, type SolidGrid } from "./maze";
 import {
   PROGRAMMER_PRESSES,
   isIntersection,
   programmerArrowPoints,
   programmerEnterCell,
+  programmerPathMarks,
   programmerQueueSlots,
   recordProgrammerPress,
   startProgrammer,
@@ -155,6 +156,33 @@ describe("programmerEnterCell", () => {
   });
 });
 
+describe("programmerPathMarks", () => {
+  const at = (col: number, row: number) => ({ x: cellCenterX(col), y: cellCenterY(row) });
+
+  it("places each press at the tile where the run would take it, the newest marked latest", () => {
+    expect(programmerPathMarks(["right", "up"], SOLIDS, 3, 5)).toEqual([
+      { ...at(3, 5), dir: "right", latest: false },
+      { ...at(5, 5), dir: "up", latest: true },
+    ]);
+    expect(programmerPathMarks(["right", "right", "down"], SOLIDS, 3, 5)).toEqual([
+      { ...at(3, 5), dir: "right", latest: false },
+      { ...at(5, 5), dir: "right", latest: false },
+      { ...at(6, 5), dir: "down", latest: true },
+    ]);
+  });
+
+  it("drops presses the run would skip and stops where it would end", () => {
+    expect(programmerPathMarks(["up", "right", "down"], SOLIDS, 3, 5)).toEqual([
+      { ...at(3, 5), dir: "right", latest: false },
+      { ...at(5, 5), dir: "down", latest: true },
+    ]);
+    expect(programmerPathMarks(["up", "left"], SOLIDS, 5, 4)).toEqual([
+      { ...at(5, 4), dir: "up", latest: false },
+    ]);
+    expect(programmerPathMarks([], SOLIDS, 3, 5)).toEqual([]);
+  });
+});
+
 describe("programmer queue look", () => {
   it("centers five slots above the player and fills them in press order", () => {
     const slots = programmerQueueSlots(["up", "left"], 100, 100, 20);
@@ -165,10 +193,10 @@ describe("programmer queue look", () => {
   });
 
   it("points each arrow's tip the way it was pressed", () => {
-    const [tip] = programmerArrowPoints(50, 50, "right", 20);
+    const [tip] = programmerArrowPoints(50, 50, "right", 6);
     expect(tip!.x).toBeGreaterThan(50);
     expect(tip!.y).toBe(50);
-    const [up] = programmerArrowPoints(50, 50, "up", 20);
+    const [up] = programmerArrowPoints(50, 50, "up", 6);
     expect(up!.y).toBeLessThan(50);
   });
 });
