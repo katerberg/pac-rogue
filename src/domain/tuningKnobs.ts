@@ -1,4 +1,5 @@
-import type { TuningKey } from "./tuning";
+import { colorToCssHex } from "./maze";
+import type { Tuning, TuningKey } from "./tuning";
 
 export type KnobGroup =
   | "Movement"
@@ -163,6 +164,20 @@ function stepDecimals(step: number): number {
 export function formatKnobValue(knob: RangeKnob, value: number): string {
   const number = value.toFixed(stepDecimals(knob.step));
   return knob.unit === "" ? number : `${number} ${knob.unit}`;
+}
+
+export function formatKnobSectionSettings(
+  tuning: Tuning,
+  group: KnobGroup,
+  subgroup?: VisualsSubgroup,
+): string {
+  const lines = TUNING_KNOBS.filter(
+    (k) => k.group === group && (subgroup === undefined || k.subgroup === subgroup),
+  ).map((knob) => {
+    const value = tuning[knob.key];
+    return `${knob.key}: ${knob.kind === "color" ? colorToCssHex(Number(value)) : String(value)}`;
+  });
+  return [subgroup ?? group, ...lines].join("\n");
 }
 
 export const KNOB_HELP: Record<TuningKey, string> = {

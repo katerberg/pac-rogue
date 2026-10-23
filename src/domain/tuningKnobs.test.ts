@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TUNING, type TuningKey } from "./tuning";
 import {
+  formatKnobSectionSettings,
   formatKnobValue,
   KNOB_HELP,
   LEFT_KNOB_GROUPS,
@@ -80,5 +81,23 @@ describe("formatKnobValue", () => {
     expect(formatKnobValue(knob, 7.315)).toBe("7.315 tiles/s");
     const timer = TUNING_KNOBS.find((k) => k.key === "timerMax") as RangeKnob;
     expect(formatKnobValue(timer, 999)).toBe("999");
+  });
+});
+
+describe("formatKnobSectionSettings", () => {
+  it("lists a group's keys with their current values under its name", () => {
+    const tuning = { ...DEFAULT_TUNING, eatDragMs: 120 };
+    const lines = formatKnobSectionSettings(tuning, "Movement").split("\n");
+    expect(lines[0]).toBe("Movement");
+    expect(lines).toContain("eatDragMs: 120");
+    expect(lines).toHaveLength(1 + TUNING_KNOBS.filter((k) => k.group === "Movement").length);
+  });
+
+  it("writes colors as hex and narrows Visuals to one subgroup", () => {
+    const tuning = { ...DEFAULT_TUNING, wallColor: 0xff00aa };
+    const text = formatKnobSectionSettings(tuning, "Visuals", "Walls");
+    expect(text.split("\n")[0]).toBe("Walls");
+    expect(text).toContain("wallColor: #ff00aa");
+    expect(text).not.toContain("charmSize");
   });
 });
