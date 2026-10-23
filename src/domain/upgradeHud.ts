@@ -3,9 +3,10 @@ import type { Point } from "./moneyTalks";
 
 export const UPGRADE_HUD_COLUMNS = 3;
 export const UPGRADE_HUD_COMPACT_SIZE = 16;
-const UPGRADE_HUD_GAP = 4;
-const UPGRADE_HUD_TOP_GAP = 8;
-const UPGRADE_HUD_RIGHT_PAD = 8;
+export const UPGRADE_HUD_HOVER_SCALE = 1.1;
+export const UPGRADE_HUD_GAP = 12;
+const UPGRADE_HUD_TOP_GAP = 16;
+export const UPGRADE_HUD_RIGHT_PAD = 20;
 
 export function upgradeHudIconSize(gutterRight: number): number {
   const span = gutterRight - QUARTER_HUD_LEFT - UPGRADE_HUD_RIGHT_PAD;
@@ -35,6 +36,8 @@ export const TRINKET_STACK_DEPTH = 3;
 export const TRINKET_POOL_COLUMNS = UPGRADE_HUD_COLUMNS * 2;
 export const TRINKET_LAYER_OFFSET = 2;
 export const UPGRADE_HUD_MIN_ROWS = 2;
+const TRINKET_POOL_TOP_GAP = 12;
+const TRINKET_POOL_ROW_GAP = 6;
 
 export type TrinketPoolCard<Id> = {
   id: Id;
@@ -56,10 +59,11 @@ export function trinketPoolLayout<Id>(
   const size = Math.max(1, Math.floor(iconSize / 2));
   const span = UPGRADE_HUD_COLUMNS * (iconSize + UPGRADE_HUD_GAP) - UPGRADE_HUD_GAP;
   const pitch = Math.floor((span - size) / (TRINKET_POOL_COLUMNS - 1));
-  const rowPitch = pitch + TRINKET_LAYER_OFFSET * (TRINKET_STACK_DEPTH - 1);
+  const rowPitch = pitch + TRINKET_LAYER_OFFSET * (TRINKET_STACK_DEPTH - 1) + TRINKET_POOL_ROW_GAP;
   const slotRows = Math.max(UPGRADE_HUD_MIN_ROWS, Math.ceil(slotCount / UPGRADE_HUD_COLUMNS));
   const firstSlot = upgradeHudIconPosition(0, iconSize, quarterSize, left);
-  const top = firstSlot.y - iconSize / 2 + slotRows * (iconSize + UPGRADE_HUD_GAP);
+  const top =
+    firstSlot.y - iconSize / 2 + slotRows * (iconSize + UPGRADE_HUD_GAP) + TRINKET_POOL_TOP_GAP;
   const cards: TrinketPoolCard<Id>[] = [];
   let stack = 0;
   for (const { id, copies } of kinds) {
@@ -84,7 +88,7 @@ export function trinketPoolLayout<Id>(
   return cards;
 }
 
-const UPGRADE_HUD_TEXT_GAP = 12;
+const UPGRADE_HUD_TEXT_GAP = 20;
 
 export function upgradeHudTextAnchor(
   boxes: readonly { x: number; y: number; size: number }[],

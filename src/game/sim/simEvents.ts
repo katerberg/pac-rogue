@@ -18,6 +18,7 @@ import type { SinkholeRenderState } from "../../domain/sinkholeArt";
 import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
+import type { ScentSprite } from "../systems/scarecrow";
 import type { ChaffSprite } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import type { ProgrammerPathMark, ProgrammerQueueSlot } from "../../domain/programmer";
@@ -55,6 +56,7 @@ export type SimRenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
+  scent?: ScentSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   peels?: { x: number; y: number }[];
@@ -91,6 +93,7 @@ export type SimEvent =
       count: number;
     }
   | { type: "chaffBurst"; x: number; y: number }
+  | { type: "sonicBoomEcho"; x: number; y: number; dx: number; dy: number; tiles: number }
   | { type: "peelCrack"; x: number; y: number }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }

@@ -224,7 +224,13 @@ import {
 import { programmerQueueSlots, type ProgrammerQueueSlot } from "../../domain/programmer";
 import type { SolidGrid } from "../../domain/maze";
 import { applyRemoteTransference } from "../systems/remoteTransference";
-import { fruitKindsOnBoard, fruitPositions, removeAllFruit } from "../systems/collectFruit";
+import {
+  fruitKindsOnBoard,
+  fruitPositions,
+  fruitTiles,
+  removeAllFruit,
+} from "../systems/collectFruit";
+import { leaveScent, scentFieldFor, scentSprites, tickScarecrow } from "../systems/scarecrow";
 import {
   collectExtraForBodies,
   collectFruitForBodies,
@@ -287,6 +293,14 @@ import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningStat
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
+import {
+  atTopSpeed,
+  sonicStunnedEids,
+  sonicStunSpriteOffsets,
+  tickSonicHits,
+} from "../../domain/sonicBoom";
+import { forceGhostReverse } from "../systems/ghostReverse";
+import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
@@ -369,6 +383,7 @@ export class LearnSim {
   readonly random: RunRandom;
   private events: SimEvent[] = [];
   private readonly ghostTraction = new GhostTractionState();
+  private readonly sonicEchoes = new SonicBoomEchoes();
   private hyperspeedDirection: Direction | null = null;
   private turnCatchGraceMs = 0;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
@@ -570,6 +585,7 @@ export class LearnSim {
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
+    this.learnUpgrades = tickSonicHits(this.learnUpgrades, delta);
     const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
@@ -657,6 +673,7 @@ export class LearnSim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
+        ...sonicStunnedEids(this.learnUpgrades, this.learnUpgrades.owned),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
@@ -728,6 +745,21 @@ export class LearnSim {
             delta,
           )
         : [];
+    const owned = this.learnUpgrades.owned;
+    const atSpeed = atTopSpeed(
+      owned,
+      this.speedTrailActive(),
+      movingOverClearedTile(this.world),
+      false,
+    );
+    const boom = stepSonicBoom(this.world, this.sonicEchoes, this.learnUpgrades, owned, atSpeed);
+    this.learnUpgrades = boom.state;
+    if (boom.reversed.length > 0) {
+      forceGhostReverse(this.world, false, new Set(boom.reversed));
+    }
+    for (const echo of boom.echoes) {
+      this.events.push({ type: "sonicBoomEcho", ...echo });
+    }
 
     this.tickMirror(delta);
     const playerFrame = possessionActive(this.learnUpgrades)
@@ -784,6 +816,7 @@ export class LearnSim {
     }
 
     this.tickFruit(delta);
+    this.learnUpgrades = tickScarecrow(this.learnUpgrades, this.learnUpgrades.owned, delta);
 
     ghostAi(
       this.world,
@@ -801,6 +834,7 @@ export class LearnSim {
       this.learnUpgrades.droppedWall,
       this.twinBody(),
       this.learnUpgrades.chaff?.decoys,
+      scentFieldFor(this.learnUpgrades.owned, this.world, this.learnUpgrades.scentLingers),
     );
     frightenedGhostAi(
       this.world,
@@ -852,8 +886,13 @@ export class LearnSim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
-        spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+        spriteOffsets: sonicStunSpriteOffsets(
+          this.learnUpgrades,
+          this.learnUpgrades.owned,
+          shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+        ),
         boreJunk: this.tunnelBore.junk,
+        scent: scentSprites(this.learnUpgrades.owned, this.world, this.learnUpgrades.scentLingers),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
@@ -1711,6 +1750,7 @@ export class LearnSim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...sonicStunnedEids(this.learnUpgrades, this.learnUpgrades.owned),
         ...(possessedGhostEid(this.learnUpgrades) === null
           ? []
           : [possessedGhostEid(this.learnUpgrades)!]),
@@ -1930,6 +1970,7 @@ export class LearnSim {
       }
     }
 
+    const fruitTilesBefore = fruitTiles(this.world);
     const removedFruitEids = [
       ...this.hyperspeedFruit,
       ...collectFruitForBodies(this.world, this.twinPosition()),
@@ -1939,6 +1980,7 @@ export class LearnSim {
       return;
     }
     this.releaseAll(removedFruitEids);
+    this.learnUpgrades = leaveScent(this.learnUpgrades, owned, removedFruitEids, fruitTilesBefore);
     this.events.push({ type: "sfx", id: "pelletMunch" }, { type: "sfx", id: "pelletMunch2" });
     const regularEaten = removedFruitEids.some((eid) => !this.cornucopiaFruit.has(eid));
     for (const eid of removedFruitEids) {

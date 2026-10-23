@@ -1,10 +1,10 @@
 import type Phaser from "phaser";
 import { clamp } from "../../domain/clamp";
 import { hoverPreviewX } from "../../domain/learnUpgradeColumns";
+import { UPGRADE_HUD_HOVER_SCALE } from "../../domain/upgradeHud";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import { buildUpgradeCardVisual, type UpgradeCardVisual } from "./upgradeChoiceModal";
 
-const ICON_HOVER_SCALE = 1.1;
 const PREVIEW_Y_MIN = 90;
 const PREVIEW_Y_MAX = 510;
 
@@ -44,7 +44,10 @@ export function createUpgradeHoverPreview(scene: Phaser.Scene, depth: number): U
     attach(icon, slot) {
       icon.setInteractive({ useHandCursor: true });
       icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
-        icon.setDisplaySize(slot.size * ICON_HOVER_SCALE, slot.size * ICON_HOVER_SCALE);
+        icon.setDisplaySize(
+          slot.size * UPGRADE_HUD_HOVER_SCALE,
+          slot.size * UPGRADE_HUD_HOVER_SCALE,
+        );
         show(slot, pointer.worldY);
       });
       icon.on("pointerout", () => {

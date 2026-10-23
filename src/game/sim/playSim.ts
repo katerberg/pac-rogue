@@ -174,7 +174,7 @@ import {
 } from "../../domain/collapse";
 import {
   buildSinkholeArt,
-  SINKHOLE_INTRO_MS,
+  type SinkholeBoard,
   type SinkholeArt,
   type SinkholeRenderState,
 } from "../../domain/sinkholeArt";
@@ -278,6 +278,7 @@ import {
 import { playerExitedHorizontalTunnel, playerExitedTunnel } from "../../domain/tunnelExit";
 import { ELROY_TIER, elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
+import { sameSinkholeTuning } from "../../domain/sinkholeTuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
@@ -490,7 +491,13 @@ import {
 } from "../systems/collectBodies";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
-import { fruitKindsOnBoard, fruitPositions, removeAllFruit } from "../systems/collectFruit";
+import {
+  fruitKindsOnBoard,
+  fruitPositions,
+  fruitTiles,
+  removeAllFruit,
+} from "../systems/collectFruit";
+import { leaveScent, scentFieldFor, scentSprites, tickScarecrow } from "../systems/scarecrow";
 import {
   countPellets,
   noRequiredPelletsLeft,
@@ -546,6 +553,14 @@ import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningStat
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
+import {
+  atTopSpeed,
+  sonicStunnedEids,
+  sonicStunSpriteOffsets,
+  sonicHitRemainingMs,
+  tickSonicHits,
+} from "../../domain/sonicBoom";
+import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import { programmerQueueSlots } from "../../domain/programmer";
@@ -654,6 +669,13 @@ export type PlayHud = {
   shields: number;
 };
 
+type SinkholeSource = {
+  board: SinkholeBoard;
+  chain: CollapseChain;
+  seed: number;
+  tuning: Tuning;
+};
+
 export class PlaySim {
   world: World = createWorld();
   readonly random: RunRandom;
@@ -727,6 +749,7 @@ export class PlaySim {
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
   private readonly ghostTraction = new GhostTractionState();
+  private readonly sonicEchoes = new SonicBoomEchoes();
   private lavaZone: LavaZone | null = null;
   private lavaElapsedMs = 0;
   private lavaStarted = false;
@@ -742,6 +765,7 @@ export class PlaySim {
   private sinkholeChain: CollapseChain | null = null;
   private sinkholeLayouts: { open: MazeLayout; blocked: MazeLayout } | null = null;
   private sinkholeArt: SinkholeArt | null = null;
+  private sinkholeSource: SinkholeSource | null = null;
   private sinkholeBoardCount = 0;
   private sinkholeIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
@@ -815,6 +839,9 @@ export class PlaySim {
 
   setTuning(tuning: Tuning): void {
     this.currentTuning = tuning;
+    if (this.sinkholeSource !== null && !sameSinkholeTuning(this.sinkholeSource.tuning, tuning)) {
+      this.buildSinkhole({ ...this.sinkholeSource, tuning });
+    }
   }
 
   start(): SimEvent[] {
@@ -1184,7 +1211,11 @@ export class PlaySim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
-      spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+      spriteOffsets: sonicStunSpriteOffsets(
+        this.runUpgrades,
+        this.effectiveUpgrades(),
+        shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+      ),
       hauntedGhost: hauntedGhost(this.runUpgrades),
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
@@ -1199,6 +1230,7 @@ export class PlaySim {
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
+      scent: scentSprites(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       peels: bananaPeelSprites(this.peelBeads()),
@@ -1306,6 +1338,7 @@ export class PlaySim {
       effectiveUpgrades: this.effectiveUpgrades(),
       timers: {
         freezeMs: upgrades.freezeRemainingMs,
+        sonicBoomHitMs: sonicHitRemainingMs(upgrades),
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
@@ -1316,6 +1349,7 @@ export class PlaySim {
         titheMs: upgrades.titheRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         chaffMs: upgrades.chaff?.remainingMs ?? 0,
+        scarecrowScentMs: Math.max(0, ...upgrades.scentLingers.map((linger) => linger.remainingMs)),
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         possessionMs: upgrades.possessionRemainingMs,
         wallDropMs:
@@ -1592,7 +1626,10 @@ export class PlaySim {
     this.tickTimedTunnel(delta);
     this.tickSpeedZoneShift(delta);
     this.collapseIntroMs = Math.min(RUBBLE_INTRO_MS, this.collapseIntroMs + delta);
-    this.sinkholeIntroMs = Math.min(SINKHOLE_INTRO_MS, this.sinkholeIntroMs + delta);
+    this.sinkholeIntroMs = Math.min(
+      this.currentTuning.sinkholeIntroMs,
+      this.sinkholeIntroMs + delta,
+    );
     this.syncSinkholeFloat();
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
@@ -1672,6 +1709,7 @@ export class PlaySim {
     }
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
+    this.runUpgrades = tickSonicHits(this.runUpgrades, delta);
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
@@ -1750,6 +1788,7 @@ export class PlaySim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
+        ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
@@ -1794,6 +1833,7 @@ export class PlaySim {
     this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
+    this.sonicBoom();
     const facingAfterMove = playerFacing(this.world);
     this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.emitTurnSparks(
@@ -1937,6 +1977,7 @@ export class PlaySim {
         this.runUpgrades.droppedWall,
         this.twinBody(),
         this.runUpgrades.chaff?.decoys,
+        scentFieldFor(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
       );
       frightenedGhostAi(
         this.world,
@@ -1966,6 +2007,7 @@ export class PlaySim {
       this.warpPlayer();
     }
 
+    this.runUpgrades = tickScarecrow(this.runUpgrades, this.effectiveUpgrades(), delta);
     const stacksFruit = fruitStacksSideBySide(this.effectiveUpgrades());
     this.msSinceFruitSpawn += Math.max(0, delta);
     this.flushPendingCornucopia();
@@ -1989,10 +2031,17 @@ export class PlaySim {
       this.spawnFruitEntity(stacksFruit);
     }
 
+    const fruitTilesBefore = fruitTiles(this.world);
     const removedFruitEids = collectFruitForBodies(this.world, this.twinPosition());
     for (const eid of removedFruitEids) {
       this.releaseDrawable(eid);
     }
+    this.runUpgrades = leaveScent(
+      this.runUpgrades,
+      this.effectiveUpgrades(),
+      removedFruitEids,
+      fruitTilesBefore,
+    );
     this.noteFruitRemoved(removedFruitEids);
     this.collectSlotPickupEntities();
     const fruitEaten = removedFruitEids.length + this.hyperspeedFruitEaten;
@@ -2305,6 +2354,7 @@ export class PlaySim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
         ...(possessedGhostEid(this.runUpgrades) === null
           ? []
           : [possessedGhostEid(this.runUpgrades)!]),
@@ -3037,6 +3087,7 @@ export class PlaySim {
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
     this.ghostTraction.reset();
+    this.sonicEchoes.reset();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
     this.elroySuppressed = false;
@@ -3190,6 +3241,7 @@ export class PlaySim {
     this.sinkholeChain = null;
     this.sinkholeLayouts = null;
     this.sinkholeArt = null;
+    this.sinkholeSource = null;
     this.sinkholeIntroMs = 0;
   }
 
@@ -3211,18 +3263,26 @@ export class PlaySim {
     );
     if (sinkhole !== null) {
       this.sinkholeChain = sinkhole;
-      this.sinkholeBoardCount += 1;
-      this.sinkholeArt = buildSinkholeArt(
-        { ascii: layout.ascii, tileSize: layout.tileSize },
-        sinkhole,
-        held.plan.artSeed + 404,
-      );
+      this.buildSinkhole({
+        board: { ascii: layout.ascii, tileSize: layout.tileSize },
+        chain: sinkhole,
+        seed: held.plan.artSeed + 404,
+        tuning: this.currentTuning,
+      });
     }
     if (chains.length === 0) {
       return;
     }
     this.collapseChains = [...chains];
     this.buildCollapseArts(held.plan.artSeed, bored);
+  }
+
+  private buildSinkhole(source: SinkholeSource): void {
+    const { board, chain, seed, tuning } = source;
+    this.sinkholeBoardCount += 1;
+    this.sinkholeSource = source;
+    this.sinkholeArt = buildSinkholeArt(board, chain, seed, tuning);
+    this.sinkholeIntroMs = Math.min(tuning.sinkholeIntroMs, this.sinkholeIntroMs);
   }
 
   private buildCollapseArts(artSeed: number, bored: readonly MazeTile[]): void {
@@ -3287,6 +3347,7 @@ export class PlaySim {
           art: this.sinkholeArt,
           elapsedMs: this.sinkholeIntroMs,
           fresh: isFreshSinkhole(this.levelIndex),
+          tuning: this.currentTuning,
         };
   }
 
@@ -4615,6 +4676,32 @@ export class PlaySim {
     );
   }
 
+  private sonicBoom(): void {
+    const owned = this.effectiveUpgrades();
+    const atSpeed =
+      this.death === null &&
+      atTopSpeed(
+        owned,
+        this.speedTrailActive(),
+        movingOverClearedTile(this.world),
+        floatingZoneEffect(owned, this.playerSpeedZone()) === "fast",
+      );
+    const boom = stepSonicBoom(this.world, this.sonicEchoes, this.runUpgrades, owned, atSpeed);
+    this.runUpgrades = boom.state;
+    if (boom.reversed.length > 0) {
+      forceGhostReverse(
+        this.world,
+        this.ghostsBlockedFromTunnels(),
+        new Set(boom.reversed),
+        this.closedGatedTunnelRow(),
+        this.runUpgrades.droppedWall,
+      );
+    }
+    for (const echo of boom.echoes) {
+      this.emit({ type: "sonicBoomEcho", ...echo });
+    }
+  }
+
   private tickSpeedTrail(delta: number): void {
     const at = this.playerPosition();
     this.speedTrail =
@@ -4710,6 +4797,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.ghostTraction.reset();
+    this.sonicEchoes.reset();
     this.lavaElapsedMs = 0;
     this.lavaStarted = false;
     this.resetHyperspeedMovement();

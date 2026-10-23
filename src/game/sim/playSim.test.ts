@@ -110,6 +110,7 @@ import {
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
   type UpgradeId,
+  clearUpgradeTimers,
 } from "../../domain/upgrades";
 import {
   TRINKET_IDS,
@@ -138,7 +139,6 @@ import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
 import { ghostMovementRules } from "../../domain/ghostMovement";
-import { SINKHOLE_INTRO_MS } from "../../domain/sinkholeArt";
 import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Crumb } from "../components/Crumb";
@@ -157,6 +157,9 @@ import { IDLE_INPUT, type SimInput } from "./simInput";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
+import { openGhostDirsAt } from "../../domain/ghostPath";
+import { scentAwareCanEnter } from "../systems/ghostAi";
+import { scentFieldFor } from "../systems/scarecrow";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
@@ -9252,7 +9255,7 @@ describe("sinkhole", () => {
     runFrames(sim, 600, { keys: held("left") });
     expect(sim.snapshot().sinkhole.introMs).toBeGreaterThan(early);
     const settled = sim.snapshot().sinkhole.introMs;
-    expect(settled).toBe(SINKHOLE_INTRO_MS);
+    expect(settled).toBe(DEFAULT_TUNING.sinkholeIntroMs);
     runFrames(sim, 60);
     expect(sim.snapshot().sinkhole.introMs).toBe(settled);
   });
@@ -9263,6 +9266,23 @@ describe("sinkhole", () => {
     expect(state?.fresh).toBe(true);
     expect(state?.art.pixels.length).toBeGreaterThan(0);
     expect(startSim({ level: 7 }, SEED).renderOptions().sinkhole?.fresh).toBe(false);
+  });
+
+  it("rebuilds the sinkhole art live when a sinkhole knob changes", () => {
+    const sim = startSim({ level: 6 }, SEED);
+    runFrames(sim, 30, { keys: held("left") });
+    const before = sim.renderOptions().sinkhole!;
+    sim.setTuning(resolveTuning({ wallThickness: 3 }));
+    expect(sim.renderOptions().sinkhole!.key).toBe(before.key);
+    sim.setTuning(resolveTuning({ sinkholeArtTile: 3, sinkholeIntroMs: 200 }));
+    const after = sim.renderOptions().sinkhole!;
+    expect(after.key).not.toBe(before.key);
+    expect(after.art.tile).toBe(3);
+    expect(after.art.pixels).not.toEqual(before.art.pixels);
+    expect(sim.snapshot().sinkhole.introMs).toBeLessThanOrEqual(200);
+    runFrames(sim, 60);
+    expect(sim.snapshot().sinkhole.introMs).toBe(200);
+    expect(sim.renderOptions().sinkhole!.key).toBe(after.key);
   });
 
   it("replays the same sinkhole for the same seed and differs between seeds", () => {
@@ -10638,5 +10658,391 @@ describe("Gleaning", () => {
     ghostAt(sim, at);
     ghostAt(sim, at);
     expect(sim.snapshot().crumbs).toBe(1);
+  });
+});
+
+describe("Sonic Boom", () => {
+  const BASE = "passiveSonicBoom";
+  const PLUS = "passiveSonicBoomPlus";
+  type BoomId = typeof BASE | typeof PLUS;
+
+  function boomSim(
+    enableUpgrades: PlayOptions["enableUpgrades"],
+    infiniteLives = true,
+  ): { sim: PlaySim; ghost: number } {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives, enableUpgrades }, "sonic-boom");
+    const [ghost, ...rest] = query(sim.world, [Ghost, Position]);
+    for (const eid of rest) {
+      removeEntity(sim.world, eid);
+    }
+    runFrames(sim, 1);
+    return { sim, ghost: ghost! };
+  }
+
+  function atSpeed(sim: PlaySim): void {
+    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 60_000 };
+  }
+
+  function placeGhost(ghost: number, x: number, y: number): void {
+    Position.x[ghost] = x;
+    Position.y[ghost] = y;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  function nearPlayer(sim: PlaySim, ghost: number): void {
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]! + 12, Position.y[player]!);
+  }
+
+  const hits = (sim: PlaySim): number => sim["runUpgrades"].sonicHits.length;
+
+  it("base turns a ghost passed within 2 tiles around without stunning it", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    Facing.direction[ghost] = DIRECTION.left;
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(1);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.right);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]).toBeGreaterThan(0);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]).toBeUndefined();
+  });
+
+  it("base does not turn the same ghost again within the cooldown", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    const facing = Facing.direction[ghost];
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(Facing.direction[ghost]).toBe(facing);
+    expect(hits(sim)).toBe(1);
+  });
+
+  it("base ghosts still kill on touch", () => {
+    const { sim, ghost } = boomSim([BASE], false);
+    atSpeed(sim);
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]!, Position.y[player]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
+  it("Plus stuns a passed ghost for 2s, shakes it, and lets you pass through it", () => {
+    const { sim, ghost } = boomSim([PLUS], false);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 2);
+    expect(sim.snapshot().timers.sonicBoomHitMs).toBeGreaterThan(1500);
+    expect(Speed.px[ghost]).toBe(0);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.x).not.toBe(0);
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]!, Position.y[player]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("Plus stun wears off and clears with the other timers", () => {
+    const { sim, ghost } = boomSim([PLUS]);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(1);
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(hits(sim)).toBe(0);
+  });
+
+  it.each([BASE, PLUS] as const)("%s does nothing below top speed", (id) => {
+    const { sim, ghost } = boomSim([id]);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const { sim, ghost } = boomSim([]);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(0);
+  });
+
+  it("leaves a far ghost alone", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    atSpeed(sim);
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]! + 60, Position.y[player]!);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(0);
+  });
+
+  it("counts Afterburner on a cleared tile as top speed only while moving", () => {
+    const { sim, ghost } = boomSim([BASE, "passiveAfterburner"]);
+    for (const eid of query(sim.world, [Pellet])) {
+      removeEntity(sim.world, eid);
+    }
+    nearPlayer(sim, ghost);
+    runFrames(sim, 2);
+    expect(hits(sim)).toBe(0);
+    runFrames(sim, 2, { keys: held("left") });
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1, { keys: held("left") });
+    expect(hits(sim)).toBeGreaterThan(0);
+  });
+
+  it("counts a fast speed zone as top speed", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    nearPlayer(sim, ghost);
+    sim["playerSpeedZone"] = () => "fast";
+    runFrames(sim, 1);
+    expect(hits(sim)).toBeGreaterThan(0);
+  });
+
+  function junctionSpot(): { col: number; row: number; sc: number; sr: number } {
+    const layout = getActiveLayout();
+    const open = (c: number, r: number): boolean => !layout.playerSolids[r]?.[c];
+    const spots = [] as { col: number; row: number; sc: number; sr: number }[];
+    for (let row = 3; row < layout.rows - 3; row += 1) {
+      for (let col = 3; col < layout.cols - 3; col += 1) {
+        if (!open(col, row) || !open(col - 1, row) || !open(col + 1, row)) {
+          continue;
+        }
+        for (const [sc, sr] of [
+          [0, -1],
+          [0, 1],
+        ] as const) {
+          if ([1, 2, 3, 4].every((n) => open(col + sc * n, row + sr * n))) {
+            spots.push({ col, row, sc, sr });
+          }
+        }
+      }
+    }
+    return spots[0]!;
+  }
+
+  it.each([BASE, PLUS] as const)("%s hits a ghost 4 tiles down a side hallway", (id: BoomId) => {
+    const spot = junctionSpot();
+    const { sim, ghost } = boomSim([id]);
+    atSpeed(sim);
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
+    Facing.direction[player] = DIRECTION.right;
+    placeGhost(ghost, cellCenterX(spot.col + spot.sc * 4), cellCenterY(spot.row + spot.sr * 4));
+    sim["sonicBoom"]();
+    expect(hits(sim)).toBe(1);
+  });
+
+  function crossJunction(id: BoomId, speed: boolean): SimEvent[] {
+    const spot = junctionSpot();
+    const { sim } = boomSim([id]);
+    if (speed) {
+      atSpeed(sim);
+    }
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
+    Facing.direction[player] = DIRECTION.right;
+    return runFrames(sim, 3).filter((event) => event.type === "sonicBoomEcho");
+  }
+
+  it.each([BASE, PLUS] as const)("%s echoes down each side hallway once per junction", (id) => {
+    const echoes = crossJunction(id, true);
+    expect(echoes.length).toBeGreaterThan(0);
+    expect(echoes.every((e) => e.type === "sonicBoomEcho" && e.tiles === 4)).toBe(true);
+    expect(new Set(echoes.map((e) => JSON.stringify(e))).size).toBe(echoes.length);
+  });
+
+  it("does not echo below top speed", () => {
+    expect(crossJunction(BASE, false)).toEqual([]);
+  });
+});
+
+describe("Scarecrow", () => {
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function placeFruit(sim: PlaySim): number {
+    sim["spawnFruitEntity"](false);
+    return query(sim.world, [Fruit, Position])[0]!;
+  }
+
+  function activeGhostFor(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Speed.px[ghost] = PLAYER_SPEED;
+    return ghost;
+  }
+
+  function eatFruit(sim: PlaySim, fruit: number): void {
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    runFrames(sim, 1);
+  }
+
+  it("draws no scent without the upgrade", () => {
+    const sim = start([]);
+    placeFruit(sim);
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("marks each fruit as a scent zone and drops it when the fruit is eaten", () => {
+    const sim = start(["passiveScarecrow"]);
+    const fruit = placeFruit(sim);
+    expect(sim.renderOptions().scent).toHaveLength(1);
+    eatFruit(sim, fruit);
+    expect(sim.renderOptions().scent).toEqual([]);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
+  });
+
+  it("keeps ghosts out of the radius by steering around it", () => {
+    const sim = start(["passiveScarecrow"]);
+    placeFruit(sim);
+    const field = scentFieldFor(sim["effectiveUpgrades"](), sim.world, []);
+    expect(field?.zones).toHaveLength(1);
+    const layout = getActiveLayout();
+    const zone = field!.zones[0]!;
+    const rules = ghostMovementRules(GHOST_PHASE.active);
+    const cells: { col: number; row: number }[] = [];
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        const dist = Math.hypot(col - zone.col, row - zone.row);
+        if (dist > 4 && dist <= 5) {
+          cells.push({ col, row });
+        }
+      }
+    }
+    const blockedSomewhere = cells.some(({ col, row }) => {
+      const x = cellCenterX(col);
+      const y = cellCenterY(row);
+      const plain = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
+      const aware = scentAwareCanEnter(x, y, rules, field!);
+      const open = openGhostDirsAt(x, y, rules.solids, aware);
+      return open.length > 0 && open.length < plain.length;
+    });
+    expect(blockedSomewhere).toBe(true);
+  });
+
+  it("an active chasing ghost stays out of the fruit radius, and enters it without the upgrade", () => {
+    const closest = (upgrades: UpgradeId[]): number => {
+      const sim = start(upgrades);
+      const ghost = activeGhostFor(sim);
+      const fruit = placeFruit(sim);
+      const fx = Position.x[fruit]!;
+      const fy = Position.y[fruit]!;
+      const layout = getActiveLayout();
+      const cells = [...Array(layout.rows * layout.cols).keys()]
+        .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+        .filter(({ col, row }) => isWalkable(col, row));
+      const distTo = ({ col, row }: { col: number; row: number }) =>
+        Math.hypot(col - worldToCol(fx), row - worldToRow(fy));
+      const far = cells.find((cell) => distTo(cell) > 8 && distTo(cell) < 11)!;
+      const near = cells.find((cell) => distTo(cell) >= 2 && distTo(cell) < 3)!;
+      Position.x[ghost] = cellCenterX(far.col);
+      Position.y[ghost] = cellCenterY(far.row);
+      let min = Infinity;
+      for (let frame = 0; frame < 900; frame += 1) {
+        teleportPlayer(sim, cellCenterX(near.col), cellCenterY(near.row));
+        runFrames(sim, 1, { keys: held("left") });
+        const d = Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy) / layout.tileSize;
+        min = Math.min(min, d);
+      }
+      return min;
+    };
+    expect(closest([])).toBeLessThan(4);
+    expect(closest(["passiveScarecrow"])).toBeGreaterThanOrEqual(3.5);
+  });
+
+  it("routes a chasing ghost around the zone to a target on the far side without bumping back", () => {
+    const sim = start(["passiveScarecrow"]);
+    const ghost = activeGhostFor(sim);
+    const fruit = placeFruit(sim);
+    const fx = Position.x[fruit]!;
+    const fy = Position.y[fruit]!;
+    const layout = getActiveLayout();
+    const cells = [...Array(layout.rows * layout.cols).keys()]
+      .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+      .filter(({ col, row }) => isWalkable(col, row))
+      .filter(
+        ({ col, row }) =>
+          Math.hypot(col - layout.ghostHouseSpawn.col, row - layout.ghostHouseSpawn.row) > 6,
+      );
+    const fruitDist = ({ col, row }: { col: number; row: number }) =>
+      Math.hypot(col - worldToCol(fx), row - worldToRow(fy));
+    const fruitCell = { col: worldToCol(fx), row: worldToRow(fy) };
+    const from = cells.find(
+      (cell) =>
+        cell.col < fruitCell.col && fruitDist(cell) > 5 && Math.abs(cell.row - fruitCell.row) <= 2,
+    )!;
+    const goal = cells
+      .filter(
+        (cell) =>
+          cell.col > fruitCell.col &&
+          fruitDist(cell) > 5 &&
+          Math.abs(cell.row - fruitCell.row) <= 2,
+      )
+      .sort((a, b) => b.col - a.col)[0]!;
+    Position.x[ghost] = cellCenterX(from.col);
+    Position.y[ghost] = cellCenterY(from.row);
+    sim["ghostModeClock"] = { ...sim["ghostModeClock"], active: false, mode: GHOST_AI_MODE.chase };
+    sim["previousEffectiveGhostMode"] = GHOST_AI_MODE.chase;
+    let reversals = 0;
+    let previous = Input.direction[ghost]!;
+    let closest = Infinity;
+    for (let frame = 0; frame < 1800; frame += 1) {
+      teleportPlayer(sim, cellCenterX(goal.col), cellCenterY(goal.row));
+      runFrames(sim, 1, { keys: held("left") });
+      const dir = Input.direction[ghost]!;
+      if (
+        closest >= 2 * layout.tileSize &&
+        dir !== DIRECTION.none &&
+        previous !== DIRECTION.none &&
+        dir !== previous
+      ) {
+        const opposite =
+          (previous === DIRECTION.left && dir === DIRECTION.right) ||
+          (previous === DIRECTION.right && dir === DIRECTION.left) ||
+          (previous === DIRECTION.up && dir === DIRECTION.down) ||
+          (previous === DIRECTION.down && dir === DIRECTION.up);
+        reversals += opposite ? 1 : 0;
+      }
+      if (dir !== DIRECTION.none) {
+        previous = dir;
+      }
+      expect(Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy)).toBeGreaterThan(
+        3.5 * layout.tileSize,
+      );
+      closest = Math.min(
+        closest,
+        Math.hypot(
+          Position.x[ghost]! - cellCenterX(goal.col),
+          Position.y[ghost]! - cellCenterY(goal.row),
+        ),
+      );
+    }
+    expect(closest).toBeLessThan(2 * layout.tileSize);
+    expect(reversals).toBeLessThanOrEqual(2);
+  });
+
+  it("base Scarecrow leaves no scent after pickup", () => {
+    const sim = start(["passiveScarecrow"]);
+    eatFruit(sim, placeFruit(sim));
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("enhanced scent lingers 5s after pickup, then fades", () => {
+    const sim = start(["passiveScarecrowPlus"]);
+    eatFruit(sim, placeFruit(sim));
+    expect(sim.renderOptions().scent).toHaveLength(1);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBeGreaterThan(5000 - 2 * FRAME_MS);
+    runUntil(sim, () => sim.snapshot().timers.scarecrowScentMs === 0, 400);
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("clearUpgradeTimers drops the lingering scent", () => {
+    const sim = start(["passiveScarecrowPlus"]);
+    eatFruit(sim, placeFruit(sim));
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
   });
 });

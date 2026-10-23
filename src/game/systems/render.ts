@@ -1,3 +1,10 @@
+import {
+  SCARECROW_COLOR,
+  scentCells,
+  scentLingerAlphaMul,
+  scentPixels,
+} from "../../domain/scarecrow";
+import type { ScentSprite } from "./scarecrow";
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
@@ -7,6 +14,7 @@ import {
   cellOriginX,
   cellOriginY,
   getActiveLayout,
+  isWalkable,
   isSolid,
   playerDisplaySize,
   pelletDisplaySize,
@@ -27,7 +35,6 @@ import {
   type CollapseRenderState,
 } from "../../domain/collapseRubble";
 import {
-  SINKHOLE_ART_TILE,
   sinkholeOpening,
   sinkholePalette,
   sinkholePixelVisible,
@@ -694,6 +701,7 @@ export type RenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
+  scent?: ScentSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   peels?: { x: number; y: number }[];
@@ -900,6 +908,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const sinkholeGraphics = scene.add.graphics();
   const boreJunkGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
+  const scentGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
   const mirrorDustGraphics = scene.add.graphics();
@@ -1025,7 +1034,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
       return;
     }
-    const key = `${sinkhole.key}:${style.background}`;
+    const key = `${sinkhole.key}:${style.color}`;
     const settled = sinkholeSettled(sinkhole);
     const step = settled ? -2 : Math.floor(sinkhole.elapsedMs / SINKHOLE_FRAME_MS);
     if (key === drawnSinkhole && step === drawnSinkholeStep) {
@@ -1033,14 +1042,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
     drawnSinkhole = key;
     drawnSinkholeStep = step;
-    const palette = sinkholePalette(style.background);
-    const opening = sinkholeOpening(sinkhole.elapsedMs, sinkhole.fresh);
+    const palette = sinkholePalette(style.color, sinkhole.tuning);
+    const opening = sinkholeOpening(sinkhole);
     const origin = { x: cellOriginX(0), y: cellOriginY(0) };
-    const artPx = getActiveLayout().tileSize / SINKHOLE_ART_TILE;
+    const artPx = getActiveLayout().tileSize / sinkhole.art.tile;
     sinkholeGraphics.clear();
     for (const pixel of sinkhole.art.pixels) {
       if (sinkholePixelVisible(pixel, opening)) {
-        sinkholeGraphics.fillStyle(palette[pixel.tone]!, 1);
+        sinkholeGraphics.fillStyle(palette[pixel.tone], 1);
         sinkholeGraphics.fillRect(
           origin.x + pixel.x * artPx,
           origin.y + pixel.y * artPx,
@@ -1818,6 +1827,32 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             chainGraphics,
             lightningPoints(chain, scene.time.now, amplitude, stroke.strand),
           );
+        }
+      }
+    }
+
+    scentGraphics.clear();
+    const scents = opts?.scent ?? [];
+    if (scents.length > 0) {
+      const { tileSize } = getActiveLayout();
+      const originX = cellCenterX(0) - tileSize / 2;
+      const originY = cellCenterY(0) - tileSize / 2;
+      for (const scent of scents) {
+        const zone = { col: scent.col, row: scent.row };
+        const blink = scentLingerAlphaMul(scent.remainingMs ?? Infinity, scene.time.now);
+        const cells = scentCells(zone, scent.radiusTiles, isWalkable);
+        for (const px of scentPixels(
+          zone,
+          cells,
+          scent.radiusTiles,
+          tileSize,
+          originX,
+          originY,
+          scene.time.now,
+          isWalkable,
+        )) {
+          scentGraphics.fillStyle(SCARECROW_COLOR, px.alpha * blink);
+          scentGraphics.fillRect(px.x, px.y, px.size, px.size);
         }
       }
     }
