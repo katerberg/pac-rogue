@@ -9858,6 +9858,18 @@ describe("Sonic Boom", () => {
     expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
   });
 
+  it("shakes a stunned ghost and it still kills on touch", () => {
+    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.x).not.toBe(0);
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]!, Position.y[player]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+  });
+
   it("leaves a far ghost alone", () => {
     const { sim, ghost } = boomSim(["passiveSonicBoom"]);
     sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };

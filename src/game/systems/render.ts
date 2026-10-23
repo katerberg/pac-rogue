@@ -653,7 +653,6 @@ function ensurePlayerVisual(
 export type RenderOptions = {
   frozenGhostEid?: number | null;
   frozenGhostRemainingMs?: number;
-  stunnedGhostEids?: ReadonlySet<number>;
   playerInvulnRemainingMs?: number;
   fruitRemainingMs?: number;
   wallPassActive?: boolean;
@@ -1377,7 +1376,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       const radius = Drawable.radius[eid] ?? size / 2;
       const ghostTint =
         ghostTexture !== undefined &&
-        ((frozenTintOn && eid === frozenEid) || opts?.stunnedGhostEids?.has(eid) === true) &&
+        frozenTintOn &&
+        eid === frozenEid &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse
           ? GHOST_FROZEN_TINT
           : null;

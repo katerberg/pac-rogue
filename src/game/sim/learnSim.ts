@@ -284,6 +284,7 @@ import {
   atTopSpeed,
   sonicBoomStunMs,
   sonicStunnedEids,
+  sonicStunSpriteOffsets,
   tickSonicStuns,
 } from "../../domain/sonicBoom";
 import { movingOverClearedTile, sonicBoomWorldTargets } from "../systems/sonicBoom";
@@ -838,7 +839,6 @@ export class LearnSim {
     this.events.push({
       type: "draw",
       options: {
-        stunnedGhostEids: sonicStunnedEids(this.learnUpgrades),
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
         frozenGhostRemainingMs: this.learnUpgrades.freezeRemainingMs,
         playerInvulnRemainingMs: Math.max(
@@ -857,7 +857,10 @@ export class LearnSim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
-        spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+        spriteOffsets: sonicStunSpriteOffsets(
+          this.learnUpgrades,
+          shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+        ),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,

@@ -518,6 +518,7 @@ import {
   atTopSpeed,
   sonicBoomStunMs,
   sonicStunnedEids,
+  sonicStunSpriteOffsets,
   sonicStunRemainingMs,
   tickSonicStuns,
 } from "../../domain/sonicBoom";
@@ -1019,7 +1020,6 @@ export class PlaySim {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
-      stunnedGhostEids: sonicStunnedEids(this.runUpgrades),
       possessedGhostEid: possessedGhostEid(this.runUpgrades),
       ...(possessionActive(this.runUpgrades) ? { playerAlpha: 0 } : {}),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
@@ -1034,7 +1034,10 @@ export class PlaySim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
-      spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+      spriteOffsets: sonicStunSpriteOffsets(
+        this.runUpgrades,
+        shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+      ),
       hauntedGhost: hauntedGhost(this.runUpgrades),
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),

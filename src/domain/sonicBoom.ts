@@ -129,6 +129,30 @@ export function tickSonicStuns(state: RunUpgrades, deltaMs: number): RunUpgrades
   };
 }
 
+const STUN_SHAKE_PX = 1.5;
+const STUN_SHAKE_PERIOD_MS = 80;
+
+export function sonicStunShakePx(remainingMs: number): number {
+  return STUN_SHAKE_PX * Math.sin((2 * Math.PI * remainingMs) / STUN_SHAKE_PERIOD_MS);
+}
+
+type SpriteOffsets = Record<number, { x: number; y: number; rotation?: number }>;
+
+export function sonicStunSpriteOffsets(
+  state: RunUpgrades,
+  base: SpriteOffsets | undefined,
+): SpriteOffsets | undefined {
+  if (state.sonicStuns.length === 0) {
+    return base;
+  }
+  return {
+    ...Object.fromEntries(
+      state.sonicStuns.map((s) => [s.eid, { x: sonicStunShakePx(s.remainingMs), y: 0 }]),
+    ),
+    ...base,
+  };
+}
+
 export function sonicStunnedEids(state: RunUpgrades): ReadonlySet<number> {
   return new Set(state.sonicStuns.map((s) => s.eid));
 }

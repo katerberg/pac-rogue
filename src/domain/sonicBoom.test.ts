@@ -13,6 +13,8 @@ import {
   sonicBoomStunMs,
   sonicBoomTargets,
   sonicStunRemainingMs,
+  sonicStunShakePx,
+  sonicStunSpriteOffsets,
   tickSonicStuns,
 } from "./sonicBoom";
 import { SONIC_BOOM_STUN_MS, createRunUpgrades } from "./upgrades";
@@ -133,5 +135,14 @@ describe("Sonic Boom", () => {
     expect(atTopSpeed(["passiveAfterburnerPlus"], false, true)).toBe(true);
     expect(atTopSpeed(["passiveAfterburner"], false, false)).toBe(false);
     expect(atTopSpeed([], false, true)).toBe(false);
+  });
+
+  it("shakes stunned ghosts sideways only", () => {
+    const stunned = applySonicStuns(createRunUpgrades(["passiveSonicBoom"]), [7], 1000);
+    const offsets = sonicStunSpriteOffsets(tickSonicStuns(stunned, 20), undefined)!;
+    expect(offsets[7]!.x).toBeCloseTo(sonicStunShakePx(980));
+    expect(Math.abs(offsets[7]!.x)).toBeGreaterThan(0);
+    expect(offsets[7]!.y).toBe(0);
+    expect(sonicStunSpriteOffsets(createRunUpgrades(), undefined)).toBeUndefined();
   });
 });
