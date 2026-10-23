@@ -105,7 +105,7 @@ describe("buildSinkholeArt", () => {
   });
 
   it("cracks out from the middle: nearer pixels appear before farther ones", () => {
-    const slit = art.pixels.filter((p) => p.tone === SINKHOLE_TONE.crack && p.openFrom === 0);
+    const slit = art.pixels.filter((p) => p.crackFrom > 0);
     const middle = slit.reduce((best, p) => (p.crackFrom < best.crackFrom ? p : best));
     const far = slit.reduce((best, p) => (p.crackFrom > best.crackFrom ? p : best));
     expect(middle.crackFrom).toBeLessThan(0.15);
@@ -134,7 +134,7 @@ describe("buildSinkholeArt", () => {
   });
 
   it("opens the middle of the run before its ends", () => {
-    const voids = art.pixels.filter((p) => isVoid(p.tone));
+    const voids = art.pixels.filter((p) => isVoid(p.tone) && p.crackFrom === 0);
     const sorted = [...voids].sort((a, b) => a.openFrom - b.openFrom);
     const earliest = sorted.slice(0, 12);
     const centreX =
@@ -175,7 +175,9 @@ describe("opening start", () => {
   it("keeps the first widening pixels back until the crack has run", () => {
     for (const { ascii, chain, seed } of found) {
       const built = buildSinkholeArt({ ascii, tileSize: TILE }, chain, seed);
-      const early = built.pixels.filter((p) => isVoid(p.tone) && p.openFrom < 0.02);
+      const early = built.pixels.filter(
+        (p) => isVoid(p.tone) && p.crackFrom === 0 && p.openFrom < 0.02,
+      );
       expect(early.length).toBeLessThan(4);
     }
   });

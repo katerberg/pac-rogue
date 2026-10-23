@@ -1,44 +1,29 @@
 import type { CollapseChain } from "./collapse";
-import { randomFromSeed } from "./mazeTiling";
 
-export const SINKHOLE_ART_TILE = 16;
+export const SINKHOLE_ART_TILE = 8;
 
 export const SINKHOLE_STYLE = {
-  bulge: 1,
-  jag: 1,
+  bulge: 0.5,
+  jag: 0.6,
   lumps: 0.15,
   taper: 0.85,
-  bandWidth: 2.5,
+  bandWidth: 1.5,
   rimWidth: 1,
-  litAmount: 0.45,
-  slump: 0.2,
-  cracks: 8,
-  crackLen: 5,
-  crackWobble: 0.4,
-  branch: 0.55,
+  rimShade: 0.3,
+  edgeShade: 0.6,
   introMs: 4000,
   crackShare: 0.4,
   spread: 0.4,
 } as const;
 
 export const SINKHOLE_TONE = {
-  earth: 0,
-  litSoft: 1,
-  litHard: 2,
-  slump: 3,
-  crack: 4,
-  crackLip: 5,
-  voidEdge: 6,
-  voidDeep: 7,
+  rim: 0,
+  voidEdge: 1,
+  voidDeep: 2,
 } as const;
 
 export type SinkholeTone = (typeof SINKHOLE_TONE)[keyof typeof SINKHOLE_TONE];
 
-const EARTH = 0x6a5846;
-const LIT = 0xa69078;
-const CRACK = 0x3e3026;
-const CRACK_LIP = 0x8a7660;
-const VOID_EDGE = 0x2e2018;
 const VOID_DEEP = 0x040206;
 
 function mixColor(from: number, to: number, amount: number): number {
@@ -52,13 +37,8 @@ function mixColor(from: number, to: number, amount: number): number {
 
 export function sinkholePalette(ground: number): readonly number[] {
   const palette: number[] = [];
-  palette[SINKHOLE_TONE.earth] = EARTH;
-  palette[SINKHOLE_TONE.litSoft] = mixColor(EARTH, LIT, SINKHOLE_STYLE.litAmount * 0.55);
-  palette[SINKHOLE_TONE.litHard] = mixColor(EARTH, LIT, SINKHOLE_STYLE.litAmount);
-  palette[SINKHOLE_TONE.slump] = mixColor(EARTH, ground, 0.55);
-  palette[SINKHOLE_TONE.crack] = CRACK;
-  palette[SINKHOLE_TONE.crackLip] = mixColor(ground, CRACK_LIP, 0.55);
-  palette[SINKHOLE_TONE.voidEdge] = VOID_EDGE;
+  palette[SINKHOLE_TONE.rim] = mixColor(ground, VOID_DEEP, SINKHOLE_STYLE.rimShade);
+  palette[SINKHOLE_TONE.voidEdge] = mixColor(ground, VOID_DEEP, SINKHOLE_STYLE.edgeShade);
   palette[SINKHOLE_TONE.voidDeep] = VOID_DEEP;
   return palette;
 }
@@ -87,27 +67,17 @@ export type SinkholeOpening = { crackP: number; open: number };
 
 const T = SINKHOLE_ART_TILE;
 const NEVER = 2;
-const SEAL_END_PX = 3;
-const OPEN_DEPTH_PAD = 4;
-const OPEN_DEPTH_FLOOR = 1.5;
+const SEAL_END_PX = 2;
+const OPEN_DEPTH_PAD = 2;
+const OPEN_DEPTH_FLOOR = 1;
 const MID_SLIT_SHARE = 0.5;
-const SLIT_OVERSHOOT_PX = 2;
+const SLIT_OVERSHOOT_PX = 1;
 
 const SIDES = [
   { dx: 0, dy: -1 },
   { dx: 0, dy: 1 },
   { dx: -1, dy: 0 },
   { dx: 1, dy: 0 },
-] as const;
-const DIRS = [
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-  [-1, -1],
-  [0, -1],
-  [1, -1],
 ] as const;
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
@@ -229,8 +199,8 @@ function buildHole(board: SinkholeBoard, chain: CollapseChain, seed: number): Ho
     for (const box of boxes) {
       sd = Math.min(sd, boxDistance(box, px, py));
     }
-    const fine = (noise2(x / 2.6, y / 2.6, seed) - 0.5) * 2 * jag * 2.6;
-    const lump = (noise2(x / 8, y / 8, seed + 40) - 0.5) * 2 * lumps * 4.2;
+    const fine = (noise2(x / 2, y / 2, seed) - 0.5) * 2 * jag;
+    const lump = (noise2(x / 4, y / 4, seed + 40) - 0.5) * 2 * lumps * 2.1;
     const value = sd - rc + fine + lump;
     return sealed(x, y) ? Math.min(value, -0.5) : value;
   };
@@ -283,7 +253,7 @@ export function buildSinkholeArt(
   const height = lines.length * T;
   const cols = chain.map((c) => c.col);
   const rows = chain.map((c) => c.row);
-  const reach = Math.ceil(T / 2 + style.bulge + style.crackLen + 8);
+  const reach = Math.ceil(T / 2 + style.bulge + 4);
   const x0 = Math.max(0, Math.min(...cols) * T - reach);
   const x1 = Math.min(width - 1, (Math.max(...cols) + 1) * T + reach);
   const y0 = Math.max(0, Math.min(...rows) * T - reach);
@@ -298,9 +268,6 @@ export function buildSinkholeArt(
     clamp01(
       (1 - (style.rimWidth - value) / depth + style.spread * lagOf(x, y)) / (1 + style.spread),
     );
-  const crackReach = hole.halfLength + style.crackLen + SLIT_OVERSHOOT_PX;
-  const crackFrom = (x: number, y: number): number =>
-    clamp01(Math.hypot(x + 0.5 - hole.mid.x, y + 0.5 - hole.mid.y) / crackReach);
 
   const pixels: SinkholePixel[] = [];
   const values = new Map<number, number>();
@@ -322,17 +289,6 @@ export function buildSinkholeArt(
   }
   depth = Math.max(depth, OPEN_DEPTH_FLOOR - deepest);
 
-  const rimTone = (x: number, y: number): SinkholeTone => {
-    const gx = valueAt(Math.min(width - 1, x + 1), y) - valueAt(Math.max(0, x - 1), y);
-    const gy = valueAt(x, Math.min(height - 1, y + 1)) - valueAt(x, Math.max(0, y - 1));
-    const length = Math.hypot(gx, gy) || 1;
-    const facing = (gx / length) * 0.7 + (gy / length) * 0.7;
-    if (hash3(x, y, seed + 9) < style.slump * 0.4) return SINKHOLE_TONE.slump;
-    if (facing > 0.6) return SINKHOLE_TONE.litHard;
-    return facing > 0.1 ? SINKHOLE_TONE.litSoft : SINKHOLE_TONE.earth;
-  };
-
-  const starts: { x: number; y: number }[] = [];
   for (let y = y0; y <= y1; y += 1) {
     for (let x = x0; x <= x1; x += 1) {
       const value = valueAt(x, y);
@@ -342,85 +298,23 @@ export function buildSinkholeArt(
       pixels.push({
         x,
         y,
-        tone: rimTone(x, y),
+        tone: SINKHOLE_TONE.rim,
         crackFrom: 0,
         openFrom: rimAt(value, x, y),
         openUntil: value < 0 ? openAt(value, x, y) : NEVER,
       });
     }
   }
-  for (let y = y0; y <= y1; y += 1) {
-    for (let x = x0; x <= x1; x += 1) {
-      const value = valueAt(x, y);
-      if (value > 0.4 && value < style.rimWidth + 1.2) {
-        starts.push({ x, y });
-      }
-    }
-  }
-
-  const next = randomFromSeed(`sinkhole-cracks:${seed}`);
-  const gradientDir = (x: number, y: number): number => {
-    const gx = valueAt(Math.min(width - 1, x + 1), y) - valueAt(Math.max(0, x - 1), y);
-    const gy = valueAt(x, Math.min(height - 1, y + 1)) - valueAt(x, Math.max(0, y - 1));
-    const angle = Math.atan2(gy, gx);
-    return ((Math.round(angle / (Math.PI / 4)) % 8) + 8) % 8;
-  };
-  const crackCells = new Set<number>();
-  const stack: { x: number; y: number; dir: number; len: number }[] = [];
-  for (let i = 0; i < style.cracks && starts.length > 0; i += 1) {
-    const start = starts[Math.floor(next() * starts.length)]!;
-    stack.push({
-      ...start,
-      dir: gradientDir(start.x, start.y),
-      len: Math.max(2, Math.round(style.crackLen * (0.5 + next() * 0.9))),
-    });
-  }
-  const turn = (dir: number): number => (dir + (next() < 0.5 ? 1 : 7)) % 8;
-  while (stack.length > 0) {
-    const crack = stack.pop()!;
-    let { x, y, dir } = crack;
-    for (let step = 0; step < crack.len; step += 1) {
-      if (next() < style.crackWobble) {
-        dir = turn(dir);
-      }
-      x += DIRS[dir]![0];
-      y += DIRS[dir]![1];
-      if (inArt(x, y) && valueAt(x, y) > 0) {
-        crackCells.add(y * width + x);
-      }
-      if (step > 2 && crack.len - step > 3 && next() < style.branch * 0.12) {
-        stack.push({ x, y, dir: turn(dir), len: Math.round((crack.len - step) * 0.6) });
-      }
-    }
-  }
-  for (const key of crackCells) {
-    const x = key % width;
-    const y = Math.floor(key / width);
-    pixels.push({
-      x,
-      y,
-      tone: SINKHOLE_TONE.crack,
-      crackFrom: crackFrom(x, y),
-      openFrom: 0,
-      openUntil: NEVER,
-    });
-  }
-
   const slit = new Set<number>();
   hole.path.forEach((point, index) => {
-    const offset = Math.round((noise2(index / 2.4, 0, seed + 90) - 0.5) * 3.4);
+    const offset = Math.round((noise2(index / 1.2, 0, seed + 90) - 0.5) * 1.7);
     const x = point.along ? point.x : point.x + offset;
     const y = point.along ? point.y + offset : point.y;
     const from = clamp01(Math.abs(index + 0.5 - hole.halfLength) / hole.halfLength);
     const thick = from < MID_SLIT_SHARE || hash3(index, 1, seed + 91) < 0.35;
-    const entries: [number, number, SinkholeTone][] = [[x, y, SINKHOLE_TONE.crack]];
+    const entries: [number, number, SinkholeTone][] = [[x, y, SINKHOLE_TONE.voidEdge]];
     if (thick) {
-      entries.push(
-        point.along ? [x, y + 1, SINKHOLE_TONE.crackLip] : [x + 1, y, SINKHOLE_TONE.crackLip],
-      );
-    }
-    if (hash3(index, 2, seed + 92) < 0.12) {
-      entries.push(point.along ? [x, y - 1, SINKHOLE_TONE.crack] : [x - 1, y, SINKHOLE_TONE.crack]);
+      entries.push(point.along ? [x, y + 1, SINKHOLE_TONE.rim] : [x + 1, y, SINKHOLE_TONE.rim]);
     }
     for (const [px, py, tone] of entries) {
       if (inArt(px, py) && !slit.has(py * width + px)) {
