@@ -1033,6 +1033,14 @@ export class LearnSim {
     };
   }
 
+  hauntDebug(): { caged: boolean; inHouse: boolean } {
+    const eid = hauntedGhostEid(this.learnUpgrades);
+    return {
+      caged: eid !== null,
+      inHouse: eid !== null && GhostPhase.value[eid] === GHOST_PHASE.inHouse,
+    };
+  }
+
   playerWorldPosition(): { x: number; y: number } | null {
     return this.playerPosition();
   }
@@ -1773,7 +1781,7 @@ export class LearnSim {
     const hauntCatcher = hasUpgrade(owned, "passiveHaunting") ? caughtBy : null;
     if (hauntCatcher !== null) {
       this.releaseHauntedGhost();
-      this.seatGhostAtExit(hauntCatcher);
+      this.seatGhostInHouse(hauntCatcher);
       this.learnUpgrades = armHaunt(this.learnUpgrades, hauntCatcher, HAUNTING_MS);
       lines.push("HAUNTED");
     }
@@ -1802,7 +1810,7 @@ export class LearnSim {
     this.learnUpgrades = endPossession(this.learnUpgrades);
     if (possessedEid !== null && hauntMs !== null) {
       this.releaseHauntedGhost();
-      this.seatGhostAtExit(possessedEid);
+      this.seatGhostInHouse(possessedEid);
       this.learnUpgrades = armHaunt(this.learnUpgrades, possessedEid, hauntMs);
       this.popup("POSSESSED\nHAUNTED");
     } else {
