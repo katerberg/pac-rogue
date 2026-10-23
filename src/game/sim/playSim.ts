@@ -10,6 +10,7 @@ import {
 } from "bitecs";
 import {
   addPennyCharge,
+  applyStreakCrumbs,
   applyStreakPellets,
   QUARTER_CHARGE,
   penniesInCharge,
@@ -357,6 +358,8 @@ import {
   tickFrightened,
   nearMissCharge,
   streakEngineEvery,
+  gleaningCharge,
+  gleaningStreakSteps,
   moneyTalksCost,
   interestPayout,
   deathsHarvestRadiusTiles,
@@ -476,6 +479,8 @@ import {
 } from "../../domain/possession";
 import { stepNearMisses } from "../systems/nearMiss";
 import { streakEngineFires, streakPops } from "../../domain/streakEngine";
+import { createGleaning, stepGleaning, type Gleaning } from "../../domain/gleaning";
+import { crumbGhostCells, pelletCells, takeCrumbsAt } from "../systems/gleaning";
 import { tickEchoes } from "../../domain/echo";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import {
@@ -609,6 +614,7 @@ import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import {
   spawnBoardPellets,
   spawnFruit,
+  spawnCrumb,
   spawnPellet,
   spawnPlayer,
   spawnSlotMachine,
@@ -668,6 +674,8 @@ export class PlaySim {
   private elroySuppressed = false;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private nearMissesPaid = 0;
+  private gleaning: Gleaning = createGleaning();
+  private crumbCount = 0;
   private streakPopCount = 0;
   private lastStreakPop: number | null = null;
   private upgradeTimers: UpgradeTimers = {};
@@ -1280,6 +1288,7 @@ export class PlaySim {
       hunterHeld: upgrades.hunterHeldEids.map((eid) => ghostName(this.world, eid)),
       ghostsEatenThisFright: upgrades.ghostsEatenThisFright,
       streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
+      crumbs: this.crumbCount,
       upgradePulses: { count: this.upgradePulseCount, last: this.lastUpgradePulse },
       upgradeTimers: upgradeTimerFractions(this.upgradeTimers),
       boardCollected: this.pelletProgress.boardCollected,
@@ -1841,6 +1850,7 @@ export class PlaySim {
     } else {
       this.pennies = tickStreakIdle(this.pennies, delta, this.currentTuning.pennyStreakIdleMs);
     }
+    streakFires += this.gleanCrumbs();
     const removed = removedPelletEids.length;
     this.eatDragMs = eatDragAfterCollect(
       this.eatDragMs,
@@ -2595,6 +2605,39 @@ export class PlaySim {
     return streakEngineFires(prevStreak, this.pennies.streak, every);
   }
 
+  private gleanCrumbs(): number {
+    for (const eid of takeCrumbsAt(this.world, playerCell(this.world))) {
+      this.releaseDrawable(eid);
+    }
+    const owned = this.effectiveUpgrades();
+    const steps = gleaningStreakSteps(owned);
+    if (steps === 0) {
+      return 0;
+    }
+    const step = stepGleaning(
+      this.gleaning,
+      crumbGhostCells(this.world, frightenedGhostEids(this.runUpgrades)),
+      pelletCells(this.world),
+      this.pennies.streak > 0,
+    );
+    this.gleaning = step.state;
+    const dropped = step.crumbs.length;
+    if (dropped === 0) {
+      return 0;
+    }
+    this.crumbCount += dropped;
+    const enhanced = gleaningCharge(owned) > 0;
+    for (const cell of step.crumbs) {
+      spawnCrumb(this.world, cellCenterX(cell.col), cellCenterY(cell.row), enhanced);
+    }
+    const prevStreak = this.pennies.streak;
+    const grown = applyStreakCrumbs(this.pennies, dropped * steps);
+    const paid = addPennyCharge(grown.bar, dropped * gleaningCharge(owned));
+    this.applyPennies({ bar: paid.bar, tier: grown.tier, filled: grown.filled + paid.filled });
+    const every = streakEngineEvery(owned);
+    return every === null ? 0 : streakEngineFires(prevStreak, this.pennies.streak, every);
+  }
+
   private fireStreakEngine(fires: number): boolean {
     for (let fired = 0; fired < fires; fired += 1) {
       this.recorder.activation("streakEngine");
@@ -3068,6 +3111,7 @@ export class PlaySim {
     this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);
     this.previousEffectiveGhostMode = this.ghostModeClock.mode;
     this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.gleaning = createGleaning(pelletCells(this.world));
     this.replayRecorder.beginSegment(this.world, this.levelIndex);
     this.remoteTransferCounter = 0;
     this.fruitPresence = createFruitPresence();
@@ -3588,6 +3632,7 @@ export class PlaySim {
     this.tagBossPellets(this.bossState);
     tagOptionalPellets(this.world, null);
     this.pelletProgress = createPelletProgress(countPellets(this.world));
+    this.gleaning = createGleaning(pelletCells(this.world));
     this.spawnBossGhostsForLife();
     this.ghostReleaseClock = createGhostReleaseClock(this.levelIndex);
     this.ghostModeClock = createGhostModeClock(this.levelIndex, this.currentTuning);

@@ -8,6 +8,7 @@ import {
   formatPennies,
   penniesInCharge,
   FRUIT_BONUS_CHARGE,
+  applyStreakCrumbs,
   applyStreakPellets,
   createPennyPurse,
   tickStreakIdle,
@@ -103,6 +104,8 @@ import {
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   streakEngineEvery,
+  gleaningCharge,
+  gleaningStreakSteps,
   bankShields,
   bankPeels,
   bananaPeelCap,
@@ -190,6 +193,7 @@ import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
+import { Crumb } from "../components/Crumb";
 import { Pellet } from "../components/Pellet";
 import { PowerPellet } from "../components/PowerPellet";
 import { Player } from "../components/Player";
@@ -273,6 +277,8 @@ import {
 } from "../systems/catchPlayer";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
+import { crumbGhostCells, pelletCells, takeCrumbsAt } from "../systems/gleaning";
+import { createGleaning, stepGleaning, type Gleaning } from "../../domain/gleaning";
 import { createNearMissPasses, type NearMissPasses } from "../../domain/nearMiss";
 import { harvestNearbyPellets } from "../systems/deathsHarvest";
 import { pickReactiveArmorGhosts } from "../systems/reactiveArmor";
@@ -312,7 +318,14 @@ import { GhostTractionState, playerInTunnel } from "../systems/trinketGhosts";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { playerCell } from "../systems/playerCell";
 import { tagOptionalPellets } from "../systems/lazyLooper";
-import { spawnBoardPellets, spawnFruit, spawnPellet, spawnPlayer, spawnWalls } from "./spawn";
+import {
+  spawnBoardPellets,
+  spawnCrumb,
+  spawnFruit,
+  spawnPellet,
+  spawnPlayer,
+  spawnWalls,
+} from "./spawn";
 
 export type LearnOverlayModel = {
   kind: GhostKindId;
@@ -396,6 +409,7 @@ export class LearnSim {
   private catchGraceMs = 0;
   private nearMissPasses: NearMissPasses = createNearMissPasses();
   private streakBar: PennyPurse = createPennyPurse();
+  private gleaning: Gleaning = createGleaning();
   private fruitPresence: FruitPresence = createFruitPresence();
   private fruitSequence: FruitSequenceState = {
     sequence: [],
@@ -1284,27 +1298,56 @@ export class LearnSim {
       this.streakBar = createPennyPurse();
       return;
     }
+    let fires = 0;
     if (cells.length === 0) {
       this.streakBar = tickStreakIdle(this.streakBar, delta);
-      return;
+    } else {
+      const prevStreak = this.streakBar.streak;
+      const weight = titheStreakWeight(this.learnUpgrades, this.learnUpgrades.owned);
+      this.streakBar = applyStreakPellets(this.streakBar, cells, weight).bar;
+      for (const pop of streakPops(prevStreak, this.streakBar.streak, every, weight)) {
+        const cell = cells[pop.cellIndex]!;
+        this.events.push({
+          type: "streakPop",
+          value: pop.value,
+          x: cellCenterX(cell.col),
+          y: cellCenterY(cell.row),
+        });
+      }
+      fires = streakEngineFires(prevStreak, this.streakBar.streak, every);
     }
-    const prevStreak = this.streakBar.streak;
-    const weight = titheStreakWeight(this.learnUpgrades, this.learnUpgrades.owned);
-    this.streakBar = applyStreakPellets(this.streakBar, cells, weight).bar;
-    for (const pop of streakPops(prevStreak, this.streakBar.streak, every, weight)) {
-      const cell = cells[pop.cellIndex]!;
-      this.events.push({
-        type: "streakPop",
-        value: pop.value,
-        x: cellCenterX(cell.col),
-        y: cellCenterY(cell.row),
-      });
-    }
-    const fires = streakEngineFires(prevStreak, this.streakBar.streak, every);
+    fires += this.gleanCrumbs(every);
     for (let fired = 0; fired < fires; fired += 1) {
       this.resolvePowerPelletTrigger(1);
       this.learnUpgrades = applyStreakEngineInvuln(this.learnUpgrades, this.learnUpgrades.owned);
     }
+  }
+
+  private gleanCrumbs(every: number): number {
+    for (const eid of takeCrumbsAt(this.world, playerCell(this.world))) {
+      this.events.push({ type: "releaseDrawable", eid });
+    }
+    const steps = gleaningStreakSteps(this.learnUpgrades.owned);
+    if (steps === 0) {
+      return 0;
+    }
+    const step = stepGleaning(
+      this.gleaning,
+      crumbGhostCells(this.world, frightenedGhostEids(this.learnUpgrades)),
+      pelletCells(this.world),
+      this.streakBar.streak > 0,
+    );
+    this.gleaning = step.state;
+    if (step.crumbs.length === 0) {
+      return 0;
+    }
+    const paid = gleaningCharge(this.learnUpgrades.owned) > 0;
+    for (const cell of step.crumbs) {
+      spawnCrumb(this.world, cellCenterX(cell.col), cellCenterY(cell.row), paid);
+    }
+    const prevStreak = this.streakBar.streak;
+    this.streakBar = applyStreakCrumbs(this.streakBar, step.crumbs.length * steps).bar;
+    return streakEngineFires(prevStreak, this.streakBar.streak, every);
   }
 
   private recallClosestGhost(): void {
@@ -2008,6 +2051,10 @@ export class LearnSim {
     if (this.fruitScheduled()) {
       this.clearAllFruit();
     }
+    for (const eid of query(this.world, [Crumb])) {
+      this.events.push({ type: "releaseDrawable", eid });
+      removeEntity(this.world, eid);
+    }
     for (const eid of query(this.world, [Pellet])) {
       this.events.push({ type: "releaseDrawable", eid });
       removeEntity(this.world, eid);
@@ -2019,6 +2066,7 @@ export class LearnSim {
     this.learnUpgrades = grantStartingShields(this.learnUpgrades);
     spawnBoardPellets(this.world);
     this.tagOptionalPellets();
+    this.gleaning = createGleaning(pelletCells(this.world));
   }
 
   private tagOptionalPellets(): void {

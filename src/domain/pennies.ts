@@ -28,7 +28,7 @@ export type PennyPurse = {
 
 export type PennyResult = { bar: PennyPurse; tier: number; filled: number };
 
-function cellKey(cell: Cell): string {
+export function cellKey(cell: Cell): string {
   return `${cell.col},${cell.row}`;
 }
 
@@ -53,6 +53,18 @@ export function addPennyCharge(
   return { bar: { ...bar, charge: total % QUARTER_CHARGE }, filled };
 }
 
+function growStreak(bar: PennyPurse, steps: number): PennyResult {
+  const streak = bar.streak + steps;
+  const fromTier = Math.floor(bar.streak / PENNY_STREAK_TIER_SIZE);
+  const toTier = Math.floor(streak / PENNY_STREAK_TIER_SIZE);
+  let bump = 0;
+  for (let tier = fromTier + 1; tier <= toTier; tier += 1) {
+    bump += pennyTierBump(tier);
+  }
+  const charged = addPennyCharge({ ...bar, streak }, bump);
+  return { bar: charged.bar, tier: toTier > fromTier ? toTier : 0, filled: charged.filled };
+}
+
 export function applyStreakPellets(
   bar: PennyPurse,
   cells: readonly Cell[],
@@ -61,19 +73,18 @@ export function applyStreakPellets(
   if (cells.length === 0) {
     return { bar, tier: 0, filled: 0 };
   }
-  const streak = bar.streak + cells.length * weight;
   const credited = new Set(bar.credited);
   for (const cell of cells) {
     credited.add(cellKey(cell));
   }
-  const fromTier = Math.floor(bar.streak / PENNY_STREAK_TIER_SIZE);
-  const toTier = Math.floor(streak / PENNY_STREAK_TIER_SIZE);
-  let bump = 0;
-  for (let tier = fromTier + 1; tier <= toTier; tier += 1) {
-    bump += pennyTierBump(tier);
+  return growStreak({ ...bar, idleMs: 0, credited }, cells.length * weight);
+}
+
+export function applyStreakCrumbs(bar: PennyPurse, steps: number): PennyResult {
+  if (bar.streak === 0 || steps <= 0) {
+    return { bar, tier: 0, filled: 0 };
   }
-  const charged = addPennyCharge({ ...bar, streak, idleMs: 0, credited }, bump);
-  return { bar: charged.bar, tier: toTier > fromTier ? toTier : 0, filled: charged.filled };
+  return growStreak(bar, steps);
 }
 
 export function breakStreak(bar: PennyPurse): PennyPurse {

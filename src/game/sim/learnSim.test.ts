@@ -47,6 +47,7 @@ import {
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wallDrop";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
+import { Crumb } from "../components/Crumb";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
 import { DIRECTION, Input } from "../components/Input";
@@ -1552,6 +1553,31 @@ describe("LearnSim upgrade demos", () => {
       }
       const pops = events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
       expect(pops).toEqual([5, 10, 15, 20, 25, 30]);
+    });
+  });
+
+  describe("Gleaning", () => {
+    it("lets a ghost crumb on a cleared tile feed the Streak Engine", () => {
+      const { sim, player } = setup("passiveGleaning", "passiveStreakEngine");
+      sim.toggleEnhanced("passiveStreakEngine");
+      const pellets = query(sim.world, [Pellet, Position]).filter(
+        (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+      );
+      const cleared = posOf(pellets[0]!);
+      const events: ReturnType<LearnSim["step"]> = [];
+      for (const pellet of pellets.slice(0, 29)) {
+        moveTo(player, posOf(pellet));
+        events.push(...sim.step(NO_KEYS_HELD, FRAME_MS));
+      }
+      const ghost = query(sim.world, [GhostPhase, Position])[0]!;
+      Position.x[ghost] = cleared.x;
+      Position.y[ghost] = cleared.y;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      const last = sim.step(NO_KEYS_HELD, FRAME_MS);
+      const draws = last.filter((event) => event.type === "draw");
+      const final = draws[draws.length - 1]!;
+      expect(final.type === "draw" ? final.options.playerInvulnRemainingMs : 0).toBeGreaterThan(0);
+      expect(query(sim.world, [Crumb, Position])).toHaveLength(1);
     });
   });
 

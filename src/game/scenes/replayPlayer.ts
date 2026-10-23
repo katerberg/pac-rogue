@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { invertRgb24 } from "../../domain/bossRules";
 import { brightenColor } from "../../domain/playerTint";
-import { pelletTint } from "../../domain/lazyLooper";
 import {
   actorDisplaySize,
   playerDisplaySize,
@@ -123,8 +122,8 @@ export function createReplayPlayer(scene: Phaser.Scene, data: ReplayData): Repla
           .setDepth(CONTENT_DEPTH + 1);
         if (item.art === BOSS_PELLET_DRAWABLE_ID) {
           image.setTint(bossTint);
-        } else if (pelletTint(item.optional) !== null) {
-          image.setTint(pelletTint(item.optional)!);
+        } else if (item.tint !== null) {
+          image.setTint(item.tint);
         }
         items.set(item.eid, image);
       }

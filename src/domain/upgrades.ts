@@ -89,7 +89,8 @@ export type CoreUpgradeId =
   | "passiveTunnelBoring"
   | "passiveMartyr"
   | "passivePossession"
-  | "passiveFloating";
+  | "passiveFloating"
+  | "passiveGleaning";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -167,6 +168,8 @@ export type UpgradeEffects = {
   reanimation?: ReanimationMode;
   interestPerQuarters?: number;
   nearMissCharge?: number;
+  gleaningStreak?: number;
+  gleaningCharge?: number;
   hauntMs?: number;
   martyrOnSave?: true;
   possessionMs?: number;
@@ -265,6 +268,8 @@ export const STREAK_ENGINE_EVERY = 30;
 export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
+export const GLEANING_STREAK_STEPS = 1;
+export const GLEANING_ENHANCED_CHARGE = 6.25;
 export const AFTERBURNER_MUL = 1.3;
 export const AFTERBURNER_PELLET_MUL = 0.8;
 export const MOLE_PELLET_MUL = 1.2;
@@ -1140,6 +1145,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       description:
         "Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely.",
       floatsOverSlowZones: true,
+    },
+  },
+  {
+    id: "passiveGleaning",
+    label: "Gleaning",
+    school: "harvest",
+    description: "Ghosts crossing cleared tiles leave crumbs that add to your streak.",
+    storePrice: STORE_UPGRADE_PRICE,
+    gleaningStreak: GLEANING_STREAK_STEPS,
+    enhanced: {
+      enhanceNote: "Gleaning crumbs also pay half a penny each.",
+      description:
+        "Ghosts crossing cleared tiles leave crumbs that add to your streak and pay half a penny each.",
+      gleaningCharge: GLEANING_ENHANCED_CHARGE,
     },
   },
 ];
@@ -2463,6 +2482,14 @@ export function inheritancePayout(
   }
   const units = ownedValue(owned, "inheritancePerDeath") === true ? deathsOnLevel : emptyLifeSlots;
   return units * INHERITANCE_QUARTERS_PER_UNIT;
+}
+
+export function gleaningStreakSteps(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "gleaningStreak") ?? 0;
+}
+
+export function gleaningCharge(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "gleaningCharge") ?? 0;
 }
 
 export function nearMissCharge(owned: readonly UpgradeId[]): number {
