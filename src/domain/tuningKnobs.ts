@@ -311,7 +311,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "How far the inner band mixes from the wall color toward the void color. 0 = wall color, 1 = void color.",
   sinkholeVoidColor: "Color at the bottom of the sinkhole.",
   sinkholeIntroMs:
-    "How long the first-time opening (crack, then widen) takes. Replays when the sinkhole's first level starts again (reload on level 6).",
+    "How long the first-time opening (crack, then widen) takes. Replays when the sinkhole's first level starts again (reload the page on that level).",
   sinkholeCrackShare:
     "Share of the opening spent running the crack before the hole starts widening.",
   sinkholeSpread:
