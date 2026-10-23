@@ -269,6 +269,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMartyr",
   "passivePossession",
   "passiveFloating",
+  "passiveSonicBoom",
 ];
 
 const MAXED_LOW: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>

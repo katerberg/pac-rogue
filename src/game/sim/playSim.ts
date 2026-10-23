@@ -513,6 +513,15 @@ import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningStat
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
+import {
+  applySonicStuns,
+  atTopSpeed,
+  sonicBoomStunMs,
+  sonicStunnedEids,
+  sonicStunRemainingMs,
+  tickSonicStuns,
+} from "../../domain/sonicBoom";
+import { movingOverClearedTile, sonicBoomWorldTargets } from "../systems/sonicBoom";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import { programmerQueueSlots } from "../../domain/programmer";
@@ -1010,6 +1019,7 @@ export class PlaySim {
     return {
       frozenGhostEid: frozenGhostEid(this.runUpgrades),
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
+      stunnedGhostEids: sonicStunnedEids(this.runUpgrades),
       possessedGhostEid: possessedGhostEid(this.runUpgrades),
       ...(possessionActive(this.runUpgrades) ? { playerAlpha: 0 } : {}),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
@@ -1129,6 +1139,7 @@ export class PlaySim {
       effectiveUpgrades: this.effectiveUpgrades(),
       timers: {
         freezeMs: upgrades.freezeRemainingMs,
+        sonicBoomStunMs: sonicStunRemainingMs(upgrades),
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
@@ -1470,6 +1481,7 @@ export class PlaySim {
     }
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
+    this.runUpgrades = tickSonicStuns(this.runUpgrades, delta);
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
@@ -1546,6 +1558,7 @@ export class PlaySim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
+        ...sonicStunnedEids(this.runUpgrades),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
@@ -1590,6 +1603,7 @@ export class PlaySim {
     this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
+    this.sonicBoom();
     const facingAfterMove = playerFacing(this.world);
     this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.emitTurnSparks(
@@ -4235,6 +4249,21 @@ export class PlaySim {
       speedBurstActive(this.runUpgrades) ||
       hyperspeedActive(this.runUpgrades) ||
       this.runUpgrades.programmer?.phase === "running"
+    );
+  }
+
+  private sonicBoom(): void {
+    const owned = this.effectiveUpgrades();
+    if (
+      !atTopSpeed(owned, this.speedTrailActive(), movingOverClearedTile(this.world)) ||
+      this.death !== null
+    ) {
+      return;
+    }
+    this.runUpgrades = applySonicStuns(
+      this.runUpgrades,
+      sonicBoomWorldTargets(this.world, owned),
+      sonicBoomStunMs(owned),
     );
   }
 

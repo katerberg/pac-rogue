@@ -26,6 +26,7 @@ export type { TimedTunnelRenderState };
 export type SimRenderOptions = {
   frozenGhostEid: number | null;
   frozenGhostRemainingMs: number;
+  stunnedGhostEids?: ReadonlySet<number>;
   playerInvulnRemainingMs: number;
   fruitRemainingMs?: number;
   wallPassActive: boolean;

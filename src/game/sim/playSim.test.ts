@@ -104,6 +104,7 @@ import {
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
   type UpgradeId,
+  clearUpgradeTimers,
 } from "../../domain/upgrades";
 import {
   LOW_POWER_IDS,
@@ -9788,5 +9789,125 @@ describe("Floating", () => {
 
   it("keeps the fast side boost when enhanced", () => {
     expect(laneRun(["passiveFloatingPlus"], "fast").effect).toBe("fast");
+  });
+});
+
+describe("Sonic Boom", () => {
+  function boomSim(enableUpgrades: PlayOptions["enableUpgrades"]): { sim: PlaySim; ghost: number } {
+    const sim = startSim(
+      { level: 2, maze: "maze1", infiniteLives: true, enableUpgrades },
+      "sonic-boom",
+    );
+    const [ghost, ...rest] = query(sim.world, [Ghost, Position]);
+    for (const eid of rest) {
+      removeEntity(sim.world, eid);
+    }
+    runFrames(sim, 1);
+    return { sim, ghost: ghost! };
+  }
+
+  function placeGhost(ghost: number, x: number, y: number): void {
+    Position.x[ghost] = x;
+    Position.y[ghost] = y;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+  }
+
+  function nearPlayer(sim: PlaySim, ghost: number): void {
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]! + 12, Position.y[player]!);
+  }
+
+  it.each(["passiveSonicBoom", "passiveSonicBoomPlus"] as const)(
+    "%s stuns a ghost passed within a tile at top speed",
+    (id) => {
+      const { sim, ghost } = boomSim([id]);
+      sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+      nearPlayer(sim, ghost);
+      runFrames(sim, 2);
+      expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
+      expect(Speed.px[ghost]).toBe(0);
+    },
+  );
+
+  it("does not stun below top speed", () => {
+    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const { sim, ghost } = boomSim([]);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
+  });
+
+  it("counts Afterburner on a cleared tile as top speed only while moving", () => {
+    const { sim, ghost } = boomSim(["passiveSonicBoom", "passiveAfterburner"]);
+    for (const eid of query(sim.world, [Pellet])) {
+      removeEntity(sim.world, eid);
+    }
+    nearPlayer(sim, ghost);
+    runFrames(sim, 2);
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
+    runFrames(sim, 2, { keys: held("left") });
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1, { keys: held("left") });
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
+  });
+
+  it("leaves a far ghost alone", () => {
+    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]! + 60, Position.y[player]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
+  });
+
+  it("wears off and clears with the other timers", () => {
+    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 60_000 };
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(sim["runUpgrades"].sonicStuns).toEqual([]);
+  });
+
+  it("Plus stuns a ghost down a side hallway of a junction, base does not", () => {
+    const layout = getActiveLayout();
+    const open = (c: number, r: number): boolean => !layout.playerSolids[r]?.[c];
+    const spots = [] as { col: number; row: number; sc: number; sr: number }[];
+    for (let row = 3; row < layout.rows - 3; row += 1) {
+      for (let col = 3; col < layout.cols - 3; col += 1) {
+        if (!open(col, row) || !open(col - 1, row) || !open(col + 1, row)) {
+          continue;
+        }
+        for (const [sc, sr] of [
+          [0, -1],
+          [0, 1],
+        ] as const) {
+          if (open(col + sc, row + sr) && open(col + sc * 2, row + sr * 2)) {
+            spots.push({ col, row, sc, sr });
+          }
+        }
+      }
+    }
+    const spot = spots[0]!;
+    const run = (id: "passiveSonicBoom" | "passiveSonicBoomPlus"): number => {
+      const { sim, ghost } = boomSim([id]);
+      sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+      const player = playerEid(sim);
+      teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
+      Facing.direction[player] = DIRECTION.right;
+      placeGhost(ghost, cellCenterX(spot.col + spot.sc * 2), cellCenterY(spot.row + spot.sr * 2));
+      sim["sonicBoom"]();
+      return sim["runUpgrades"].sonicStuns.length;
+    };
+    expect(run("passiveSonicBoom")).toBe(0);
+    expect(run("passiveSonicBoomPlus")).toBe(1);
   });
 });

@@ -50,6 +50,7 @@ import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
 import { DIRECTION, Input } from "../components/Input";
+import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
@@ -2356,5 +2357,44 @@ describe("Martyr and Possession (LEARN)", () => {
     }
     expect(sim["learnUpgrades"].hauntedGhostEid).toBe(ghost);
     expect(sim["learnUpgrades"].hauntRemainingMs).toBe(5000);
+  });
+});
+
+describe("Sonic Boom (LEARN)", () => {
+  function boomSim(id: "passiveSonicBoom" | "passiveSonicBoomPlus"): LearnSim {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    sim.toggleUpgrade("passiveSonicBoom");
+    if (id === "passiveSonicBoomPlus") {
+      sim.toggleEnhanced("passiveSonicBoom");
+    }
+    sim["learnUpgrades"] = { ...sim["learnUpgrades"], speedBurstRemainingMs: 3000 };
+    return sim;
+  }
+
+  it.each(["passiveSonicBoom", "passiveSonicBoomPlus"] as const)(
+    "%s stuns a ghost passed at top speed and shows on the HUD",
+    (id) => {
+      const sim = boomSim(id);
+      const player = query(sim.world, [Player, Position])[0]!;
+      const ghost = query(sim.world, [Ghost, Position])[0]!;
+      Position.x[ghost] = Position.x[player]! + 12;
+      Position.y[ghost] = Position.y[player]!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(sim["learnUpgrades"].sonicStuns.length).toBeGreaterThan(0);
+      expect(sim.upgradeTimerFractions().passiveSonicBoom).toBeGreaterThan(0);
+    },
+  );
+
+  it("clears the stun when the upgrade is toggled off", () => {
+    const sim = boomSim("passiveSonicBoom");
+    sim["learnUpgrades"] = {
+      ...sim["learnUpgrades"],
+      sonicStuns: [{ eid: 1, remainingMs: 500 }],
+    };
+    sim.toggleUpgrade("passiveSonicBoom");
+    expect(sim["learnUpgrades"].sonicStuns).toEqual([]);
   });
 });

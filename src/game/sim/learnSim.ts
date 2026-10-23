@@ -279,6 +279,14 @@ import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningStat
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
+import {
+  applySonicStuns,
+  atTopSpeed,
+  sonicBoomStunMs,
+  sonicStunnedEids,
+  tickSonicStuns,
+} from "../../domain/sonicBoom";
+import { movingOverClearedTile, sonicBoomWorldTargets } from "../systems/sonicBoom";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
@@ -553,6 +561,7 @@ export class LearnSim {
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
+    this.learnUpgrades = tickSonicStuns(this.learnUpgrades, delta);
     const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
@@ -638,6 +647,7 @@ export class LearnSim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
+        ...sonicStunnedEids(this.learnUpgrades),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
@@ -709,6 +719,19 @@ export class LearnSim {
             delta,
           )
         : [];
+    if (
+      atTopSpeed(
+        this.learnUpgrades.owned,
+        this.speedTrailActive(),
+        movingOverClearedTile(this.world),
+      )
+    ) {
+      this.learnUpgrades = applySonicStuns(
+        this.learnUpgrades,
+        sonicBoomWorldTargets(this.world, this.learnUpgrades.owned),
+        sonicBoomStunMs(this.learnUpgrades.owned),
+      );
+    }
 
     this.tickMirror(delta);
     const playerFrame = possessionActive(this.learnUpgrades)
@@ -815,6 +838,7 @@ export class LearnSim {
     this.events.push({
       type: "draw",
       options: {
+        stunnedGhostEids: sonicStunnedEids(this.learnUpgrades),
         frozenGhostEid: frozenGhostEid(this.learnUpgrades),
         frozenGhostRemainingMs: this.learnUpgrades.freezeRemainingMs,
         playerInvulnRemainingMs: Math.max(
@@ -2115,6 +2139,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
+    sonicStuns: hasUpgrade(owned, "passiveSonicBoom") ? state.sonicStuns : [],
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
     mirrorActive: hasField("mirror") && state.mirrorActive,
     programmer: hasField("programmerSets") ? state.programmer : null,
