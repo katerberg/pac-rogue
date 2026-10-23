@@ -10470,6 +10470,13 @@ describe("Scarecrow", () => {
     return query(sim.world, [Fruit, Position])[0]!;
   }
 
+  function activeGhostFor(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Speed.px[ghost] = PLAYER_SPEED;
+    return ghost;
+  }
+
   function eatFruit(sim: PlaySim, fruit: number): void {
     teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
     runFrames(sim, 1);
@@ -10516,6 +10523,36 @@ describe("Scarecrow", () => {
       return open.length > 0 && open.length < plain.length;
     });
     expect(blockedSomewhere).toBe(true);
+  });
+
+  it("an active chasing ghost stays out of the fruit radius, and enters it without the upgrade", () => {
+    const closest = (upgrades: UpgradeId[]): number => {
+      const sim = start(upgrades);
+      const ghost = activeGhostFor(sim);
+      const fruit = placeFruit(sim);
+      const fx = Position.x[fruit]!;
+      const fy = Position.y[fruit]!;
+      const layout = getActiveLayout();
+      const cells = [...Array(layout.rows * layout.cols).keys()]
+        .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+        .filter(({ col, row }) => isWalkable(col, row));
+      const distTo = ({ col, row }: { col: number; row: number }) =>
+        Math.hypot(col - worldToCol(fx), row - worldToRow(fy));
+      const far = cells.find((cell) => distTo(cell) > 8 && distTo(cell) < 11)!;
+      const near = cells.find((cell) => distTo(cell) >= 2 && distTo(cell) < 3)!;
+      Position.x[ghost] = cellCenterX(far.col);
+      Position.y[ghost] = cellCenterY(far.row);
+      let min = Infinity;
+      for (let frame = 0; frame < 900; frame += 1) {
+        teleportPlayer(sim, cellCenterX(near.col), cellCenterY(near.row));
+        runFrames(sim, 1, { keys: held("left") });
+        const d = Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy) / layout.tileSize;
+        min = Math.min(min, d);
+      }
+      return min;
+    };
+    expect(closest([])).toBeLessThan(4);
+    expect(closest(["passiveScarecrow"])).toBeGreaterThanOrEqual(3.5);
   });
 
   it("base Scarecrow leaves no scent after pickup", () => {
