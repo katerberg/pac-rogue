@@ -2390,5 +2390,6 @@ describe("Martyr and Possession (LEARN)", () => {
     }
     expect(sim["learnUpgrades"].hauntedGhostEid).toBe(ghost);
     expect(sim["learnUpgrades"].hauntRemainingMs).toBe(5000);
+    expect({ x: Position.x[ghost]!, y: Position.y[ghost]! }).toEqual(ghostHouseSpawnCenter());
   });
 });
