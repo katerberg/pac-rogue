@@ -10570,7 +10570,7 @@ describe("Scarecrow", () => {
     expect(sim.renderOptions().scent).toEqual([]);
   });
 
-  it("clears the lingering scent on life loss or level advance", () => {
+  it("clearUpgradeTimers drops the lingering scent", () => {
     const sim = start(["passiveScarecrowPlus"]);
     eatFruit(sim, placeFruit(sim));
     sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
