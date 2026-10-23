@@ -8072,6 +8072,50 @@ describe("Programmer", () => {
     expect([...turnIndexes].sort((a, b) => a - b)).toEqual(turnIndexes);
   });
 
+  it("holds you where you chomped, and a press blocked there starts from the tile you lean into", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    const { cols, rows, playerSolids } = getActiveLayout();
+    const walkable = (col: number, row: number) => playerSolids[row]?.[col] === false;
+    let spot: { col: number; row: number } | null = null;
+    for (let row = 0; row < rows && spot === null; row += 1) {
+      for (let col = 0; col < cols - 1 && spot === null; col += 1) {
+        const here = { col, row };
+        const right = { col: col + 1, row };
+        if (
+          walkable(col, row) &&
+          openDirs(here).includes("right") &&
+          !openDirs(here).includes("up") &&
+          openDirs(right).includes("up")
+        ) {
+          spot = here;
+        }
+      }
+    }
+    expect(spot).not.toBeNull();
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, cellCenterX(spot!.col) + TILE_SIZE / 4, cellCenterY(spot!.row));
+    Position.x[power] = Position.x[playerEid(sim)]!;
+    Position.y[power] = Position.y[playerEid(sim)]!;
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.programmer?.phase).toBe("recording");
+    expect(Position.x[playerEid(sim)]).toBe(cellCenterX(spot!.col) + TILE_SIZE / 4);
+    expect(sim.renderOptions().programmerPath).toEqual([]);
+    press(sim, "up");
+    expect(sim.renderOptions().programmerPath?.[0]).toMatchObject({
+      x: cellCenterX(spot!.col + 1),
+      dir: "up",
+    });
+    for (let i = 0; i < 4; i += 1) {
+      press(sim, "up");
+    }
+    expect(sim.snapshot().timers.programmer).toMatchObject({
+      phase: "running",
+      heading: "up",
+      col: spot!.col + 1,
+    });
+    expect(Position.x[playerEid(sim)]).toBe(cellCenterX(spot!.col + 1));
+  });
+
   it("a power pellet eaten mid-run starts programming over", () => {
     const sim = start(["powerPelletProgrammer"]);
     chompPowerPellet(sim);

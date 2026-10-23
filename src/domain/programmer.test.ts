@@ -7,9 +7,11 @@ import {
   programmerEnterCell,
   programmerPathMarks,
   programmerQueueSlots,
+  programmerStartCells,
   recordProgrammerPress,
   startProgrammer,
   type ProgramDir,
+  type ProgrammerRecording,
   type ProgrammerRunning,
   type ProgrammerStep,
 } from "./programmer";
@@ -42,7 +44,7 @@ function record(presses: ProgramDir[], sets = 1, col = 5, row = 5) {
   let step: ProgrammerStep = { state: startProgrammer(sets), heading: null };
   for (const dir of presses) {
     if (step.state?.phase === "recording") {
-      step = recordProgrammerPress(step.state, dir, SOLIDS, col, row);
+      step = recordProgrammerPress(step.state, dir, SOLIDS, [{ col, row }]);
     }
   }
   return step;
@@ -83,6 +85,48 @@ describe("recordProgrammerPress", () => {
     expect(startProgrammer(2)).toEqual({ phase: "recording", presses: [], setsLeft: 1 });
     const none = record(["up", "up", "down", "down", "up"], 2, 3, 5);
     expect(none.state).toEqual({ phase: "recording", presses: [], setsLeft: 0 });
+  });
+});
+
+describe("programmer coyote start", () => {
+  it("adds the open tile you lean toward, after the one you are in", () => {
+    expect(programmerStartCells(cellCenterX(6), cellCenterY(5), SOLIDS)).toEqual([
+      { col: 6, row: 5 },
+    ]);
+    expect(programmerStartCells(cellCenterX(6) - 3, cellCenterY(5), SOLIDS)).toEqual([
+      { col: 6, row: 5 },
+      { col: 5, row: 5 },
+    ]);
+    expect(programmerStartCells(cellCenterX(5), cellCenterY(3) + 3, SOLIDS)).toEqual([
+      { col: 5, row: 3 },
+      { col: 5, row: 4 },
+    ]);
+  });
+
+  it("does not lean through a wall", () => {
+    expect(programmerStartCells(cellCenterX(5), cellCenterY(2) - 3, SOLIDS)).toEqual([
+      { col: 5, row: 2 },
+    ]);
+  });
+
+  it("a press blocked where you are starts from the tile you lean into; your own tile wins", () => {
+    const starts = [
+      { col: 6, row: 5 },
+      { col: 5, row: 5 },
+    ];
+    let state: ProgrammerStep = { state: startProgrammer(1), heading: null };
+    for (const dir of ["up", "left", "left", "left", "left"] as const) {
+      state = recordProgrammerPress(state.state as ProgrammerRecording, dir, SOLIDS, starts);
+    }
+    expect(state.state).toEqual(running("up", ["left", "left", "left", "left"], 0, 5, 5));
+    state = { state: startProgrammer(1), heading: null };
+    for (const dir of ["down", "up", "up", "up", "up"] as const) {
+      state = recordProgrammerPress(state.state as ProgrammerRecording, dir, SOLIDS, starts);
+    }
+    expect(state.state).toEqual(running("down", ["up", "up", "up", "up"], 0, 6, 5));
+    expect(programmerPathMarks(["up"], SOLIDS, starts)).toEqual([
+      { x: cellCenterX(5), y: cellCenterY(2), dir: "up", latest: true },
+    ]);
   });
 });
 
@@ -160,11 +204,11 @@ describe("programmerPathMarks", () => {
   const at = (col: number, row: number) => ({ x: cellCenterX(col), y: cellCenterY(row) });
 
   it("marks where each press leaves you, facing its way, the newest marked latest", () => {
-    expect(programmerPathMarks(["right", "up"], SOLIDS, 3, 5)).toEqual([
+    expect(programmerPathMarks(["right", "up"], SOLIDS, [{ col: 3, row: 5 }])).toEqual([
       { ...at(5, 5), dir: "right", latest: false },
       { ...at(5, 2), dir: "up", latest: true },
     ]);
-    expect(programmerPathMarks(["right", "right", "down"], SOLIDS, 3, 5)).toEqual([
+    expect(programmerPathMarks(["right", "right", "down"], SOLIDS, [{ col: 3, row: 5 }])).toEqual([
       { ...at(5, 5), dir: "right", latest: false },
       { ...at(6, 5), dir: "right", latest: false },
       { ...at(6, 6), dir: "down", latest: true },
@@ -172,14 +216,14 @@ describe("programmerPathMarks", () => {
   });
 
   it("drops presses the run would skip and stops where it would end", () => {
-    expect(programmerPathMarks(["up", "right", "down"], SOLIDS, 3, 5)).toEqual([
+    expect(programmerPathMarks(["up", "right", "down"], SOLIDS, [{ col: 3, row: 5 }])).toEqual([
       { ...at(5, 5), dir: "right", latest: false },
       { ...at(5, 6), dir: "down", latest: true },
     ]);
-    expect(programmerPathMarks(["up", "left"], SOLIDS, 5, 4)).toEqual([
+    expect(programmerPathMarks(["up", "left"], SOLIDS, [{ col: 5, row: 4 }])).toEqual([
       { ...at(5, 2), dir: "up", latest: false },
     ]);
-    expect(programmerPathMarks([], SOLIDS, 3, 5)).toEqual([]);
+    expect(programmerPathMarks([], SOLIDS, [{ col: 3, row: 5 }])).toEqual([]);
   });
 });
 
