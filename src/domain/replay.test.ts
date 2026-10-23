@@ -74,9 +74,9 @@ describe("frameAt", () => {
 describe("itemsAt", () => {
   it("applies add and remove events up to the time", () => {
     const items = [
-      { t: 0, op: "add" as const, eid: 1, art: "pellet", optional: false, x: 1, y: 1 },
-      { t: 0, op: "add" as const, eid: 2, art: "power-pellet", optional: false, x: 2, y: 2 },
-      { t: 50, op: "remove" as const, eid: 1, art: "pellet", optional: false, x: 1, y: 1 },
+      { t: 0, op: "add" as const, eid: 1, art: "pellet", tint: null, x: 1, y: 1 },
+      { t: 0, op: "add" as const, eid: 2, art: "power-pellet", tint: null, x: 2, y: 2 },
+      { t: 50, op: "remove" as const, eid: 1, art: "pellet", tint: null, x: 1, y: 1 },
     ];
     expect(itemsAt(segment({ items }), 10).map((item) => item.eid)).toEqual([1, 2]);
     expect(itemsAt(segment({ items }), 50).map((item) => item.eid)).toEqual([2]);
