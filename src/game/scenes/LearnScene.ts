@@ -30,6 +30,8 @@ import {
   GHOST_COLOR_BY_KIND,
   clipSegmentToRect,
   easeToward,
+  inkyReticleGoalPx,
+  playerAnchoredReticleGoalPx,
   targetDerivation,
   type PixelPoint,
   type PixelRect,
@@ -184,6 +186,7 @@ export class LearnScene extends Phaser.Scene {
   private upgradeDrain!: Phaser.GameObjects.Graphics;
   private seen: SeenRecord = emptySeenRecord();
   private reticlePx: PixelPoint | null = null;
+  private pivotPx: PixelPoint | null = null;
   private slots: GhostSlot[] = [];
   private upgradeHeaders: UpgradeHeader[] = [];
   private upgradeRows: UpgradeRow[] = [];
@@ -216,6 +219,7 @@ export class LearnScene extends Phaser.Scene {
     const learnAllMode = parseLearnAllMode(urlParams);
     this.seen = learnSeenRecord(learnAllMode, loadSeenRecord);
     this.reticlePx = null;
+    this.pivotPx = null;
     this.statusShown = "";
     this.hoverPreviewTimer = null;
     this.hoverPreviewCard = null;
@@ -282,6 +286,7 @@ export class LearnScene extends Phaser.Scene {
     hoverPreview: { x: number; y: number } | null;
     owned: readonly UpgradeId[];
     tunnelBoring: ReturnType<LearnSim["tunnelBoringDebug"]>;
+    haunt: ReturnType<LearnSim["hauntDebug"]>;
   } {
     const preview = this.hoverPreviewCard;
     return {
@@ -294,6 +299,7 @@ export class LearnScene extends Phaser.Scene {
       hoverPreview: preview === null ? null : { x: preview.root.x, y: preview.root.y },
       owned: this.sim.ownedUpgrades,
       tunnelBoring: this.sim.tunnelBoringDebug(),
+      haunt: this.sim.hauntDebug(),
     };
   }
 
@@ -349,6 +355,7 @@ export class LearnScene extends Phaser.Scene {
   private selectGhost(kind: GhostKindId): void {
     this.applyEvents(this.sim.selectGhost(kind));
     this.reticlePx = null;
+    this.pivotPx = null;
     this.refreshSlots();
   }
 
@@ -460,7 +467,7 @@ export class LearnScene extends Phaser.Scene {
     const up = addPixelText(
       this,
       x,
-      LEARN_UPGRADE_CLIP_TOP - 8,
+      LEARN_UPGRADE_CLIP_TOP - 12,
       UPGRADE_SLOT_HINT_GLYPH,
       UPGRADES_HUD_FONT_SIZE,
       TEXT_COLOR_YELLOW,
@@ -818,15 +825,6 @@ export class LearnScene extends Phaser.Scene {
     const { kind, target, ghostPx } = model;
 
     const layout = getActiveLayout();
-    this.reticlePx = easeToward(
-      this.reticlePx,
-      { x: cellCenterX(target.col), y: cellCenterY(target.row) },
-      deltaMs,
-    );
-    const reticle = {
-      x: Math.min(cellCenterX(layout.cols - 1), Math.max(cellCenterX(0), this.reticlePx.x)),
-      y: Math.min(cellCenterY(layout.rows - 1), Math.max(cellCenterY(0), this.reticlePx.y)),
-    };
     const color = GHOST_COLOR_BY_KIND[kind];
     const rect: PixelRect = {
       left: layout.offsetX,
@@ -850,6 +848,16 @@ export class LearnScene extends Phaser.Scene {
       blinky: model.blinkyTile,
       target,
     });
+    const tileGoal = { x: cellCenterX(target.col), y: cellCenterY(target.row) };
+    const reticleGoal =
+      derivation.kind === "inky" && model.blinkyPx !== null
+        ? inkyReticleGoalPx(model.blinkyPx, nearPlayer(derivation.pivot), tileGoal)
+        : playerAnchoredReticleGoalPx(kind, target, model.playerTile, playerPx, tileGoal);
+    this.reticlePx = easeToward(this.reticlePx, reticleGoal, deltaMs);
+    const reticle = {
+      x: Math.min(cellCenterX(layout.cols - 1), Math.max(cellCenterX(0), this.reticlePx.x)),
+      y: Math.min(cellCenterY(layout.rows - 1), Math.max(cellCenterY(0), this.reticlePx.y)),
+    };
     this.overlay.lineStyle(DERIVATION_WIDTH, DERIVATION_COLOR, DERIVATION_ALPHA);
     if (derivation.kind === "segment") {
       this.strokePixelsClipped([playerPx, this.reticlePx], rect);
@@ -858,7 +866,8 @@ export class LearnScene extends Phaser.Scene {
         x: cellCenterX(derivation.blinky.col),
         y: cellCenterY(derivation.blinky.row),
       };
-      const pivotPx = nearPlayer(derivation.pivot);
+      this.pivotPx = easeToward(this.pivotPx, nearPlayer(derivation.pivot), deltaMs);
+      const pivotPx = this.pivotPx;
       this.strokePixelsClipped([blinkyPx, pivotPx, this.reticlePx], rect);
       this.overlay.fillStyle(DERIVATION_COLOR, DERIVATION_ALPHA);
       this.overlay.fillCircle(pivotPx.x, pivotPx.y, PIVOT_DOT_RADIUS);

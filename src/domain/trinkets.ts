@@ -22,6 +22,16 @@ type GhostName = (typeof GHOST_NAMES)[number];
 export type TrinketKind =
   "speed" | "tunnelSpeed" | "vortex" | "turning" | "slowdown" | "houseDelay" | "traction";
 
+export const TRINKET_KIND_ORDER: readonly TrinketKind[] = [
+  "speed",
+  "tunnelSpeed",
+  "vortex",
+  "turning",
+  "slowdown",
+  "houseDelay",
+  "traction",
+];
+
 export type TrinketEffect = { kind: TrinketKind; ghost?: GhostKindId };
 
 export type TrinketUpgradeId =

@@ -21,6 +21,7 @@ import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
 import { DIRECTION, Input } from "../components/Input";
+import { Crumb } from "../components/Crumb";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -109,5 +110,18 @@ export function spawnSlotMachine(world: World, at: { x: number; y: number }): nu
   Position.y[eid] = at.y;
   Drawable.id[eid] = SLOT_MACHINE_DRAWABLE_ID;
   Drawable.radius[eid] = SLOT_MACHINE_RADIUS;
+  return eid;
+}
+
+export function spawnCrumb(world: World, x: number, y: number, paid: boolean): number {
+  const eid = addEntity(world);
+  addComponent(world, eid, Crumb);
+  addComponent(world, eid, Position);
+  addComponent(world, eid, Drawable);
+  Position.x[eid] = x;
+  Position.y[eid] = y;
+  Crumb.paid[eid] = paid ? 1 : 0;
+  Drawable.id[eid] = PELLET_DRAWABLE_ID;
+  Drawable.radius[eid] = PELLET_RADIUS;
   return eid;
 }
