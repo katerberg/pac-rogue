@@ -547,6 +547,39 @@ describe("LearnSim upgrade demos", () => {
     expect(plus.sim["learnUpgrades"].scentLingers).toEqual([]);
   });
 
+  it("Scarecrow keeps the chasing ghost out of the fruit radius", () => {
+    const closest = (...ids: Parameters<LearnSim["toggleUpgrade"]>[0][]): number => {
+      const { sim, player } = setup(...ids);
+      const fruit = query(sim.world, [Fruit, Position])[0]!;
+      const fx = Position.x[fruit]!;
+      const fy = Position.y[fruit]!;
+      const layout = getActiveLayout();
+      const fruitCell = { col: worldToCol(fx), row: worldToRow(fy) };
+      const cells = [...Array(layout.rows * layout.cols).keys()]
+        .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+        .filter(({ col, row }) => isWalkable(col, row));
+      const dist = ({ col, row }: { col: number; row: number }) =>
+        Math.hypot(col - fruitCell.col, row - fruitCell.row);
+      const ghost = sim.ghostEid!;
+      const from = cells.find((cell) => dist(cell) > 6 && dist(cell) < 9)!;
+      const near = cells.find((cell) => dist(cell) >= 2 && dist(cell) < 3)!;
+      Position.x[ghost] = cellCenterX(from.col);
+      Position.y[ghost] = cellCenterY(from.row);
+      let min = Infinity;
+      for (let frame = 0; frame < 900; frame += 1) {
+        moveTo(player, { x: cellCenterX(near.col), y: cellCenterY(near.row) });
+        sim.step(NO_KEYS_HELD, FRAME_MS);
+        min = Math.min(
+          min,
+          Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy) / layout.tileSize,
+        );
+      }
+      return min;
+    };
+    expect(closest()).toBeLessThan(4);
+    expect(closest("passiveScarecrow")).toBeGreaterThanOrEqual(3.5);
+  });
+
   it("Defy Death tints Maze-Man while armed by a power pellet", () => {
     const { sim, player } = setup("passiveDefyDeath");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
