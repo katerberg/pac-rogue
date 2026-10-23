@@ -1,3 +1,10 @@
+import {
+  SCARECROW_COLOR,
+  scentCells,
+  scentLingerAlphaMul,
+  scentPixels,
+} from "../../domain/scarecrow";
+import type { ScentSprite } from "./scarecrow";
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
@@ -7,6 +14,7 @@ import {
   cellOriginX,
   cellOriginY,
   getActiveLayout,
+  isWalkable,
   isSolid,
   playerDisplaySize,
   pelletDisplaySize,
@@ -692,6 +700,7 @@ export type RenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
+  scent?: ScentSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   peels?: { x: number; y: number }[];
@@ -894,6 +903,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const sinkholeGraphics = scene.add.graphics();
   const boreJunkGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
+  const scentGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
   const mirrorDustGraphics = scene.add.graphics();
@@ -1810,6 +1820,32 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             chainGraphics,
             lightningPoints(chain, scene.time.now, amplitude, stroke.strand),
           );
+        }
+      }
+    }
+
+    scentGraphics.clear();
+    const scents = opts?.scent ?? [];
+    if (scents.length > 0) {
+      const { tileSize } = getActiveLayout();
+      const originX = cellCenterX(0) - tileSize / 2;
+      const originY = cellCenterY(0) - tileSize / 2;
+      for (const scent of scents) {
+        const zone = { col: scent.col, row: scent.row };
+        const blink = scentLingerAlphaMul(scent.remainingMs ?? Infinity, scene.time.now);
+        const cells = scentCells(zone, scent.radiusTiles, isWalkable);
+        for (const px of scentPixels(
+          zone,
+          cells,
+          scent.radiusTiles,
+          tileSize,
+          originX,
+          originY,
+          scene.time.now,
+          isWalkable,
+        )) {
+          scentGraphics.fillStyle(SCARECROW_COLOR, px.alpha * blink);
+          scentGraphics.fillRect(px.x, px.y, px.size, px.size);
         }
       }
     }

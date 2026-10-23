@@ -223,7 +223,13 @@ import {
 import { programmerQueueSlots, type ProgrammerQueueSlot } from "../../domain/programmer";
 import type { SolidGrid } from "../../domain/maze";
 import { applyRemoteTransference } from "../systems/remoteTransference";
-import { fruitKindsOnBoard, fruitPositions, removeAllFruit } from "../systems/collectFruit";
+import {
+  fruitKindsOnBoard,
+  fruitPositions,
+  fruitTiles,
+  removeAllFruit,
+} from "../systems/collectFruit";
+import { leaveScent, scentFieldFor, scentSprites, tickScarecrow } from "../systems/scarecrow";
 import {
   collectExtraForBodies,
   collectFruitForBodies,
@@ -809,6 +815,7 @@ export class LearnSim {
     }
 
     this.tickFruit(delta);
+    this.learnUpgrades = tickScarecrow(this.learnUpgrades, this.learnUpgrades.owned, delta);
 
     ghostAi(
       this.world,
@@ -826,6 +833,7 @@ export class LearnSim {
       this.learnUpgrades.droppedWall,
       this.twinBody(),
       this.learnUpgrades.chaff?.decoys,
+      scentFieldFor(this.learnUpgrades.owned, this.world, this.learnUpgrades.scentLingers),
     );
     frightenedGhostAi(
       this.world,
@@ -883,6 +891,7 @@ export class LearnSim {
           shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
         ),
         boreJunk: this.tunnelBore.junk,
+        scent: scentSprites(this.learnUpgrades.owned, this.world, this.learnUpgrades.scentLingers),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
@@ -1955,6 +1964,7 @@ export class LearnSim {
       }
     }
 
+    const fruitTilesBefore = fruitTiles(this.world);
     const removedFruitEids = [
       ...this.hyperspeedFruit,
       ...collectFruitForBodies(this.world, this.twinPosition()),
@@ -1964,6 +1974,7 @@ export class LearnSim {
       return;
     }
     this.releaseAll(removedFruitEids);
+    this.learnUpgrades = leaveScent(this.learnUpgrades, owned, removedFruitEids, fruitTilesBefore);
     this.events.push({ type: "sfx", id: "pelletMunch" }, { type: "sfx", id: "pelletMunch2" });
     const regularEaten = removedFruitEids.some((eid) => !this.cornucopiaFruit.has(eid));
     for (const eid of removedFruitEids) {

@@ -158,6 +158,9 @@ import { IDLE_INPUT, type SimInput } from "./simInput";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
+import { openGhostDirsAt } from "../../domain/ghostPath";
+import { scentAwareCanEnter } from "../systems/ghostAi";
+import { scentFieldFor } from "../systems/scarecrow";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
@@ -10812,5 +10815,194 @@ describe("Sonic Boom", () => {
 
   it("does not echo below top speed", () => {
     expect(crossJunction(BASE, false)).toEqual([]);
+  });
+});
+
+describe("Scarecrow", () => {
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function placeFruit(sim: PlaySim): number {
+    sim["spawnFruitEntity"](false);
+    return query(sim.world, [Fruit, Position])[0]!;
+  }
+
+  function activeGhostFor(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Speed.px[ghost] = PLAYER_SPEED;
+    return ghost;
+  }
+
+  function eatFruit(sim: PlaySim, fruit: number): void {
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    runFrames(sim, 1);
+  }
+
+  it("draws no scent without the upgrade", () => {
+    const sim = start([]);
+    placeFruit(sim);
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("marks each fruit as a scent zone and drops it when the fruit is eaten", () => {
+    const sim = start(["passiveScarecrow"]);
+    const fruit = placeFruit(sim);
+    expect(sim.renderOptions().scent).toHaveLength(1);
+    eatFruit(sim, fruit);
+    expect(sim.renderOptions().scent).toEqual([]);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
+  });
+
+  it("keeps ghosts out of the radius by steering around it", () => {
+    const sim = start(["passiveScarecrow"]);
+    placeFruit(sim);
+    const field = scentFieldFor(sim["effectiveUpgrades"](), sim.world, []);
+    expect(field?.zones).toHaveLength(1);
+    const layout = getActiveLayout();
+    const zone = field!.zones[0]!;
+    const rules = ghostMovementRules(GHOST_PHASE.active);
+    const cells: { col: number; row: number }[] = [];
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        const dist = Math.hypot(col - zone.col, row - zone.row);
+        if (dist > 4 && dist <= 5) {
+          cells.push({ col, row });
+        }
+      }
+    }
+    const blockedSomewhere = cells.some(({ col, row }) => {
+      const x = cellCenterX(col);
+      const y = cellCenterY(row);
+      const plain = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
+      const aware = scentAwareCanEnter(x, y, rules, field!);
+      const open = openGhostDirsAt(x, y, rules.solids, aware);
+      return open.length > 0 && open.length < plain.length;
+    });
+    expect(blockedSomewhere).toBe(true);
+  });
+
+  it("an active chasing ghost stays out of the fruit radius, and enters it without the upgrade", () => {
+    const closest = (upgrades: UpgradeId[]): number => {
+      const sim = start(upgrades);
+      const ghost = activeGhostFor(sim);
+      const fruit = placeFruit(sim);
+      const fx = Position.x[fruit]!;
+      const fy = Position.y[fruit]!;
+      const layout = getActiveLayout();
+      const cells = [...Array(layout.rows * layout.cols).keys()]
+        .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+        .filter(({ col, row }) => isWalkable(col, row));
+      const distTo = ({ col, row }: { col: number; row: number }) =>
+        Math.hypot(col - worldToCol(fx), row - worldToRow(fy));
+      const far = cells.find((cell) => distTo(cell) > 8 && distTo(cell) < 11)!;
+      const near = cells.find((cell) => distTo(cell) >= 2 && distTo(cell) < 3)!;
+      Position.x[ghost] = cellCenterX(far.col);
+      Position.y[ghost] = cellCenterY(far.row);
+      let min = Infinity;
+      for (let frame = 0; frame < 900; frame += 1) {
+        teleportPlayer(sim, cellCenterX(near.col), cellCenterY(near.row));
+        runFrames(sim, 1, { keys: held("left") });
+        const d = Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy) / layout.tileSize;
+        min = Math.min(min, d);
+      }
+      return min;
+    };
+    expect(closest([])).toBeLessThan(4);
+    expect(closest(["passiveScarecrow"])).toBeGreaterThanOrEqual(3.5);
+  });
+
+  it("routes a chasing ghost around the zone to a target on the far side without bumping back", () => {
+    const sim = start(["passiveScarecrow"]);
+    const ghost = activeGhostFor(sim);
+    const fruit = placeFruit(sim);
+    const fx = Position.x[fruit]!;
+    const fy = Position.y[fruit]!;
+    const layout = getActiveLayout();
+    const cells = [...Array(layout.rows * layout.cols).keys()]
+      .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+      .filter(({ col, row }) => isWalkable(col, row))
+      .filter(
+        ({ col, row }) =>
+          Math.hypot(col - layout.ghostHouseSpawn.col, row - layout.ghostHouseSpawn.row) > 6,
+      );
+    const fruitDist = ({ col, row }: { col: number; row: number }) =>
+      Math.hypot(col - worldToCol(fx), row - worldToRow(fy));
+    const fruitCell = { col: worldToCol(fx), row: worldToRow(fy) };
+    const from = cells.find(
+      (cell) =>
+        cell.col < fruitCell.col && fruitDist(cell) > 5 && Math.abs(cell.row - fruitCell.row) <= 2,
+    )!;
+    const goal = cells
+      .filter(
+        (cell) =>
+          cell.col > fruitCell.col &&
+          fruitDist(cell) > 5 &&
+          Math.abs(cell.row - fruitCell.row) <= 2,
+      )
+      .sort((a, b) => b.col - a.col)[0]!;
+    Position.x[ghost] = cellCenterX(from.col);
+    Position.y[ghost] = cellCenterY(from.row);
+    sim["ghostModeClock"] = { ...sim["ghostModeClock"], active: false, mode: GHOST_AI_MODE.chase };
+    sim["previousEffectiveGhostMode"] = GHOST_AI_MODE.chase;
+    let reversals = 0;
+    let previous = Input.direction[ghost]!;
+    let closest = Infinity;
+    for (let frame = 0; frame < 1800; frame += 1) {
+      teleportPlayer(sim, cellCenterX(goal.col), cellCenterY(goal.row));
+      runFrames(sim, 1, { keys: held("left") });
+      const dir = Input.direction[ghost]!;
+      if (
+        closest >= 2 * layout.tileSize &&
+        dir !== DIRECTION.none &&
+        previous !== DIRECTION.none &&
+        dir !== previous
+      ) {
+        const opposite =
+          (previous === DIRECTION.left && dir === DIRECTION.right) ||
+          (previous === DIRECTION.right && dir === DIRECTION.left) ||
+          (previous === DIRECTION.up && dir === DIRECTION.down) ||
+          (previous === DIRECTION.down && dir === DIRECTION.up);
+        reversals += opposite ? 1 : 0;
+      }
+      if (dir !== DIRECTION.none) {
+        previous = dir;
+      }
+      expect(Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy)).toBeGreaterThan(
+        3.5 * layout.tileSize,
+      );
+      closest = Math.min(
+        closest,
+        Math.hypot(
+          Position.x[ghost]! - cellCenterX(goal.col),
+          Position.y[ghost]! - cellCenterY(goal.row),
+        ),
+      );
+    }
+    expect(closest).toBeLessThan(2 * layout.tileSize);
+    expect(reversals).toBeLessThanOrEqual(2);
+  });
+
+  it("base Scarecrow leaves no scent after pickup", () => {
+    const sim = start(["passiveScarecrow"]);
+    eatFruit(sim, placeFruit(sim));
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("enhanced scent lingers 5s after pickup, then fades", () => {
+    const sim = start(["passiveScarecrowPlus"]);
+    eatFruit(sim, placeFruit(sim));
+    expect(sim.renderOptions().scent).toHaveLength(1);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBeGreaterThan(5000 - 2 * FRAME_MS);
+    runUntil(sim, () => sim.snapshot().timers.scarecrowScentMs === 0, 400);
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("clearUpgradeTimers drops the lingering scent", () => {
+    const sim = start(["passiveScarecrowPlus"]);
+    eatFruit(sim, placeFruit(sim));
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
   });
 });

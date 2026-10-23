@@ -25,6 +25,7 @@ import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration
 import { BASE_FEAST_FRUIT_SPAWN_THRESHOLDS, TILE_SIZE, type MazeTile } from "./maze";
 import { PROGRAMMER_ENHANCED_SETS, startProgrammer, type ProgrammerState } from "./programmer";
 import { TURN_TUNING_BOOST_MS, TURN_TUNING_PERFECT_PX } from "./turnTuning";
+import { SCARECROW_LINGER_MS, SCARECROW_RADIUS_TILES, type ScentLinger } from "./scarecrow";
 import { CHAFF_ENHANCED_MS, CHAFF_MS, startChaff, type ChaffState } from "./chaff";
 import { WALL_DROP_MS, type DroppedWall, type WallDropSpot } from "./wallDrop";
 
@@ -91,7 +92,8 @@ export type CoreUpgradeId =
   | "passivePossession"
   | "passiveFloating"
   | "passiveGleaning"
-  | "passiveSonicBoom";
+  | "passiveSonicBoom"
+  | "passiveScarecrow";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -137,6 +139,8 @@ export type UpgradeEffects = {
   fruitStacksSideBySide?: true;
   fruitPowerEffects?: EchoEffects;
   fruitFeastThresholds?: readonly number[];
+  scarecrowRadiusTiles?: number;
+  scarecrowLingerMs?: number;
   pelletCollectRadiusBonusPx?: number;
   grantLives?: number;
   lifeFloorBonus?: number;
@@ -1187,6 +1191,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     sonicBoomHitMs: SONIC_BOOM_TURN_COOLDOWN_MS,
     sonicBoomHallwayTiles: SONIC_BOOM_HALLWAY_TILES,
   },
+  {
+    id: "passiveScarecrow",
+    label: "Scarecrow",
+    school: "harvest",
+    description: "Ghosts won't path within 4 tiles of fruit.",
+    storePrice: STORE_UPGRADE_PRICE,
+    scarecrowRadiusTiles: SCARECROW_RADIUS_TILES,
+    enhanced: {
+      enhanceNote: "Scarecrow's scent lingers 5 seconds after fruit is picked up.",
+      description:
+        "Ghosts won't path within 4 tiles of fruit, and the scent lingers 5 seconds after pickup.",
+      scarecrowLingerMs: SCARECROW_LINGER_MS,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1421,6 +1439,7 @@ export type RunUpgrades = {
   ghostsEatenThisFright: number;
   wallDropArmed: boolean;
   chaff: ChaffState | null;
+  scentLingers: ScentLinger[];
   droppedWall: DroppedWall | null;
   programmer: ProgrammerState | null;
   mirrorActive: boolean;
@@ -1478,6 +1497,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,
+    scentLingers: [],
     droppedWall: null,
     programmer: null,
     mirrorActive: false,
@@ -1835,6 +1855,7 @@ export function clearStaleUpgradeTimers(
     programmer: hasField("programmerSets") ? state.programmer : null,
     droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
     chaff: hasField("chaffMs") ? state.chaff : null,
+    scentLingers: scarecrowEffects(owned).lingerMs !== null ? state.scentLingers : [],
     ...(hasField("frightenGhostsMs") || hasUpgrade(owned, "passivePossession")
       ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
       : NO_FRIGHT),
@@ -1876,6 +1897,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,
+    scentLingers: [],
     droppedWall: null,
     programmer: null,
     mirrorActive: false,
@@ -2649,6 +2671,24 @@ export function cornucopiaAlongsideOwned(owned: readonly UpgradeId[]): boolean {
 
 export function wallPassLoopOwned(owned: readonly UpgradeId[]): boolean {
   return owned.some((id) => UPGRADE_BY_ID.get(id)?.onPowerPellet?.wallPassLoop === true);
+}
+
+export function scarecrowEffects(owned: readonly UpgradeId[]): {
+  radiusTiles: number | null;
+  lingerMs: number | null;
+} {
+  let radiusTiles: number | null = null;
+  let lingerMs: number | null = null;
+  for (const id of owned) {
+    const def = UPGRADE_BY_ID.get(id);
+    if (def?.scarecrowRadiusTiles !== undefined) {
+      radiusTiles = Math.max(radiusTiles ?? 0, def.scarecrowRadiusTiles);
+    }
+    if (def?.scarecrowLingerMs !== undefined) {
+      lingerMs = Math.max(lingerMs ?? 0, def.scarecrowLingerMs);
+    }
+  }
+  return { radiusTiles, lingerMs };
 }
 
 export function fruitLifetimeMultiplier(owned: readonly UpgradeId[]): number {
