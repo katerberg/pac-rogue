@@ -1,4 +1,5 @@
 import type { CollapseChain } from "./collapse";
+import { mixColor } from "./collapseRubble";
 
 export const SINKHOLE_ART_TILE = 8;
 
@@ -9,6 +10,7 @@ export const SINKHOLE_STYLE = {
   taper: 0.85,
   bandWidth: 1.5,
   rimWidth: 1,
+  edgeDarken: 0.6,
   introMs: 4000,
   crackShare: 0.4,
   spread: 0.4,
@@ -22,11 +24,15 @@ export const SINKHOLE_TONE = {
 
 export type SinkholeTone = (typeof SINKHOLE_TONE)[keyof typeof SINKHOLE_TONE];
 
-export const SINKHOLE_PALETTE: Readonly<Record<SinkholeTone, number>> = {
-  [SINKHOLE_TONE.rim]: 0x833100,
-  [SINKHOLE_TONE.voidEdge]: 0x7d4900,
-  [SINKHOLE_TONE.voidDeep]: 0x3a2802,
-};
+const VOID = 0x000000;
+
+export function sinkholePalette(wallColor: number): Readonly<Record<SinkholeTone, number>> {
+  return {
+    [SINKHOLE_TONE.rim]: wallColor,
+    [SINKHOLE_TONE.voidEdge]: mixColor(wallColor, VOID, SINKHOLE_STYLE.edgeDarken),
+    [SINKHOLE_TONE.voidDeep]: VOID,
+  };
+}
 
 export type SinkholePixel = {
   x: number;

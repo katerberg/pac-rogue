@@ -28,8 +28,8 @@ import {
 } from "../../domain/collapseRubble";
 import {
   SINKHOLE_ART_TILE,
-  SINKHOLE_PALETTE,
   sinkholeOpening,
+  sinkholePalette,
   sinkholePixelVisible,
   sinkholeSettled,
   type SinkholeRenderState,
@@ -1009,7 +1009,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     collapseMotesSettled = settled;
   };
 
-  const drawSinkhole = (sinkhole: SinkholeRenderState | null): void => {
+  const drawSinkhole = (sinkhole: SinkholeRenderState | null, style: WallStyle): void => {
     if (sinkhole === null) {
       if (drawnSinkhole !== null) {
         sinkholeGraphics.clear();
@@ -1017,20 +1017,22 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
       return;
     }
+    const key = `${sinkhole.key}:${style.color}`;
     const settled = sinkholeSettled(sinkhole);
     const step = settled ? -2 : Math.floor(sinkhole.elapsedMs / SINKHOLE_FRAME_MS);
-    if (sinkhole.key === drawnSinkhole && step === drawnSinkholeStep) {
+    if (key === drawnSinkhole && step === drawnSinkholeStep) {
       return;
     }
-    drawnSinkhole = sinkhole.key;
+    drawnSinkhole = key;
     drawnSinkholeStep = step;
+    const palette = sinkholePalette(style.color);
     const opening = sinkholeOpening(sinkhole.elapsedMs, sinkhole.fresh);
     const origin = { x: cellOriginX(0), y: cellOriginY(0) };
     const artPx = getActiveLayout().tileSize / SINKHOLE_ART_TILE;
     sinkholeGraphics.clear();
     for (const pixel of sinkhole.art.pixels) {
       if (sinkholePixelVisible(pixel, opening)) {
-        sinkholeGraphics.fillStyle(SINKHOLE_PALETTE[pixel.tone], 1);
+        sinkholeGraphics.fillStyle(palette[pixel.tone], 1);
         sinkholeGraphics.fillRect(
           origin.x + pixel.x * artPx,
           origin.y + pixel.y * artPx,
@@ -1848,7 +1850,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
 
     drawCollapse(opts?.collapse ?? null, wallStyle);
-    drawSinkhole(opts?.sinkhole ?? null);
+    drawSinkhole(opts?.sinkhole ?? null, wallStyle);
     drawBoreJunk(opts?.boreJunk ?? [], wallStyle);
 
     lavaGraphics.clear();

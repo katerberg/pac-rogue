@@ -6,10 +6,10 @@ import {
   buildSinkholeArt,
   SINKHOLE_ART_TILE,
   SINKHOLE_INTRO_MS,
-  SINKHOLE_PALETTE,
   SINKHOLE_STYLE,
   SINKHOLE_TONE,
   sinkholeOpening,
+  sinkholePalette,
   sinkholePixelVisible,
   sinkholeSettled,
   type SinkholeArt,
@@ -161,9 +161,12 @@ describe("buildSinkholeArt", () => {
   });
 });
 
-describe("SINKHOLE_PALETTE", () => {
-  it("has a distinct colour for every tone", () => {
-    const colors = Object.values(SINKHOLE_TONE).map((tone) => SINKHOLE_PALETTE[tone]);
+describe("sinkholePalette", () => {
+  it("rims the hole in the maze colour and darkens to a void", () => {
+    const palette = sinkholePalette(0x2121ff);
+    expect(palette[SINKHOLE_TONE.rim]).toBe(0x2121ff);
+    expect(palette[SINKHOLE_TONE.voidDeep]).toBe(0x000000);
+    const colors = Object.values(SINKHOLE_TONE).map((tone) => palette[tone]);
     expect(new Set(colors).size).toBe(colors.length);
   });
 });
