@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addPennyCharge,
+  applyStreakCrumbs,
   applyStreakPellets,
   PENNY_STREAK_IDLE_MS,
   QUARTER_CHARGE,
@@ -156,5 +157,22 @@ describe("penny denomination", () => {
   it("formats a charge as pennies to one decimal", () => {
     expect(formatPennies(15)).toBe("1.2 PENNIES");
     expect(formatPennies(150)).toBe("12 PENNIES");
+  });
+});
+
+describe("applyStreakCrumbs", () => {
+  it("does nothing without a streak", () => {
+    const bar = createPennyPurse();
+    expect(applyStreakCrumbs(bar, 3).bar).toBe(bar);
+  });
+
+  it("grows a live streak and bumps tiers without crediting cells or resetting idle", () => {
+    const live = { ...applyStreakPellets(createPennyPurse(), cells(4)).bar, idleMs: 200 };
+    const result = applyStreakCrumbs(live, 1);
+    expect(result.bar.streak).toBe(5);
+    expect(result.tier).toBe(1);
+    expect(result.bar.charge).toBe(2);
+    expect(result.bar.idleMs).toBe(200);
+    expect(result.bar.credited).toBe(live.credited);
   });
 });

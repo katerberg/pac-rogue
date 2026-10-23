@@ -58,6 +58,10 @@ import {
   nearMissCharge,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
+  GLEANING_ENHANCED_CHARGE,
+  GLEANING_STREAK_STEPS,
+  gleaningCharge,
+  gleaningStreakSteps,
   bankShields,
   bankPeels,
   bananaPeelCap,
@@ -271,6 +275,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMartyr",
   "passivePossession",
   "passiveFloating",
+  "passiveGleaning",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
@@ -2570,5 +2575,15 @@ describe("Floating", () => {
     expect(floatingZoneEffect(["passiveFloatingPlus"], "slow")).toBeNull();
     expect(floatingZoneEffect(["passiveFloatingPlus"], "fast")).toBe("fast");
     expect(floatingZoneEffect(["passiveFloatingPlus"], null)).toBeNull();
+  });
+});
+
+describe("Gleaning", () => {
+  it("adds a streak step per crumb and only pays pennies when enhanced", () => {
+    expect(gleaningStreakSteps([])).toBe(0);
+    expect(gleaningStreakSteps(["passiveGleaning"])).toBe(GLEANING_STREAK_STEPS);
+    expect(gleaningStreakSteps(["passiveGleaningPlus"])).toBe(GLEANING_STREAK_STEPS);
+    expect(gleaningCharge(["passiveGleaning"])).toBe(0);
+    expect(gleaningCharge(["passiveGleaningPlus"])).toBe(GLEANING_ENHANCED_CHARGE);
   });
 });

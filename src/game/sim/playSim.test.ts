@@ -93,6 +93,7 @@ import {
   INVULN_MS,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
+  GLEANING_ENHANCED_CHARGE,
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   TITHE_ENHANCED_MS,
@@ -10453,5 +10454,63 @@ describe("Floating", () => {
 
   it("keeps the fast side boost when enhanced", () => {
     expect(laneRun(["passiveFloatingPlus"], "fast").effect).toBe("fast");
+  });
+});
+
+describe("Gleaning", () => {
+  function startGleaning(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades });
+  }
+
+  function eatOnePellet(sim: PlaySim): { x: number; y: number } {
+    const pellet = query(sim.world, [Pellet, Position]).find(
+      (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+    )!;
+    const at = { x: Position.x[pellet]!, y: Position.y[pellet]! };
+    teleportPlayer(sim, at.x, at.y);
+    runFrames(sim, 1);
+    return at;
+  }
+
+  function ghostAt(sim: PlaySim, at: { x: number; y: number }): void {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = at.x;
+    Position.y[ghost] = at.y;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    runFrames(sim, 1);
+  }
+
+  it("adds a streak step when a ghost crosses a cleared tile mid-streak", () => {
+    const sim = startGleaning(["passiveGleaning"]);
+    const at = eatOnePellet(sim);
+    const before = sim.snapshot().pennies.streak;
+    ghostAt(sim, at);
+    expect(sim.snapshot().crumbs).toBe(1);
+    expect(sim.snapshot().pennies.streak).toBe(before + 1);
+    expect(sim.snapshot().pennies.charge).toBe(0);
+  });
+
+  it("pays half a penny per crumb when enhanced", () => {
+    const sim = startGleaning(["passiveGleaningPlus"]);
+    ghostAt(sim, eatOnePellet(sim));
+    expect(sim.snapshot().crumbs).toBe(1);
+    expect(sim.snapshot().pennies.charge).toBe(GLEANING_ENHANCED_CHARGE);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startGleaning([]);
+    const before = eatOnePellet(sim);
+    const streak = sim.snapshot().pennies.streak;
+    ghostAt(sim, before);
+    expect(sim.snapshot().crumbs).toBe(0);
+    expect(sim.snapshot().pennies.streak).toBe(streak);
+  });
+
+  it("does not drop a second crumb on the same tile", () => {
+    const sim = startGleaning(["passiveGleaning"]);
+    const at = eatOnePellet(sim);
+    ghostAt(sim, at);
+    ghostAt(sim, at);
+    expect(sim.snapshot().crumbs).toBe(1);
   });
 });
