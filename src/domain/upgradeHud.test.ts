@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { activateLayout, MAZE_LAYOUT_IDS, MAZE_OFFSET_X } from "./maze";
 import {
   TRINKET_LAYER_OFFSET,
   TRINKET_POOL_COLUMNS,
@@ -21,13 +22,13 @@ describe("upgradeHudIconSize", () => {
     expect(12 + (size + 1) * 3 + gaps).toBeGreaterThan(200 - UPGRADE_HUD_RIGHT_PAD);
   });
 
-  it("leaves space between hovered neighbours and between the last column and the maze", () => {
-    const gutter = 200;
-    const size = upgradeHudIconSize(gutter);
+  it.each(MAZE_LAYOUT_IDS)("leaves space around hovered icons in the %s gutter", (id) => {
+    activateLayout(id);
+    const size = upgradeHudIconSize(MAZE_OFFSET_X);
     const grow = (size * (UPGRADE_HUD_HOVER_SCALE - 1)) / 2;
     const [a, b, c] = [0, 1, 2].map((i) => upgradeHudIconPosition(i, size, 10));
     expect(b!.x - a!.x - size - grow * 2).toBeGreaterThanOrEqual(4);
-    expect(gutter - (c!.x + size / 2 + grow)).toBeGreaterThanOrEqual(8);
+    expect(MAZE_OFFSET_X - (c!.x + size / 2 + grow)).toBeGreaterThanOrEqual(8);
     const below = upgradeHudIconPosition(3, size, 10);
     expect(below.y - a!.y - size - grow * 2).toBeGreaterThanOrEqual(4);
   });
