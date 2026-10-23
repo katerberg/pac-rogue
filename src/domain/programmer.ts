@@ -143,17 +143,23 @@ export type ProgrammerPathMark = { x: number; y: number; dir: ProgramDir; latest
 
 type Cell = { col: number; row: number };
 
-function nextTurnCell(solids: SolidGrid, from: Cell, heading: ProgramDir): Cell | null {
+function stepCell(solids: SolidGrid, { col, row }: Cell, dir: ProgramDir): Cell {
   const rows = solids.length;
   const cols = solids[0]?.length ?? 0;
-  let { col, row } = from;
-  for (let steps = 0; steps < rows * cols; steps += 1) {
-    col = (col + STEP[heading].dx + cols) % cols;
-    row = (row + STEP[heading].dy + rows) % rows;
-    if (isIntersection(solids, col, row, heading)) {
-      return { col, row };
+  return {
+    col: (col + STEP[dir].dx + cols) % cols,
+    row: (row + STEP[dir].dy + rows) % rows,
+  };
+}
+
+function nextTurnCell(solids: SolidGrid, from: Cell, heading: ProgramDir): Cell | null {
+  let at = from;
+  for (let steps = 0; steps < solids.length * (solids[0]?.length ?? 0); steps += 1) {
+    at = stepCell(solids, at, heading);
+    if (isIntersection(solids, at.col, at.row, heading)) {
+      return at;
     }
-    if (!openAt(solids, col, row, heading)) {
+    if (!openAt(solids, at.col, at.row, heading)) {
       return null;
     }
   }
@@ -171,7 +177,8 @@ export function programmerPathMarks(
   let taken = takeFirstOpen(presses, solids, col, row);
   while (taken !== null && at !== null) {
     const latest = taken.rest.length === 0;
-    marks.push({ x: cellCenterX(at.col), y: cellCenterY(at.row), dir: taken.dir, latest });
+    const into = stepCell(solids, at, taken.dir);
+    marks.push({ x: cellCenterX(into.col), y: cellCenterY(into.row), dir: taken.dir, latest });
     at = latest ? null : nextTurnCell(solids, at, taken.dir);
     taken = at === null ? null : takeFirstOpen(taken.rest, solids, at.col, at.row);
   }

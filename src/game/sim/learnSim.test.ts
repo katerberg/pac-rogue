@@ -1308,7 +1308,12 @@ describe("LearnSim upgrade demos", () => {
       expect(posOf(player)).toEqual(stoppedAt);
       const draw = events.find((event) => event.type === "draw")!;
       const path = draw.type === "draw" ? draw.options.programmerPath : null;
-      expect(path?.[0]).toMatchObject({ ...stoppedAt, dir, latest: path?.length === 1 });
+      expect(path?.[0]).toMatchObject({
+        x: stoppedAt.x + STEP[dir][0] * TILE_SIZE,
+        y: stoppedAt.y + STEP[dir][1] * TILE_SIZE,
+        dir,
+        latest: path?.length === 1,
+      });
       expect(path?.at(-1)?.latest).toBe(true);
     });
 

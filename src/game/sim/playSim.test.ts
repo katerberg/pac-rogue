@@ -8044,9 +8044,11 @@ describe("Programmer", () => {
     for (const dir of program.slice(0, 4)) {
       press(sim, dir);
     }
+    const cols = getActiveLayout().cols;
     expect(pathCells()).toEqual(
       [from, ...turnCells.slice(0, 3)].map((at, index) => ({
-        ...at,
+        col: (at.col + STEP[program[index]!].dx + cols) % cols,
+        row: at.row + STEP[program[index]!].dy,
         dir: program[index],
         latest: index === 3,
       })),
