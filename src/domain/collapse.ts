@@ -1,7 +1,8 @@
 import { MAX_LEVEL } from "./levelRules";
-import type { MazeTile } from "./maze";
+import { PELLET_CHARS, type MazeTile } from "./maze";
 
 export const COLLAPSE_LEVELS = [4, 5, 7] as const;
+export const SINKHOLE_LEVEL = 6;
 
 const MIN_RUN_CELLS = 3;
 const MAX_RUN_CELLS = 5;
@@ -10,7 +11,11 @@ const MIN_SPACING_TILES = 5;
 
 export type CollapseChain = readonly MazeTile[];
 
-export type CollapsePlan = { chains: readonly CollapseChain[]; artSeed: number };
+export type CollapsePlan = {
+  chains: readonly CollapseChain[];
+  sinkhole: CollapseChain | null;
+  artSeed: number;
+};
 
 export function collapseCountForLevel(levelIndex: number): number {
   if (levelIndex >= MAX_LEVEL) {
@@ -25,6 +30,27 @@ export function isFreshCollapse(chainIndex: number, levelIndex: number): boolean
 
 export function collapsedChainsFor(plan: CollapsePlan, levelIndex: number): CollapseChain[] {
   return plan.chains.slice(0, collapseCountForLevel(levelIndex));
+}
+
+export function sinkholeFor(plan: CollapsePlan, levelIndex: number): CollapseChain | null {
+  return levelIndex >= SINKHOLE_LEVEL && levelIndex < MAX_LEVEL ? plan.sinkhole : null;
+}
+
+export function isFreshSinkhole(levelIndex: number): boolean {
+  return levelIndex === SINKHOLE_LEVEL;
+}
+
+export function applySinkhole(ascii: string, chain: CollapseChain | null): string {
+  if (chain === null) {
+    return ascii;
+  }
+  const lines = ascii.split("\n").map((line) => [...line]);
+  for (const cell of chain) {
+    if (PELLET_CHARS.has(lines[cell.row]![cell.col]!)) {
+      lines[cell.row]![cell.col] = " ";
+    }
+  }
+  return lines.map((line) => line.join("")).join("\n");
 }
 
 export function applyCollapse(ascii: string, chains: readonly CollapseChain[]): string {
@@ -197,7 +223,7 @@ export function pickCollapsePlan(ascii: string, nextRandom: () => number): Colla
   const chosen: number[][] = [];
   const removed = new Set<number>();
   for (const run of runs) {
-    if (chosen.length >= COLLAPSE_LEVELS.length) {
+    if (chosen.length > COLLAPSE_LEVELS.length) {
       break;
     }
     if (!chosen.every((other) => farApart(graph, other, run))) {
@@ -209,8 +235,10 @@ export function pickCollapsePlan(ascii: string, nextRandom: () => number): Colla
       run.forEach((cell) => removed.add(cell));
     }
   }
+  const chains = chosen.map((run) => run.map((cell) => cellOf(graph, cell)));
   return {
-    chains: chosen.map((run) => run.map((cell) => cellOf(graph, cell))),
+    chains: chains.slice(0, COLLAPSE_LEVELS.length),
+    sinkhole: chains[COLLAPSE_LEVELS.length] ?? null,
     artSeed: Math.floor(nextRandom() * 0x7fffffff),
   };
 }

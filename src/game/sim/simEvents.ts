@@ -14,6 +14,7 @@ import type {
 import type { SfxId } from "../../domain/sfxId";
 import type { BoreJunk } from "../../domain/boreJunk";
 import type { CollapseRenderState } from "../../domain/collapseRubble";
+import type { SinkholeRenderState } from "../../domain/sinkholeArt";
 import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
@@ -49,6 +50,7 @@ export type SimRenderOptions = {
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
   collapse?: CollapseRenderState | null;
+  sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;

@@ -8,7 +8,7 @@ import {
   frightenedGhostEids,
   frightenedGhosts,
   floatingZoneEffect,
-  floatsOverLava,
+  floatsOverHazards,
   hunterHoldsEaten,
   tickFrightened,
   DEFY_DEATH_ENHANCED_MS,
@@ -2558,9 +2558,9 @@ describe("Trinkets and the slot cap", () => {
 
 describe("Floating", () => {
   it("floats over lava in both forms and not without it", () => {
-    expect(floatsOverLava([])).toBe(false);
-    expect(floatsOverLava(["passiveFloating"])).toBe(true);
-    expect(floatsOverLava(["passiveFloatingPlus"])).toBe(true);
+    expect(floatsOverHazards([])).toBe(false);
+    expect(floatsOverHazards(["passiveFloating"])).toBe(true);
+    expect(floatsOverHazards(["passiveFloatingPlus"])).toBe(true);
   });
 
   it("only the enhanced form ignores the slow side of a speed zone", () => {

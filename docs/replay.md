@@ -16,5 +16,5 @@ When a run ends (GAME OVER or RUN COMPLETE) the same end screen shows NEW GAME /
 - Recording stops after a fixed cap of sim time so memory stays bounded.
 - Playback speed is derived per run: the loop lasts at least a minimum length, so short runs play in slow motion, and never faster than a maximum speed (constants in `src/domain/replay.ts`).
 - No randomness and no sound in the replay.
-- Known omissions: dropped walls, speed trails, charm tail, lava, speed zones, timed tunnels, boss chains and other upgrade effects; pulsing and expiry blinks; store floors.
+- Known omissions: dropped walls, speed trails, charm tail, lava, speed zones, timed tunnels, boss chains, the sinkhole and other upgrade effects; pulsing and expiry blinks; store floors.
 - LEARN has no run end, so it has no replay ([parity](./learn.md#parity)).
