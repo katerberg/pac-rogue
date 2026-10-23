@@ -4,9 +4,6 @@ import { MAZE_POOL } from "./mazePool";
 import { randomFromSeed } from "./mazeTiling";
 import {
   buildSinkholeArt,
-  SINKHOLE_ART_TILE,
-  SINKHOLE_INTRO_MS,
-  SINKHOLE_STYLE,
   SINKHOLE_TONE,
   sinkholeOpening,
   sinkholePalette,
@@ -15,8 +12,12 @@ import {
   type SinkholeArt,
   type SinkholeOpening,
 } from "./sinkholeArt";
+import { DEFAULT_SINKHOLE_TUNING } from "./sinkholeTuning";
+import { TUNING_KNOBS, type RangeKnob } from "./tuningKnobs";
 
-const TILE = SINKHOLE_ART_TILE;
+const TUNING = DEFAULT_SINKHOLE_TUNING;
+const TILE = TUNING.sinkholeArtTile;
+const SINKHOLE_INTRO_MS = TUNING.sinkholeIntroMs;
 
 const found = MAZE_POOL.flatMap((map) => {
   const plan = pickCollapsePlan(map.ascii, randomFromSeed(`collapse:${map.id}`));
@@ -26,10 +27,18 @@ const found = MAZE_POOL.flatMap((map) => {
 });
 
 const sample = found[0]!;
-const art = buildSinkholeArt({ ascii: sample.ascii, tileSize: TILE }, sample.chain, sample.seed);
+const art = buildSinkholeArt(
+  { ascii: sample.ascii, tileSize: TILE },
+  sample.chain,
+  sample.seed,
+  TUNING,
+);
 
 const visible = (target: SinkholeArt, opening: SinkholeOpening) =>
   target.pixels.filter((pixel) => sinkholePixelVisible(pixel, opening));
+
+const openingAt = (elapsedMs: number, fresh: boolean): SinkholeOpening =>
+  sinkholeOpening({ key: "k", art, elapsedMs, fresh, tuning: TUNING });
 
 const CLOSED: SinkholeOpening = { crackP: 0, open: 0 };
 const OPEN: SinkholeOpening = { crackP: 1, open: 1 };
@@ -47,26 +56,26 @@ const isVoid = (tone: number | undefined): boolean =>
 
 describe("sinkholeOpening", () => {
   it("starts closed, cracks first, then widens, and ends fully open", () => {
-    expect(sinkholeOpening(0, true)).toEqual({ crackP: 0, open: 0 });
-    const cracking = sinkholeOpening(SINKHOLE_INTRO_MS * SINKHOLE_STYLE.crackShare * 0.5, true);
+    expect(openingAt(0, true)).toEqual({ crackP: 0, open: 0 });
+    const cracking = openingAt(SINKHOLE_INTRO_MS * TUNING.sinkholeCrackShare * 0.5, true);
     expect(cracking.crackP).toBeCloseTo(0.5);
     expect(cracking.open).toBe(0);
-    const widening = sinkholeOpening(SINKHOLE_INTRO_MS * 0.7, true);
+    const widening = openingAt(SINKHOLE_INTRO_MS * 0.7, true);
     expect(widening.crackP).toBe(1);
     expect(widening.open).toBeGreaterThan(0);
     expect(widening.open).toBeLessThan(1);
-    expect(sinkholeOpening(SINKHOLE_INTRO_MS, true)).toEqual(OPEN);
-    expect(sinkholeOpening(SINKHOLE_INTRO_MS * 9, true)).toEqual(OPEN);
+    expect(openingAt(SINKHOLE_INTRO_MS, true)).toEqual(OPEN);
+    expect(openingAt(SINKHOLE_INTRO_MS * 9, true)).toEqual(OPEN);
   });
 
   it("shows an old sinkhole open from the first frame", () => {
-    expect(sinkholeOpening(0, false)).toEqual(OPEN);
+    expect(openingAt(0, false)).toEqual(OPEN);
   });
 
   it("only advances forwards", () => {
-    let previous = sinkholeOpening(0, true);
+    let previous = openingAt(0, true);
     for (let ms = 0; ms <= SINKHOLE_INTRO_MS; ms += 50) {
-      const now = sinkholeOpening(ms, true);
+      const now = openingAt(ms, true);
       expect(now.crackP).toBeGreaterThanOrEqual(previous.crackP);
       expect(now.open).toBeGreaterThanOrEqual(previous.open);
       previous = now;
@@ -74,7 +83,7 @@ describe("sinkholeOpening", () => {
   });
 
   it("is settled once the opening has run, or when it never plays", () => {
-    const state = { key: "k", art, elapsedMs: 0, fresh: true };
+    const state = { key: "k", art, elapsedMs: 0, fresh: true, tuning: TUNING };
     expect(sinkholeSettled(state)).toBe(false);
     expect(sinkholeSettled({ ...state, elapsedMs: SINKHOLE_INTRO_MS })).toBe(true);
     expect(sinkholeSettled({ ...state, fresh: false })).toBe(true);
@@ -84,11 +93,11 @@ describe("sinkholeOpening", () => {
 describe("buildSinkholeArt", () => {
   it("is deterministic and differs between seeds", () => {
     const board = { ascii: sample.ascii, tileSize: TILE };
-    expect(buildSinkholeArt(board, sample.chain, 5)).toEqual(
-      buildSinkholeArt(board, sample.chain, 5),
+    expect(buildSinkholeArt(board, sample.chain, 5, TUNING)).toEqual(
+      buildSinkholeArt(board, sample.chain, 5, TUNING),
     );
-    expect(buildSinkholeArt(board, sample.chain, 5)).not.toEqual(
-      buildSinkholeArt(board, sample.chain, 6),
+    expect(buildSinkholeArt(board, sample.chain, 5, TUNING)).not.toEqual(
+      buildSinkholeArt(board, sample.chain, 6, TUNING),
     );
   });
 
@@ -152,7 +161,12 @@ describe("buildSinkholeArt", () => {
         new Set(chain.map((c) => c.col)).size > 1 && new Set(chain.map((c) => c.row)).size > 1,
     );
     expect(bent).toBeDefined();
-    const built = buildSinkholeArt({ ascii: bent!.ascii, tileSize: TILE }, bent!.chain, bent!.seed);
+    const built = buildSinkholeArt(
+      { ascii: bent!.ascii, tileSize: TILE },
+      bent!.chain,
+      bent!.seed,
+      TUNING,
+    );
     const width = bent!.ascii.split("\n")[0]!.length * TILE;
     const { grid } = paint(built, OPEN, width, 0);
     for (const { col, row } of bent!.chain) {
@@ -163,7 +177,7 @@ describe("buildSinkholeArt", () => {
 
 describe("sinkholePalette", () => {
   it("rims the hole in the maze colour and darkens to a void", () => {
-    const palette = sinkholePalette(0x2121ff);
+    const palette = sinkholePalette(0x2121ff, TUNING);
     expect(palette[SINKHOLE_TONE.rim]).toBe(0x2121ff);
     expect(palette[SINKHOLE_TONE.voidDeep]).toBe(0x000000);
     const colors = Object.values(SINKHOLE_TONE).map((tone) => palette[tone]);
@@ -171,10 +185,51 @@ describe("sinkholePalette", () => {
   });
 });
 
+describe("sinkhole knobs", () => {
+  const sinkholeKnobs = TUNING_KNOBS.filter(
+    (knob): knob is RangeKnob => knob.subgroup === "Sinkhole" && knob.kind === "range",
+  );
+  const board = { ascii: sample.ascii, tileSize: TILE };
+  const lines = sample.ascii.split("\n");
+  const settings = [
+    ...sinkholeKnobs.flatMap((knob) => [{ [knob.key]: knob.min }, { [knob.key]: knob.max }]),
+    Object.fromEntries(sinkholeKnobs.map((knob) => [knob.key, knob.min])),
+    Object.fromEntries(sinkholeKnobs.map((knob) => [knob.key, knob.max])),
+  ];
+
+  it("builds art on the board and a sane opening at every slider extreme", () => {
+    for (const setting of settings) {
+      const tuning = { ...TUNING, ...setting };
+      const built = buildSinkholeArt(board, sample.chain, sample.seed, tuning);
+      const label = JSON.stringify(setting);
+      expect(built.tile, label).toBe(tuning.sinkholeArtTile);
+      for (const pixel of built.pixels) {
+        expect(pixel.x >= 0 && pixel.x < lines[0]!.length * built.tile, label).toBe(true);
+        expect(pixel.y >= 0 && pixel.y < lines.length * built.tile, label).toBe(true);
+      }
+      for (const elapsedMs of [0, tuning.sinkholeIntroMs / 2, tuning.sinkholeIntroMs]) {
+        const opening = sinkholeOpening({ key: "k", art: built, elapsedMs, fresh: true, tuning });
+        expect(opening.open, label).toBeGreaterThanOrEqual(0);
+        expect(opening.open, label).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("mixes the edge band toward the void colour knob", () => {
+    const palette = sinkholePalette(0x2121ff, {
+      ...TUNING,
+      sinkholeVoidColor: 0xff0000,
+      sinkholeEdgeDarken: 1,
+    });
+    expect(palette[SINKHOLE_TONE.voidDeep]).toBe(0xff0000);
+    expect(palette[SINKHOLE_TONE.voidEdge]).toBe(0xff0000);
+  });
+});
+
 describe("opening start", () => {
   it("keeps the first widening pixels back until the crack has run", () => {
     for (const { ascii, chain, seed } of found) {
-      const built = buildSinkholeArt({ ascii, tileSize: TILE }, chain, seed);
+      const built = buildSinkholeArt({ ascii, tileSize: TILE }, chain, seed, TUNING);
       const early = built.pixels.filter(
         (p) => isVoid(p.tone) && p.crackFrom === 0 && p.openFrom < 0.02,
       );

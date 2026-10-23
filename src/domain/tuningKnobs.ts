@@ -13,13 +13,15 @@ export type KnobGroup =
   | "Scatter"
   | "Visuals";
 
-export type VisualsSubgroup = "Walls" | "Dot-Man" | "Speed lanes" | "Bracelet" | "Background";
+export type VisualsSubgroup =
+  "Walls" | "Dot-Man" | "Speed lanes" | "Bracelet" | "Sinkhole" | "Background";
 
 export const VISUALS_SUBGROUPS: readonly VisualsSubgroup[] = [
   "Walls",
   "Dot-Man",
   "Speed lanes",
   "Bracelet",
+  "Sinkhole",
   "Background",
 ];
 
@@ -145,6 +147,29 @@ export const TUNING_KNOBS: readonly KnobDef[] = [
   range("charmBobble", "Visuals", "Bobble", 0, 0.6, 0.01, "× link", "Bracelet"),
   range("charmBobblePeriodMs", "Visuals", "Bobble period", 200, 2000, 50, "ms", "Bracelet"),
   range("charmBaseAlpha", "Visuals", "Shield opacity", 0.2, 1, 0.05, "", "Bracelet"),
+  range("sinkholeArtTile", "Visuals", "Pixels per tile", 1, 32, 1, "px", "Sinkhole"),
+  range("sinkholeBulge", "Visuals", "Bulge", -8, 24, 0.1, "px", "Sinkhole"),
+  range("sinkholeTaper", "Visuals", "Taper", 0, 4, 0.05, "×", "Sinkhole"),
+  range("sinkholeJag", "Visuals", "Jaggedness", 0, 24, 0.1, "px", "Sinkhole"),
+  range("sinkholeJagScale", "Visuals", "Jag size", 0.1, 40, 0.1, "px", "Sinkhole"),
+  range("sinkholeLumps", "Visuals", "Lumpiness", 0, 40, 0.005, "px", "Sinkhole"),
+  range("sinkholeLumpScale", "Visuals", "Lump size", 0.5, 80, 0.5, "px", "Sinkhole"),
+  range("sinkholeRimWidth", "Visuals", "Rim width", 0, 24, 0.1, "px", "Sinkhole"),
+  range("sinkholeBandWidth", "Visuals", "Edge band width", 0, 40, 0.1, "px", "Sinkhole"),
+  range("sinkholeEdgeDarken", "Visuals", "Edge darkness", 0, 1, 0.01, "", "Sinkhole"),
+  {
+    key: "sinkholeVoidColor",
+    group: "Visuals",
+    label: "Void color",
+    kind: "color",
+    subgroup: "Sinkhole",
+  },
+  range("sinkholeIntroMs", "Visuals", "Opening time", 100, 60000, 100, "ms", "Sinkhole"),
+  range("sinkholeCrackShare", "Visuals", "Crack share", 0, 1, 0.01, "", "Sinkhole"),
+  range("sinkholeSpread", "Visuals", "Opening spread", 0, 20, 0.1, "×", "Sinkhole"),
+  range("sinkholeSlitWobble", "Visuals", "Crack wobble", 0, 40, 0.1, "px", "Sinkhole"),
+  range("sinkholeSlitWobbleScale", "Visuals", "Wobble length", 0.1, 40, 0.1, "px", "Sinkhole"),
+  range("sinkholeSlitThick", "Visuals", "Thick crack share", 0, 1, 0.01, "", "Sinkhole"),
   {
     key: "backgroundColor",
     group: "Visuals",
@@ -272,4 +297,26 @@ export const KNOB_HELP: Record<TuningKey, string> = {
   charmBaseAlpha: "Opacity of the shield squares.",
   wallCornerRadius: "Roundness of wall corners in pixels. 0 = square corners.",
   backgroundColor: "Color behind the maze.",
+  sinkholeArtTile:
+    "Sinkhole art pixels per maze tile. Low = huge chunky blocks, high = fine detail. The other sinkhole px knobs are in these art pixels.",
+  sinkholeBulge: "How far the hole spills past the corridor into the walls, in art pixels.",
+  sinkholeTaper: "Scales the hole's radius. Below 1 pinches it in, above 1 swells it out.",
+  sinkholeJag: "Strength of the fine edge noise. 0 = smooth edge.",
+  sinkholeJagScale: "Size of the fine edge noise features. Small = fuzzy, large = broad wiggles.",
+  sinkholeLumps: "Strength of the coarse lump noise that warps the whole outline.",
+  sinkholeLumpScale: "Size of the coarse lumps in art pixels.",
+  sinkholeRimWidth: "Width of the wall-coloured rim around the hole.",
+  sinkholeBandWidth: "Width of the darkened band inside the rim before the void color.",
+  sinkholeEdgeDarken:
+    "How far the inner band mixes from the wall color toward the void color. 0 = wall color, 1 = void color.",
+  sinkholeVoidColor: "Color at the bottom of the sinkhole.",
+  sinkholeIntroMs:
+    "How long the first-time opening (crack, then widen) takes. Replays when the sinkhole's first level starts again (reload on level 6).",
+  sinkholeCrackShare:
+    "Share of the opening spent running the crack before the hole starts widening.",
+  sinkholeSpread:
+    "How much later the ends of the run open than the middle. 0 = opens everywhere at once.",
+  sinkholeSlitWobble: "How far the opening crack wanders side to side, in art pixels.",
+  sinkholeSlitWobbleScale: "Distance along the run between the crack's wiggles.",
+  sinkholeSlitThick: "Share of the crack, from the middle out, drawn two pixels thick.",
 };

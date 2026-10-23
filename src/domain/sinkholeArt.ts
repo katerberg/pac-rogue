@@ -1,20 +1,6 @@
 import type { CollapseChain } from "./collapse";
 import { mixColor } from "./collapseRubble";
-
-export const SINKHOLE_ART_TILE = 8;
-
-export const SINKHOLE_STYLE = {
-  bulge: 0.5,
-  jag: 0.6,
-  lumps: 0.15,
-  taper: 0.85,
-  bandWidth: 1.5,
-  rimWidth: 1,
-  edgeDarken: 0.6,
-  introMs: 4000,
-  crackShare: 0.4,
-  spread: 0.4,
-} as const;
+import type { SinkholeTuning } from "./sinkholeTuning";
 
 export const SINKHOLE_TONE = {
   rim: 0,
@@ -24,13 +10,15 @@ export const SINKHOLE_TONE = {
 
 export type SinkholeTone = (typeof SINKHOLE_TONE)[keyof typeof SINKHOLE_TONE];
 
-const VOID = 0x000000;
-
-export function sinkholePalette(wallColor: number): Readonly<Record<SinkholeTone, number>> {
+export function sinkholePalette(
+  wallColor: number,
+  tuning: SinkholeTuning,
+): Readonly<Record<SinkholeTone, number>> {
+  const voidColor = tuning.sinkholeVoidColor;
   return {
     [SINKHOLE_TONE.rim]: wallColor,
-    [SINKHOLE_TONE.voidEdge]: mixColor(wallColor, VOID, SINKHOLE_STYLE.edgeDarken),
-    [SINKHOLE_TONE.voidDeep]: VOID,
+    [SINKHOLE_TONE.voidEdge]: mixColor(wallColor, voidColor, tuning.sinkholeEdgeDarken),
+    [SINKHOLE_TONE.voidDeep]: voidColor,
   };
 }
 
@@ -43,26 +31,27 @@ export type SinkholePixel = {
   openUntil: number;
 };
 
-export type SinkholeArt = { pixels: readonly SinkholePixel[] };
+export type SinkholeArt = { pixels: readonly SinkholePixel[]; tile: number };
 
 export type SinkholeRenderState = {
   key: string;
   art: SinkholeArt;
   elapsedMs: number;
   fresh: boolean;
+  tuning: SinkholeTuning;
 };
 
 export type SinkholeBoard = { ascii: string; tileSize: number };
 
 export type SinkholeOpening = { crackP: number; open: number };
 
-const T = SINKHOLE_ART_TILE;
 const NEVER = 2;
-const SEAL_END_PX = 2;
-const OPEN_DEPTH_PAD = 2;
+const SEAL_END_SHARE = 0.25;
+const OPEN_DEPTH_PAD_SHARE = 0.25;
 const OPEN_DEPTH_FLOOR = 1;
-const MID_SLIT_SHARE = 0.5;
-const SLIT_OVERSHOOT_PX = 1;
+const SLIT_OVERSHOOT_SHARE = 0.125;
+const SLIT_RANDOM_THICK = 0.35;
+const REACH_PAD_PX = 2;
 
 const SIDES = [
   { dx: 0, dy: -1 },
@@ -73,20 +62,18 @@ const SIDES = [
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
 
-export const SINKHOLE_INTRO_MS = SINKHOLE_STYLE.introMs;
-
-export function sinkholeOpening(elapsedMs: number, fresh: boolean): SinkholeOpening {
-  if (!fresh) {
+export function sinkholeOpening(state: SinkholeRenderState): SinkholeOpening {
+  if (!state.fresh) {
     return { crackP: 1, open: 1 };
   }
-  const { introMs, crackShare } = SINKHOLE_STYLE;
-  const progress = clamp01(elapsedMs / introMs);
+  const crackShare = state.tuning.sinkholeCrackShare;
+  const progress = clamp01(state.elapsedMs / state.tuning.sinkholeIntroMs);
   const raw = clamp01((progress - crackShare * 0.7) / (1 - crackShare * 0.7));
   return { crackP: clamp01(progress / crackShare), open: raw * raw * (3 - 2 * raw) };
 }
 
 export function sinkholeSettled(state: SinkholeRenderState): boolean {
-  return !state.fresh || state.elapsedMs >= SINKHOLE_INTRO_MS;
+  return !state.fresh || state.elapsedMs >= state.tuning.sinkholeIntroMs;
 }
 
 export function sinkholePixelVisible(pixel: SinkholePixel, opening: SinkholeOpening): boolean {
@@ -128,12 +115,18 @@ type Hole = {
   path: { x: number; y: number; along: boolean }[];
 };
 
-function buildHole(board: SinkholeBoard, chain: CollapseChain, seed: number): Hole {
+function buildHole(
+  board: SinkholeBoard,
+  chain: CollapseChain,
+  seed: number,
+  tuning: SinkholeTuning,
+): Hole {
   const lines = board.ascii.split("\n");
   const inChain = new Set(chain.map((c) => `${c.col},${c.row}`));
   const isWall = (col: number, row: number): boolean => "#H=".includes(lines[row]?.[col] ?? "#");
-  const { bulge, jag, lumps, taper } = SINKHOLE_STYLE;
-  const rc = (T / 2 + bulge) * taper;
+  const T = tuning.sinkholeArtTile;
+  const bulge = tuning.sinkholeBulge;
+  const rc = (T / 2 + bulge) * tuning.sinkholeTaper;
   const boxes: CellBox[] = [];
   const ends = new Map<string, { x0: number; y0: number; sides: number[] }>();
   for (const { col, row } of chain) {
@@ -180,7 +173,7 @@ function buildHole(board: SinkholeBoard, chain: CollapseChain, seed: number): Ho
             : side === 2
               ? x - end.x0
               : end.x0 + T - x;
-      return local >= SEAL_END_PX;
+      return local >= T * SEAL_END_SHARE;
     });
   };
   const field = (x: number, y: number): number => {
@@ -190,8 +183,10 @@ function buildHole(board: SinkholeBoard, chain: CollapseChain, seed: number): Ho
     for (const box of boxes) {
       sd = Math.min(sd, boxDistance(box, px, py));
     }
-    const fine = (noise2(x / 2, y / 2, seed) - 0.5) * 2 * jag;
-    const lump = (noise2(x / 4, y / 4, seed + 40) - 0.5) * 2 * lumps * 2.1;
+    const jagScale = tuning.sinkholeJagScale;
+    const lumpScale = tuning.sinkholeLumpScale;
+    const fine = (noise2(x / jagScale, y / jagScale, seed) - 0.5) * 2 * tuning.sinkholeJag;
+    const lump = (noise2(x / lumpScale, y / lumpScale, seed + 40) - 0.5) * 2 * tuning.sinkholeLumps;
     const value = sd - rc + fine + lump;
     return sealed(x, y) ? Math.min(value, -0.5) : value;
   };
@@ -207,7 +202,7 @@ function buildHole(board: SinkholeBoard, chain: CollapseChain, seed: number): Ho
   });
   const head = unit(second, first);
   const tail = unit(before, last);
-  const lead = T / 2 + SLIT_OVERSHOOT_PX;
+  const lead = T / 2 + Math.max(1, T * SLIT_OVERSHOOT_SHARE);
   const waypoints = [
     { x: first.x + head.x * lead, y: first.y + head.y * lead },
     ...centres,
@@ -235,30 +230,39 @@ export function buildSinkholeArt(
   board: SinkholeBoard,
   chain: CollapseChain,
   seed: number,
+  tuning: SinkholeTuning,
 ): SinkholeArt {
-  const hole = buildHole(board, chain, seed);
+  const hole = buildHole(board, chain, seed, tuning);
   const { field } = hole;
-  const style = SINKHOLE_STYLE;
+  const T = tuning.sinkholeArtTile;
+  const spread = tuning.sinkholeSpread;
+  const rimWidth = tuning.sinkholeRimWidth;
   const lines = board.ascii.split("\n");
   const width = lines[0]!.length * T;
   const height = lines.length * T;
   const cols = chain.map((c) => c.col);
   const rows = chain.map((c) => c.row);
-  const reach = Math.ceil(T / 2 + style.bulge + 4);
+  const reach = Math.ceil(
+    T / 2 +
+      Math.max(0, tuning.sinkholeBulge) +
+      tuning.sinkholeJag +
+      tuning.sinkholeLumps +
+      rimWidth +
+      tuning.sinkholeSlitWobble +
+      REACH_PAD_PX,
+  );
   const x0 = Math.max(0, Math.min(...cols) * T - reach);
   const x1 = Math.min(width - 1, (Math.max(...cols) + 1) * T + reach);
   const y0 = Math.max(0, Math.min(...rows) * T - reach);
   const y1 = Math.min(height - 1, (Math.max(...rows) + 1) * T + reach);
   const inArt = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < width && y < height;
-  let depth = T / 2 + style.bulge + OPEN_DEPTH_PAD;
+  let depth = T / 2 + tuning.sinkholeBulge + T * OPEN_DEPTH_PAD_SHARE;
   const lagOf = (x: number, y: number): number =>
     Math.min(1.2, Math.hypot(x + 0.5 - hole.mid.x, y + 0.5 - hole.mid.y) / hole.halfLength);
   const openAt = (value: number, x: number, y: number): number =>
-    clamp01((1 + value / depth + style.spread * lagOf(x, y)) / (1 + style.spread));
+    clamp01((1 + value / depth + spread * lagOf(x, y)) / (1 + spread));
   const rimAt = (value: number, x: number, y: number): number =>
-    clamp01(
-      (1 - (style.rimWidth - value) / depth + style.spread * lagOf(x, y)) / (1 + style.spread),
-    );
+    clamp01((1 - (rimWidth - value) / depth + spread * lagOf(x, y)) / (1 + spread));
 
   const pixels: SinkholePixel[] = [];
   const values = new Map<number, number>();
@@ -283,7 +287,7 @@ export function buildSinkholeArt(
   for (let y = y0; y <= y1; y += 1) {
     for (let x = x0; x <= x1; x += 1) {
       const value = valueAt(x, y);
-      if (value > style.rimWidth) {
+      if (value > rimWidth) {
         continue;
       }
       pixels.push({
@@ -298,11 +302,12 @@ export function buildSinkholeArt(
   }
   const slit = new Set<number>();
   hole.path.forEach((point, index) => {
-    const offset = Math.round((noise2(index / 1.2, 0, seed + 90) - 0.5) * 1.7);
+    const wobble = noise2(index / tuning.sinkholeSlitWobbleScale, 0, seed + 90) - 0.5;
+    const offset = Math.round(wobble * tuning.sinkholeSlitWobble);
     const x = point.along ? point.x : point.x + offset;
     const y = point.along ? point.y + offset : point.y;
     const from = clamp01(Math.abs(index + 0.5 - hole.halfLength) / hole.halfLength);
-    const thick = from < MID_SLIT_SHARE || hash3(index, 1, seed + 91) < 0.35;
+    const thick = from < tuning.sinkholeSlitThick || hash3(index, 1, seed + 91) < SLIT_RANDOM_THICK;
     const entries: [number, number, SinkholeTone][] = [[x, y, SINKHOLE_TONE.voidEdge]];
     if (thick) {
       entries.push(point.along ? [x, y + 1, SINKHOLE_TONE.rim] : [x + 1, y, SINKHOLE_TONE.rim]);
@@ -324,12 +329,12 @@ export function buildSinkholeArt(
       pixels.push({
         x,
         y,
-        tone: -value >= style.bandWidth ? SINKHOLE_TONE.voidDeep : SINKHOLE_TONE.voidEdge,
+        tone: -value >= tuning.sinkholeBandWidth ? SINKHOLE_TONE.voidDeep : SINKHOLE_TONE.voidEdge,
         crackFrom: 0,
         openFrom: openAt(value, x, y),
         openUntil: NEVER,
       });
     }
   }
-  return { pixels };
+  return { pixels, tile: T };
 }

@@ -138,7 +138,6 @@ import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
 import { ghostMovementRules } from "../../domain/ghostMovement";
-import { SINKHOLE_INTRO_MS } from "../../domain/sinkholeArt";
 import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Crumb } from "../components/Crumb";
@@ -9228,7 +9227,7 @@ describe("sinkhole", () => {
     runFrames(sim, 600, { keys: held("left") });
     expect(sim.snapshot().sinkhole.introMs).toBeGreaterThan(early);
     const settled = sim.snapshot().sinkhole.introMs;
-    expect(settled).toBe(SINKHOLE_INTRO_MS);
+    expect(settled).toBe(DEFAULT_TUNING.sinkholeIntroMs);
     runFrames(sim, 60);
     expect(sim.snapshot().sinkhole.introMs).toBe(settled);
   });
@@ -9239,6 +9238,23 @@ describe("sinkhole", () => {
     expect(state?.fresh).toBe(true);
     expect(state?.art.pixels.length).toBeGreaterThan(0);
     expect(startSim({ level: 7 }, SEED).renderOptions().sinkhole?.fresh).toBe(false);
+  });
+
+  it("rebuilds the sinkhole art live when a sinkhole knob changes", () => {
+    const sim = startSim({ level: 6 }, SEED);
+    runFrames(sim, 30, { keys: held("left") });
+    const before = sim.renderOptions().sinkhole!;
+    sim.setTuning(resolveTuning({ wallThickness: 3 }));
+    expect(sim.renderOptions().sinkhole!.key).toBe(before.key);
+    sim.setTuning(resolveTuning({ sinkholeArtTile: 3, sinkholeIntroMs: 200 }));
+    const after = sim.renderOptions().sinkhole!;
+    expect(after.key).not.toBe(before.key);
+    expect(after.art.tile).toBe(3);
+    expect(after.art.pixels).not.toEqual(before.art.pixels);
+    expect(sim.snapshot().sinkhole.introMs).toBeLessThanOrEqual(200);
+    runFrames(sim, 60);
+    expect(sim.snapshot().sinkhole.introMs).toBe(200);
+    expect(sim.renderOptions().sinkhole!.key).toBe(after.key);
   });
 
   it("replays the same sinkhole for the same seed and differs between seeds", () => {
