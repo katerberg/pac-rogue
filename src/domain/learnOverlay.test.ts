@@ -5,11 +5,12 @@ import { CLYDE_SHY_TILES, SPUNKY_AGGRO_TILES, WARDY_STRIKE_TILES } from "./ghost
 import {
   clipSegmentToRect,
   easeToward,
+  inkyReticleGoalPx,
   LEARN_PATH_MAX_STEPS,
   predictGhostPath,
   targetDerivation,
 } from "./learnOverlay";
-import { activateLayout } from "./maze";
+import { activateLayout, TILE_SIZE } from "./maze";
 
 beforeEach(() => {
   activateLayout("mazeSmall");
@@ -181,5 +182,19 @@ describe("easeToward", () => {
 
   it("stays put for a zero delta", () => {
     expect(easeToward({ x: 10, y: 10 }, goal, 0)).toEqual({ x: 10, y: 10 });
+  });
+});
+
+describe("inkyReticleGoalPx", () => {
+  const tileGoal = { x: 100, y: 100 };
+
+  it("reflects Blinky through the pivot in pixels so it tracks sub-tile motion", () => {
+    const goal = inkyReticleGoalPx({ x: 60, y: 90 }, { x: 80.5, y: 95 }, tileGoal);
+    expect(goal).toEqual({ x: 101, y: 100 });
+  });
+
+  it("falls back to the tile goal when the reflection strays far from it", () => {
+    const goal = inkyReticleGoalPx({ x: 0, y: 0 }, { x: TILE_SIZE * 20, y: 0 }, tileGoal);
+    expect(goal).toEqual(tileGoal);
   });
 });

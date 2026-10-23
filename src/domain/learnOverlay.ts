@@ -10,10 +10,11 @@ import {
   lookAheadTile,
   type GhostTarget,
 } from "./ghostTarget";
-import { cellCenterX, cellCenterY, getActiveLayout } from "./maze";
+import { cellCenterX, cellCenterY, getActiveLayout, TILE_SIZE } from "./maze";
 
 export const LEARN_PATH_MAX_STEPS = 120;
 export const RETICLE_EASE_MS = 70;
+const INKY_RETICLE_MAX_DRIFT_TILES = 3;
 
 export const GHOST_COLOR_BY_KIND: Record<GhostKindId, number> = {
   [GHOST_KIND.blinky]: 0xff0000,
@@ -163,6 +164,16 @@ export function clipSegmentToRect(seg: PixelSegment, rect: PixelRect): PixelSegm
 }
 
 export type PixelPoint = { x: number; y: number };
+
+export function inkyReticleGoalPx(
+  blinky: PixelPoint,
+  pivot: PixelPoint,
+  tileGoal: PixelPoint,
+): PixelPoint {
+  const goal = { x: pivot.x * 2 - blinky.x, y: pivot.y * 2 - blinky.y };
+  const maxDrift = TILE_SIZE * INKY_RETICLE_MAX_DRIFT_TILES;
+  return Math.hypot(goal.x - tileGoal.x, goal.y - tileGoal.y) <= maxDrift ? goal : tileGoal;
+}
 
 export function easeToward(
   current: PixelPoint | null,
