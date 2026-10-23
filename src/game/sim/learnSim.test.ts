@@ -2416,4 +2416,36 @@ describe("Sonic Boom (LEARN)", () => {
     const events = [sim.step(NO_KEYS_HELD, FRAME_MS), sim.step(NO_KEYS_HELD, FRAME_MS)].flat();
     expect(events.some((event) => event.type === "sonicBoomEcho")).toBe(true);
   });
+  it("base turns a passed ghost around without stunning it", () => {
+    const sim = boomSim("passiveSonicBoom");
+    const player = query(sim.world, [Player, Position])[0]!;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = Position.x[player]! + 12;
+    Position.y[ghost] = Position.y[player]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    Facing.direction[ghost] = DIRECTION.left;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.right);
+  });
+
+  it("Plus lets you pass through a stunned ghost, base does not", () => {
+    const lostLife = (id: "passiveSonicBoom" | "passiveSonicBoomPlus"): boolean => {
+      const sim = boomSim(id);
+      sim.toggleUpgrade("passiveExtraLife");
+      const player = query(sim.world, [Player, Position])[0]!;
+      const ghost = sim.ghostEid!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      sim["learnUpgrades"] = {
+        ...sim["learnUpgrades"],
+        sonicHits: [{ eid: ghost, remainingMs: 2000 }],
+      };
+      Position.x[player] = Position.x[ghost]!;
+      Position.y[player] = Position.y[ghost]!;
+      return sim
+        .step(NO_KEYS_HELD, FRAME_MS)
+        .some((event) => event.type === "learnPopup" && event.text.startsWith("LIFE LOST"));
+    };
+    expect(lostLife("passiveSonicBoomPlus")).toBe(false);
+    expect(lostLife("passiveSonicBoom")).toBe(true);
+  });
 });
