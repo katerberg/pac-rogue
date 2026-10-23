@@ -143,19 +143,13 @@ export type ProgrammerPathMark = { x: number; y: number; dir: ProgramDir; latest
 
 type Cell = { col: number; row: number };
 
-function stepCell(solids: SolidGrid, { col, row }: Cell, dir: ProgramDir): Cell {
+function legEnd(solids: SolidGrid, from: Cell, heading: ProgramDir): { cell: Cell; turn: boolean } {
   const rows = solids.length;
   const cols = solids[0]?.length ?? 0;
-  return {
-    col: (col + STEP[dir].dx + cols) % cols,
-    row: (row + STEP[dir].dy + rows) % rows,
-  };
-}
-
-function legEnd(solids: SolidGrid, from: Cell, heading: ProgramDir): { cell: Cell; turn: boolean } {
+  const { dx, dy } = STEP[heading];
   let cell = from;
-  for (let steps = 0; steps < solids.length * (solids[0]?.length ?? 0); steps += 1) {
-    cell = stepCell(solids, cell, heading);
+  for (let steps = 0; steps < rows * cols; steps += 1) {
+    cell = { col: (cell.col + dx + cols) % cols, row: (cell.row + dy + rows) % rows };
     if (isIntersection(solids, cell.col, cell.row, heading)) {
       return { cell, turn: true };
     }
