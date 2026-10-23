@@ -90,7 +90,8 @@ export type CoreUpgradeId =
   | "passiveMartyr"
   | "passivePossession"
   | "passiveFloating"
-  | "passiveGleaning";
+  | "passiveGleaning"
+  | "passiveSonicBoom";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -125,6 +126,9 @@ export type UpgradeEffects = {
   trinket?: TrinketEffect;
   playerSpeedMul?: number;
   emptyCellSpeedMul?: number;
+  sonicBoomHitMs?: number;
+  sonicBoomHallwayTiles?: number;
+  sonicBoomStuns?: true;
   pelletCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
@@ -311,6 +315,10 @@ export const TITHE_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
 export const AFTERBURNER_ENHANCED_MUL = 1.5;
+export const SONIC_BOOM_RADIUS_TILES = 2;
+export const SONIC_BOOM_TURN_COOLDOWN_MS = 1000;
+export const SONIC_BOOM_STUN_MS = 2000;
+export const SONIC_BOOM_HALLWAY_TILES = 4;
 export const MOLE_ENHANCED_PELLET_MUL = 1.3;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
@@ -1161,6 +1169,24 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       gleaningCharge: GLEANING_ENHANCED_CHARGE,
     },
   },
+  {
+    id: "passiveSonicBoom",
+    label: "Sonic Boom",
+    school: "speed",
+    description:
+      "At top speed, a boom turns nearby ghosts around, and ripples 4 tiles down side hallways at T and X junctions.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote:
+        "Sonic Boom stuns ghosts for 2 seconds and lets you pass through them, instead of turning them around.",
+      description:
+        "At top speed, a boom stuns nearby ghosts for 2s and you pass through them. Ripples 4 tiles down side hallways at T and X junctions.",
+      sonicBoomHitMs: SONIC_BOOM_STUN_MS,
+      sonicBoomStuns: true,
+    },
+    sonicBoomHitMs: SONIC_BOOM_TURN_COOLDOWN_MS,
+    sonicBoomHallwayTiles: SONIC_BOOM_HALLWAY_TILES,
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1388,6 +1414,7 @@ export type RunUpgrades = {
   shieldsBanked: number;
   peelsBanked: number;
   pendingEchoes: PendingEcho[];
+  sonicHits: readonly { eid: number; remainingMs: number }[];
   frightenedRemainingMs: number;
   frightenedGhostEids: number[];
   hunterHeldEids: number[];
@@ -1447,6 +1474,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     shieldsBanked: 0,
     peelsBanked: 0,
     pendingEchoes: [],
+    sonicHits: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,
@@ -1801,6 +1829,7 @@ export function clearStaleUpgradeTimers(
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
+    sonicHits: hasUpgrade(owned, "passiveSonicBoom") ? state.sonicHits : [],
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
     mirrorActive: hasField("mirror") && state.mirrorActive,
     programmer: hasField("programmerSets") ? state.programmer : null,
@@ -1843,6 +1872,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     possessionRemainingMs: 0,
     possessedGhostEid: null,
     pendingEchoes: [],
+    sonicHits: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,

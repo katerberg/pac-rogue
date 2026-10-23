@@ -546,6 +546,14 @@ import { TurnTuningState, type TurnSparksBurst } from "../systems/turnTuningStat
 import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
+import {
+  atTopSpeed,
+  sonicStunnedEids,
+  sonicStunSpriteOffsets,
+  sonicHitRemainingMs,
+  tickSonicHits,
+} from "../../domain/sonicBoom";
+import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import { programmerQueueSlots } from "../../domain/programmer";
@@ -726,6 +734,7 @@ export class PlaySim {
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
   private readonly ghostTraction = new GhostTractionState();
+  private readonly sonicEchoes = new SonicBoomEchoes();
   private lavaZone: LavaZone | null = null;
   private lavaElapsedMs = 0;
   private lavaStarted = false;
@@ -1183,7 +1192,11 @@ export class PlaySim {
           ? speedTrailSprites(this.speedTrail, getActiveLayout().tileSize)
           : undefined,
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
-      spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+      spriteOffsets: sonicStunSpriteOffsets(
+        this.runUpgrades,
+        this.effectiveUpgrades(),
+        shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+      ),
       hauntedGhost: hauntedGhost(this.runUpgrades),
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
@@ -1301,6 +1314,7 @@ export class PlaySim {
       effectiveUpgrades: this.effectiveUpgrades(),
       timers: {
         freezeMs: upgrades.freezeRemainingMs,
+        sonicBoomHitMs: sonicHitRemainingMs(upgrades),
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
@@ -1667,6 +1681,7 @@ export class PlaySim {
     }
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
+    this.runUpgrades = tickSonicHits(this.runUpgrades, delta);
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
@@ -1745,6 +1760,7 @@ export class PlaySim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
+        ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
@@ -1789,6 +1805,7 @@ export class PlaySim {
     this.updateWallDrop(facingBeforeMove);
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
+    this.sonicBoom();
     const facingAfterMove = playerFacing(this.world);
     this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.emitTurnSparks(
@@ -2300,6 +2317,7 @@ export class PlaySim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
         ...(possessedGhostEid(this.runUpgrades) === null
           ? []
           : [possessedGhostEid(this.runUpgrades)!]),
@@ -3032,6 +3050,7 @@ export class PlaySim {
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
     this.ghostTraction.reset();
+    this.sonicEchoes.reset();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
     this.elroySuppressed = false;
@@ -4610,6 +4629,32 @@ export class PlaySim {
     );
   }
 
+  private sonicBoom(): void {
+    const owned = this.effectiveUpgrades();
+    const atSpeed =
+      this.death === null &&
+      atTopSpeed(
+        owned,
+        this.speedTrailActive(),
+        movingOverClearedTile(this.world),
+        floatingZoneEffect(owned, this.playerSpeedZone()) === "fast",
+      );
+    const boom = stepSonicBoom(this.world, this.sonicEchoes, this.runUpgrades, owned, atSpeed);
+    this.runUpgrades = boom.state;
+    if (boom.reversed.length > 0) {
+      forceGhostReverse(
+        this.world,
+        this.ghostsBlockedFromTunnels(),
+        new Set(boom.reversed),
+        this.closedGatedTunnelRow(),
+        this.runUpgrades.droppedWall,
+      );
+    }
+    for (const echo of boom.echoes) {
+      this.emit({ type: "sonicBoomEcho", ...echo });
+    }
+  }
+
   private tickSpeedTrail(delta: number): void {
     const at = this.playerPosition();
     this.speedTrail =
@@ -4705,6 +4750,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.ghostTraction.reset();
+    this.sonicEchoes.reset();
     this.lavaElapsedMs = 0;
     this.lavaStarted = false;
     this.resetHyperspeedMovement();
