@@ -9,8 +9,6 @@ export const SINKHOLE_STYLE = {
   taper: 0.85,
   bandWidth: 1.5,
   rimWidth: 1,
-  rimShade: 0.3,
-  edgeShade: 0.6,
   introMs: 4000,
   crackShare: 0.4,
   spread: 0.4,
@@ -24,24 +22,11 @@ export const SINKHOLE_TONE = {
 
 export type SinkholeTone = (typeof SINKHOLE_TONE)[keyof typeof SINKHOLE_TONE];
 
-const VOID_DEEP = 0x040206;
-
-function mixColor(from: number, to: number, amount: number): number {
-  const channel = (shift: number): number => {
-    const a = (from >> shift) & 0xff;
-    const b = (to >> shift) & 0xff;
-    return Math.round(a + (b - a) * amount) << shift;
-  };
-  return channel(16) | channel(8) | channel(0);
-}
-
-export function sinkholePalette(ground: number): readonly number[] {
-  const palette: number[] = [];
-  palette[SINKHOLE_TONE.rim] = mixColor(ground, VOID_DEEP, SINKHOLE_STYLE.rimShade);
-  palette[SINKHOLE_TONE.voidEdge] = mixColor(ground, VOID_DEEP, SINKHOLE_STYLE.edgeShade);
-  palette[SINKHOLE_TONE.voidDeep] = VOID_DEEP;
-  return palette;
-}
+export const SINKHOLE_PALETTE: Readonly<Record<SinkholeTone, number>> = {
+  [SINKHOLE_TONE.rim]: 0x833100,
+  [SINKHOLE_TONE.voidEdge]: 0x7d4900,
+  [SINKHOLE_TONE.voidDeep]: 0x3a2802,
+};
 
 export type SinkholePixel = {
   x: number;

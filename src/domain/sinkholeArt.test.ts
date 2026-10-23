@@ -6,10 +6,10 @@ import {
   buildSinkholeArt,
   SINKHOLE_ART_TILE,
   SINKHOLE_INTRO_MS,
+  SINKHOLE_PALETTE,
   SINKHOLE_STYLE,
   SINKHOLE_TONE,
   sinkholeOpening,
-  sinkholePalette,
   sinkholePixelVisible,
   sinkholeSettled,
   type SinkholeArt,
@@ -161,13 +161,11 @@ describe("buildSinkholeArt", () => {
   });
 });
 
-describe("sinkholePalette", () => {
-  it("has a colour for every tone", () => {
-    const palette = sinkholePalette(0x000000);
-    for (const tone of Object.values(SINKHOLE_TONE)) {
-      expect(palette[tone]).toBeTypeOf("number");
-    }
-    expect(new Set(palette).size).toBe(palette.length);
+describe("SINKHOLE_PALETTE", () => {
+  it("has a distinct colour for every tone", () => {
+    const colors = Object.values(SINKHOLE_TONE).map((tone) => SINKHOLE_PALETTE[tone]);
+    expect(colors.every((color) => typeof color === "number")).toBe(true);
+    expect(new Set(colors).size).toBe(colors.length);
   });
 });
 
