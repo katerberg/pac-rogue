@@ -104,6 +104,7 @@ import {
   type PlayerTint,
 } from "../../domain/playerTint";
 import { lightningPoints, type ChainPoint, type ChainSegment } from "../../domain/bossChain";
+import { crumbTint } from "../../domain/gleaning";
 import { pelletTint } from "../../domain/lazyLooper";
 import { fruitDrawableId, fruitFlickerAlpha, isFruitDrawableId } from "../../domain/fruit";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
@@ -172,6 +173,7 @@ import type { WarpGlideSprite } from "../../domain/warpGlide";
 import { Drawable } from "../components/Drawable";
 import { Facing } from "../components/Facing";
 import { GhostPhase } from "../components/GhostPhase";
+import { Crumb } from "../components/Crumb";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { DIRECTION, Input, type Direction } from "../components/Input";
 import { Player } from "../components/Player";
@@ -1496,7 +1498,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       go.setPosition(x, y);
 
       if (id === PELLET_DRAWABLE_ID || id === POWER_PELLET_DRAWABLE_ID) {
-        const tint = pelletTint(hasComponent(world, eid, OptionalPellet));
+        const tint = hasComponent(world, eid, Crumb)
+          ? crumbTint(Crumb.paid[eid] === 1)
+          : pelletTint(hasComponent(world, eid, OptionalPellet));
         if (tint === null) {
           go.clearTint();
         } else {

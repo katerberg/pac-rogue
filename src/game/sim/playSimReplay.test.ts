@@ -1,8 +1,10 @@
-import { query } from "bitecs";
+import { query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { defaultPlayOptions, type PlayOptions } from "../../domain/playOptions";
 import { PLAYER_INVULN_TINT } from "../../domain/playerTint";
 import { REPLAY_MAX_SIM_MS, REPLAY_SAMPLE_MS } from "../../domain/replay";
+import { CRUMB_PAID_TINT } from "../../domain/gleaning";
+import { LAZY_LOOPER_OPTIONAL_TINT } from "../../domain/lazyLooper";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -11,6 +13,7 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
+import { spawnCrumb } from "./spawn";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 function startSim(overrides: Partial<PlayOptions>): PlaySim {
@@ -44,6 +47,20 @@ describe("PlaySim run replay", () => {
     expect(segment!.items.some((event) => event.op === "remove" && event.art === "pellet")).toBe(
       true,
     );
+  });
+
+  it("records a Gleaning crumb with its grey or penny tint, then its removal", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    const grey = spawnCrumb(sim.world, 300, 300, false);
+    const copper = spawnCrumb(sim.world, 340, 300, true);
+    runFrames(sim, 20);
+    removeEntity(sim.world, grey);
+    runFrames(sim, 20);
+    const items = sim.replay().segments[0]!.items;
+    const added = (eid: number) => items.find((e) => e.op === "add" && e.eid === eid);
+    expect(added(grey)!.tint).toBe(LAZY_LOOPER_OPTIONAL_TINT);
+    expect(added(copper)!.tint).toBe(CRUMB_PAID_TINT);
+    expect(items.some((e) => e.op === "remove" && e.eid === grey)).toBe(true);
   });
 
   it("records a death and then reaches the shared run-end screen on game over", () => {

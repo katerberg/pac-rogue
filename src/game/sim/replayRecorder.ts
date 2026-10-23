@@ -6,6 +6,8 @@ import {
   type ReplayGhostLook,
   type ReplaySegment,
 } from "../../domain/replay";
+import { crumbTint } from "../../domain/gleaning";
+import { pelletTint } from "../../domain/lazyLooper";
 import { getActiveLayout, TILE_SIZE } from "../../domain/maze";
 import { BossPellet } from "../components/BossPellet";
 import { Facing } from "../components/Facing";
@@ -14,12 +16,13 @@ import { Fruit } from "../components/Fruit";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { Drawable } from "../components/Drawable";
+import { Crumb } from "../components/Crumb";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 
-type Item = { art: string; optional: boolean; x: number; y: number };
+type Item = { art: string; tint: number | null; x: number; y: number };
 
 export type ReplayLook = {
   mazeColorInverted: boolean;
@@ -37,11 +40,13 @@ const ANGLE_BY_DIRECTION: Partial<Record<number, number>> = {
 
 function liveItems(world: World): Map<number, Item> {
   const items = new Map<number, Item>();
-  for (const component of [Pellet, BossPellet, Fruit]) {
+  for (const component of [Pellet, BossPellet, Fruit, Crumb]) {
     for (const eid of query(world, [component, Position, Drawable])) {
       items.set(eid, {
         art: Drawable.id[eid] ?? "",
-        optional: hasComponent(world, eid, OptionalPellet),
+        tint: hasComponent(world, eid, Crumb)
+          ? crumbTint(Crumb.paid[eid] === 1)
+          : pelletTint(hasComponent(world, eid, OptionalPellet)),
         x: Position.x[eid] ?? 0,
         y: Position.y[eid] ?? 0,
       });
@@ -151,7 +156,7 @@ export class ReplayRecorder {
       const before = this.known.get(eid);
       return (
         before?.art === item.art &&
-        before.optional === item.optional &&
+        before.tint === item.tint &&
         before.x === item.x &&
         before.y === item.y
       );

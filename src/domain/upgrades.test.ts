@@ -58,6 +58,10 @@ import {
   nearMissCharge,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
+  GLEANING_ENHANCED_CHARGE,
+  GLEANING_STREAK_STEPS,
+  gleaningCharge,
+  gleaningStreakSteps,
   bankShields,
   bankPeels,
   bananaPeelCap,
@@ -271,6 +275,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMartyr",
   "passivePossession",
   "passiveFloating",
+  "passiveGleaning",
   "passiveSonicBoom",
 ];
 
@@ -1564,6 +1569,14 @@ describe("upgrade schools", () => {
     expect(groupUpgradesBySchool([])).toEqual([]);
   });
 
+  it("groups neutral trinkets by kind instead of by ghost", () => {
+    const neutral = groupUpgradesBySchool(UPGRADE_DEFS).find((g) => g.school === "neutral")!;
+    const kinds = neutral.defs.flatMap((d) => (d.trinket ? [d.trinket.kind] : []));
+    const collapsed = kinds.filter((k, i) => k !== kinds[i - 1]);
+    expect(new Set(collapsed).size).toBe(collapsed.length);
+    expect(collapsed).toContain("slowdown");
+  });
+
   it("lists rare upgrades last within each school", () => {
     for (const { defs } of groupUpgradesBySchool(UPGRADE_DEFS)) {
       const firstRare = defs.findIndex((d) => d.rare === true);
@@ -2571,5 +2584,15 @@ describe("Floating", () => {
     expect(floatingZoneEffect(["passiveFloatingPlus"], "slow")).toBeNull();
     expect(floatingZoneEffect(["passiveFloatingPlus"], "fast")).toBe("fast");
     expect(floatingZoneEffect(["passiveFloatingPlus"], null)).toBeNull();
+  });
+});
+
+describe("Gleaning", () => {
+  it("adds a streak step per crumb and only pays pennies when enhanced", () => {
+    expect(gleaningStreakSteps([])).toBe(0);
+    expect(gleaningStreakSteps(["passiveGleaning"])).toBe(GLEANING_STREAK_STEPS);
+    expect(gleaningStreakSteps(["passiveGleaningPlus"])).toBe(GLEANING_STREAK_STEPS);
+    expect(gleaningCharge(["passiveGleaning"])).toBe(0);
+    expect(gleaningCharge(["passiveGleaningPlus"])).toBe(GLEANING_ENHANCED_CHARGE);
   });
 });

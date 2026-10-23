@@ -47,6 +47,7 @@ import {
 import { WARP_GLIDE_MS } from "../../domain/warpGlide";
 import { WALL_DROP_MS, wallDropSpot, type CardinalStep } from "../../domain/wallDrop";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
+import { Crumb } from "../components/Crumb";
 import { Facing } from "../components/Facing";
 import { Fruit } from "../components/Fruit";
 import { DIRECTION, Input } from "../components/Input";
@@ -633,10 +634,7 @@ describe("LearnSim upgrade demos", () => {
     moveTo(player, posOf(ghost));
     expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(["SAVED\nHAUNTED"]);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
-    const exit = getActiveLayout().ghostHouseExit;
-    expect({ col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) }).toEqual(
-      exit,
-    );
+    expect({ x: Position.x[ghost]!, y: Position.y[ghost]! }).toEqual(ghostHouseSpawnCenter());
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.hauntedGhost?.eid).toBe(ghost);
   });
@@ -791,6 +789,7 @@ describe("LearnSim upgrade demos", () => {
       const ghost = sim.ghostEid!;
       expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\nHAUNTED"]);
       expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+      expect({ x: Position.x[ghost]!, y: Position.y[ghost]! }).toEqual(ghostHouseSpawnCenter());
       const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
       expect(draw.type === "draw" && draw.options.hauntedGhost?.eid).toBe(ghost);
       moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
@@ -1097,6 +1096,29 @@ describe("LearnSim upgrade demos", () => {
       expect(sim["learnUpgrades"].mirrorActive).toBe(false);
       expect(options.mirror).toBeNull();
       expect(options.mirrorPop).not.toBeNull();
+    });
+
+    it("pops when Maze-Man wraps through a horizontal tunnel", () => {
+      const { sim, player } = setup("powerPelletMirror");
+      parkGhost(sim);
+      chompPower(sim, player);
+      moveTo(player, { x: cellCenterX(0), y: cellCenterY(horizontalTunnelRows()[0]!) });
+      for (let i = 0; i < 120 && sim["learnUpgrades"].mirrorActive; i += 1) {
+        sim.step(held("left"), FRAME_MS);
+      }
+      expect(sim["learnUpgrades"].mirrorActive).toBe(false);
+      expect(sim["mirrorPop"]).not.toBeNull();
+    });
+
+    it("trails mirrored banana peels behind the twin", () => {
+      const { sim, player } = setup("powerPelletMirror", "passiveBananaShield");
+      parkGhost(sim);
+      chompPower(sim, player);
+      const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw");
+      const peels = draw?.type === "draw" ? draw.options.peels! : [];
+      expect(peels).toHaveLength(2);
+      expect(peels[1]!.x).toBeCloseTo(2 * centerX() - peels[0]!.x);
+      expect(peels[1]!.y).toBeCloseTo(peels[0]!.y);
     });
 
     it("a ghost catching the twin is a death, and it ends the twin", () => {
@@ -1532,6 +1554,31 @@ describe("LearnSim upgrade demos", () => {
       }
       const pops = events.flatMap((event) => (event.type === "streakPop" ? [event.value] : []));
       expect(pops).toEqual([5, 10, 15, 20, 25, 30]);
+    });
+  });
+
+  describe("Gleaning", () => {
+    it("lets a ghost crumb on a cleared tile feed the Streak Engine", () => {
+      const { sim, player } = setup("passiveGleaning", "passiveStreakEngine");
+      sim.toggleEnhanced("passiveStreakEngine");
+      const pellets = query(sim.world, [Pellet, Position]).filter(
+        (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+      );
+      const cleared = posOf(pellets[0]!);
+      const events: ReturnType<LearnSim["step"]> = [];
+      for (const pellet of pellets.slice(0, 29)) {
+        moveTo(player, posOf(pellet));
+        events.push(...sim.step(NO_KEYS_HELD, FRAME_MS));
+      }
+      const ghost = query(sim.world, [GhostPhase, Position])[0]!;
+      Position.x[ghost] = cleared.x;
+      Position.y[ghost] = cleared.y;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      const last = sim.step(NO_KEYS_HELD, FRAME_MS);
+      const draws = last.filter((event) => event.type === "draw");
+      const final = draws[draws.length - 1]!;
+      expect(final.type === "draw" ? final.options.playerInvulnRemainingMs : 0).toBeGreaterThan(0);
+      expect(query(sim.world, [Crumb, Position])).toHaveLength(1);
     });
   });
 
@@ -2393,6 +2440,7 @@ describe("Martyr and Possession (LEARN)", () => {
     }
     expect(sim["learnUpgrades"].hauntedGhostEid).toBe(ghost);
     expect(sim["learnUpgrades"].hauntRemainingMs).toBe(5000);
+    expect({ x: Position.x[ghost]!, y: Position.y[ghost]! }).toEqual(ghostHouseSpawnCenter());
   });
 });
 

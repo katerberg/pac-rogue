@@ -4,6 +4,7 @@ import {
   TRINKET_MAX_COPIES,
   TRINKET_OFFER_WEIGHT,
   TRINKET_IDS,
+  TRINKET_KIND_ORDER,
   isTrinketId,
   slotCount,
   trinketEligible,
@@ -89,6 +90,7 @@ export type CoreUpgradeId =
   | "passiveMartyr"
   | "passivePossession"
   | "passiveFloating"
+  | "passiveGleaning"
   | "passiveSonicBoom";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
@@ -170,6 +172,8 @@ export type UpgradeEffects = {
   reanimation?: ReanimationMode;
   interestPerQuarters?: number;
   nearMissCharge?: number;
+  gleaningStreak?: number;
+  gleaningCharge?: number;
   hauntMs?: number;
   martyrOnSave?: true;
   possessionMs?: number;
@@ -268,6 +272,8 @@ export const STREAK_ENGINE_EVERY = 30;
 export const STREAK_ENGINE_ENHANCED_INVULN_MS = 3000;
 export const NEAR_MISS_CHARGE = 15;
 export const NEAR_MISS_ENHANCED_CHARGE = 30;
+export const GLEANING_STREAK_STEPS = 1;
+export const GLEANING_ENHANCED_CHARGE = 6.25;
 export const AFTERBURNER_MUL = 1.3;
 export const AFTERBURNER_PELLET_MUL = 0.8;
 export const MOLE_PELLET_MUL = 1.2;
@@ -1005,14 +1011,14 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     label: "Mirror",
     school: "harvest",
     description:
-      "Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. If you touch your twin it pops.",
+      "Power pellet: a mirror twin runs the far side of the level, eating as you do. Ghosts hunt the nearest of you. If you touch your twin or take a side tunnel it pops.",
     storePrice: STORE_RARE_UPGRADE_PRICE,
     rare: true,
     enhanced: {
       enhanceNote:
         "Mirror pops the twin instead of costing a life when a ghost catches either of you.",
       description:
-        "Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. If you touch your twin it pops.",
+        "Power pellet: a mirror twin runs the far side of the level, eating as you do. A catch only pops the twin. If you touch your twin or take a side tunnel it pops.",
       mirrorSavesLife: true,
     },
     onPowerPellet: { mirror: true },
@@ -1147,6 +1153,20 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       description:
         "Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely.",
       floatsOverSlowZones: true,
+    },
+  },
+  {
+    id: "passiveGleaning",
+    label: "Gleaning",
+    school: "harvest",
+    description: "Ghosts crossing cleared tiles leave crumbs that add to your streak.",
+    storePrice: STORE_UPGRADE_PRICE,
+    gleaningStreak: GLEANING_STREAK_STEPS,
+    enhanced: {
+      enhanceNote: "Gleaning crumbs also pay half a penny each.",
+      description:
+        "Ghosts crossing cleared tiles leave crumbs that add to your streak and pay half a penny each.",
+      gleaningCharge: GLEANING_ENHANCED_CHARGE,
     },
   },
   {
@@ -2494,6 +2514,14 @@ export function inheritancePayout(
   return units * INHERITANCE_QUARTERS_PER_UNIT;
 }
 
+export function gleaningStreakSteps(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "gleaningStreak") ?? 0;
+}
+
+export function gleaningCharge(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "gleaningCharge") ?? 0;
+}
+
 export function nearMissCharge(owned: readonly UpgradeId[]): number {
   return ownedValue(owned, "nearMissCharge") ?? 0;
 }
@@ -2842,13 +2870,17 @@ export function groupUpgradesBySchool(
   const isStarting = (def: UpgradeDef) => STARTING_UPGRADE_POOL.includes(def.id as BaseUpgradeId);
   return UPGRADE_SCHOOL_ORDER.map((school) => {
     const inSchool = defs.filter((def) => def.school === school);
+    const kindRank = (def: UpgradeDef) =>
+      def.trinket ? TRINKET_KIND_ORDER.indexOf(def.trinket.kind) : -1;
     const startingFirst = [
       ...inSchool.filter(isStarting),
       ...inSchool.filter((d) => !isStarting(d)),
     ];
     return {
       school,
-      defs: startingFirst.sort((a, b) => Number(a.rare === true) - Number(b.rare === true)),
+      defs: startingFirst.sort(
+        (a, b) => Number(a.rare === true) - Number(b.rare === true) || kindRank(a) - kindRank(b),
+      ),
     };
   }).filter((group) => group.defs.length > 0);
 }

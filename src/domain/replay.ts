@@ -29,7 +29,7 @@ export type ReplayItemEvent = {
   op: "add" | "remove";
   eid: number;
   art: string;
-  optional: boolean;
+  tint: number | null;
   x: number;
   y: number;
 };

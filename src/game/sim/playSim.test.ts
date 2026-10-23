@@ -93,6 +93,7 @@ import {
   INVULN_MS,
   NEAR_MISS_CHARGE,
   NEAR_MISS_ENHANCED_CHARGE,
+  GLEANING_ENHANCED_CHARGE,
   SHIELD_BREAK_INVULN_MS,
   STREAK_ENGINE_ENHANCED_INVULN_MS,
   TITHE_ENHANCED_MS,
@@ -141,6 +142,9 @@ import { ghostMovementRules } from "../../domain/ghostMovement";
 import { SINKHOLE_INTRO_MS } from "../../domain/sinkholeArt";
 import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
+import { Crumb } from "../components/Crumb";
+import { Drawable } from "../components/Drawable";
+import { PELLET_DRAWABLE_ID } from "../../domain/playfield";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -8257,6 +8261,32 @@ describe("Mirror", () => {
     expect(sim.snapshot().lives).toBe(lives);
   });
 
+  it("pops the twin when the player wraps through a horizontal tunnel", () => {
+    const sim = start(["powerPelletMirror"]);
+    clearGhosts(sim);
+    arm(sim);
+    const tunnelRow = horizontalTunnelRows()[0]!;
+    teleportPlayer(sim, cellCenterX(0), cellCenterY(tunnelRow));
+    const lives = sim.snapshot().lives;
+    runUntil(sim, () => sim.snapshot().runLog.tunnelWraps === 1, 120, { keys: held("left") });
+    expect(sim.snapshot().mirror.active).toBe(false);
+    expect(sim.snapshot().mirror.popProgress).not.toBeNull();
+    expect(sim.snapshot().lives).toBe(lives);
+  });
+
+  it("trails mirrored banana peels behind the twin", () => {
+    const sim = start(["powerPelletMirror", "passiveBananaShieldPlus"]);
+    clearGhosts(sim);
+    arm(sim);
+    expect(sim.snapshot().timers.peelsBanked).toBe(1);
+    expect(sim.snapshot().peels).toHaveLength(2);
+    placeOnRow(sim, 4);
+    runFrames(sim, 20, RIGHT);
+    const [own, twin] = sim.snapshot().peels;
+    expect(twin!.x).toBeCloseTo(2 * centerX() - own!.x);
+    expect(twin!.y).toBeCloseTo(own!.y);
+  });
+
   it("eats pellets the twin stands on", () => {
     const sim = start(["powerPelletMirror"]);
     clearGhosts(sim);
@@ -10488,6 +10518,103 @@ describe("Floating", () => {
 
   it("keeps the fast side boost when enhanced", () => {
     expect(laneRun(["passiveFloatingPlus"], "fast").effect).toBe("fast");
+  });
+});
+
+describe("Gleaning", () => {
+  function startGleaning(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades });
+  }
+
+  function eatOnePellet(sim: PlaySim): { x: number; y: number } {
+    const pellet = query(sim.world, [Pellet, Position]).find(
+      (eid) => !query(sim.world, [PowerPellet]).includes(eid),
+    )!;
+    const at = { x: Position.x[pellet]!, y: Position.y[pellet]! };
+    teleportPlayer(sim, at.x, at.y);
+    runFrames(sim, 1);
+    return at;
+  }
+
+  function ghostAt(sim: PlaySim, at: { x: number; y: number }): void {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[ghost] = at.x;
+    Position.y[ghost] = at.y;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    runFrames(sim, 1);
+  }
+
+  it("adds a streak step when a ghost crosses a cleared tile mid-streak", () => {
+    const sim = startGleaning(["passiveGleaning"]);
+    const at = eatOnePellet(sim);
+    const before = sim.snapshot().pennies.streak;
+    ghostAt(sim, at);
+    expect(sim.snapshot().crumbs).toBe(1);
+    expect(sim.snapshot().pennies.streak).toBe(before + 1);
+    expect(sim.snapshot().pennies.charge).toBe(0);
+  });
+
+  it("pays half a penny per crumb when enhanced", () => {
+    const sim = startGleaning(["passiveGleaningPlus"]);
+    ghostAt(sim, eatOnePellet(sim));
+    expect(sim.snapshot().crumbs).toBe(1);
+    expect(sim.snapshot().pennies.charge).toBe(GLEANING_ENHANCED_CHARGE);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const sim = startGleaning([]);
+    const before = eatOnePellet(sim);
+    const streak = sim.snapshot().pennies.streak;
+    ghostAt(sim, before);
+    expect(sim.snapshot().crumbs).toBe(0);
+    expect(sim.snapshot().pennies.streak).toBe(streak);
+  });
+
+  it("lets a crumb carry the streak over a Streak Engine threshold", () => {
+    const sim = startGleaning(["passiveGleaning", "passiveStreakEngine", "powerPelletInvuln"]);
+    let at = { x: 0, y: 0 };
+    for (let eaten = 0; eaten < 29; eaten += 1) {
+      at = eatOnePellet(sim);
+    }
+    expect(sim.snapshot().pennies.streak).toBe(29);
+    expect(sim["runUpgrades"].invulnRemainingMs).toBe(0);
+    ghostAt(sim, at);
+    expect(sim["runUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
+  });
+
+  function crumbs(sim: PlaySim): number[] {
+    return [...query(sim.world, [Crumb, Position])];
+  }
+
+  it("leaves a grey crumb dot that the player clears by walking onto it", () => {
+    const sim = startGleaning(["passiveGleaning"]);
+    const at = eatOnePellet(sim);
+    eatOnePellet(sim);
+    ghostAt(sim, at);
+    const [crumb] = crumbs(sim);
+    expect(crumbs(sim)).toHaveLength(1);
+    expect(Crumb.paid[crumb!]).toBe(0);
+    expect(Drawable.id[crumb!]).toBe(PELLET_DRAWABLE_ID);
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.inHouse;
+    teleportPlayer(sim, at.x, at.y);
+    const events = runFrames(sim, 1);
+    expect(crumbs(sim)).toHaveLength(0);
+    expect(events).toContainEqual({ type: "releaseDrawable", eid: crumb });
+  });
+
+  it("marks the crumb as paying pennies when enhanced", () => {
+    const sim = startGleaning(["passiveGleaningPlus"]);
+    ghostAt(sim, eatOnePellet(sim));
+    expect(Crumb.paid[crumbs(sim)[0]!]).toBe(1);
+  });
+
+  it("does not drop a second crumb on the same tile", () => {
+    const sim = startGleaning(["passiveGleaning"]);
+    const at = eatOnePellet(sim);
+    ghostAt(sim, at);
+    ghostAt(sim, at);
+    expect(sim.snapshot().crumbs).toBe(1);
   });
 });
 
