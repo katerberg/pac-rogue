@@ -632,10 +632,7 @@ describe("LearnSim upgrade demos", () => {
     moveTo(player, posOf(ghost));
     expect(popups(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual(["SAVED\nHAUNTED"]);
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
-    const exit = getActiveLayout().ghostHouseExit;
-    expect({ col: worldToCol(Position.x[ghost]!), row: worldToRow(Position.y[ghost]!) }).toEqual(
-      exit,
-    );
+    expect({ x: Position.x[ghost]!, y: Position.y[ghost]! }).toEqual(ghostHouseSpawnCenter());
     const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
     expect(draw.type === "draw" && draw.options.hauntedGhost?.eid).toBe(ghost);
   });
@@ -790,6 +787,7 @@ describe("LearnSim upgrade demos", () => {
       const ghost = sim.ghostEid!;
       expect(popups(catchByGhost(sim, player))).toEqual(["LIFE LOST\nHAUNTED"]);
       expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+      expect({ x: Position.x[ghost]!, y: Position.y[ghost]! }).toEqual(ghostHouseSpawnCenter());
       const draw = sim.step(NO_KEYS_HELD, FRAME_MS).find((event) => event.type === "draw")!;
       expect(draw.type === "draw" && draw.options.hauntedGhost?.eid).toBe(ghost);
       moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
