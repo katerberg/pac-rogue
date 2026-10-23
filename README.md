@@ -1,6 +1,6 @@
 # Dot-Man
 
-Phaser + bitECS 0.4 Pac-Man-like roguelike: a fixed 9-level run with upgrades, stores and a boss. The simulation is headless (`src/game/sim/`) and Phaser scenes are adapters. Live game: <https://katerberg.github.io/pac-rogue/>.
+Phaser + bitECS 0.4 Pac-Man-like roguelike: a fixed 9-level run with upgrades, stores and a boss. The simulation is headless (`src/game/sim/`) and Phaser scenes are adapters. Live game: <https://dot-man.com/>.
 
 ## Requirements
 
@@ -68,7 +68,7 @@ http://127.0.0.1:5174/?play=1&boss=blinkySwarm&bossStageAdvance=1
 
 ## Deploy and global runs
 
-Live game: <https://katerberg.github.io/pac-rogue/>. Pushes to `main` deploy Pages via [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml) (`gh-pages` branch). Finished non-debug runs upload to the Cloudflare Worker when `VITE_API_URL` is set (Pages only; localhost never writes production). Opt-out: **Settings → SHARE RUN STATS** ([docs/PRIVACY.md](./docs/PRIVACY.md)). API, schema, local Worker, owner setup and SQL: [worker/README.md](./worker/README.md). Pull for `/data`: `npm run data:pull`.
+Live game: <https://dot-man.com/>. Pushes to `main` deploy Pages via [`.github/workflows/deploy-pages.yml`](./.github/workflows/deploy-pages.yml) (`gh-pages` branch). Finished non-debug runs upload to the Cloudflare Worker when `VITE_API_URL` is set (Pages only; localhost never writes production). Opt-out: **Settings → SHARE RUN STATS** ([docs/PRIVACY.md](./docs/PRIVACY.md)). API, schema, local Worker, owner setup and SQL: [worker/README.md](./worker/README.md). Pull for `/data`: `npm run data:pull`.
 
 ## Docs
 
