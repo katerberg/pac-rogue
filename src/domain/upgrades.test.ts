@@ -1563,6 +1563,14 @@ describe("upgrade schools", () => {
     expect(groupUpgradesBySchool([])).toEqual([]);
   });
 
+  it("groups neutral trinkets by kind instead of by ghost", () => {
+    const neutral = groupUpgradesBySchool(UPGRADE_DEFS).find((g) => g.school === "neutral")!;
+    const kinds = neutral.defs.flatMap((d) => (d.trinket ? [d.trinket.kind] : []));
+    const collapsed = kinds.filter((k, i) => k !== kinds[i - 1]);
+    expect(new Set(collapsed).size).toBe(collapsed.length);
+    expect(collapsed).toContain("slowdown");
+  });
+
   it("lists rare upgrades last within each school", () => {
     for (const { defs } of groupUpgradesBySchool(UPGRADE_DEFS)) {
       const firstRare = defs.findIndex((d) => d.rare === true);

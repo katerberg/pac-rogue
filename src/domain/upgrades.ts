@@ -4,6 +4,7 @@ import {
   TRINKET_MAX_COPIES,
   TRINKET_OFFER_WEIGHT,
   TRINKET_IDS,
+  TRINKET_KIND_ORDER,
   isTrinketId,
   slotCount,
   trinketEligible,
@@ -2812,13 +2813,17 @@ export function groupUpgradesBySchool(
   const isStarting = (def: UpgradeDef) => STARTING_UPGRADE_POOL.includes(def.id as BaseUpgradeId);
   return UPGRADE_SCHOOL_ORDER.map((school) => {
     const inSchool = defs.filter((def) => def.school === school);
+    const kindRank = (def: UpgradeDef) =>
+      def.trinket ? TRINKET_KIND_ORDER.indexOf(def.trinket.kind) : -1;
     const startingFirst = [
       ...inSchool.filter(isStarting),
       ...inSchool.filter((d) => !isStarting(d)),
     ];
     return {
       school,
-      defs: startingFirst.sort((a, b) => Number(a.rare === true) - Number(b.rare === true)),
+      defs: startingFirst.sort(
+        (a, b) => Number(a.rare === true) - Number(b.rare === true) || kindRank(a) - kindRank(b),
+      ),
     };
   }).filter((group) => group.defs.length > 0);
 }
