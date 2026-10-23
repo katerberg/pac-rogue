@@ -8,7 +8,7 @@ import {
   type UpgradeId,
   type UpgradeSchool,
 } from "../../../domain/upgrades";
-import { isLowPowerId } from "../../../domain/lowPowerUpgrades";
+import { isTrinketId } from "../../../domain/trinkets";
 import type { ExperimentId, Job } from "./episode";
 import { EXPERT_PROFILE_IDS, PROFILE_IDS } from "./profiles";
 
@@ -64,7 +64,7 @@ const SMOKE_PAIRS: readonly [BaseUpgradeId, BaseUpgradeId][] = [
 const SMOKE_PROFILES = ["cautious@expert", "disrupter@expert", "casual@average"];
 
 export const TESTABLE_UPGRADES: readonly BaseUpgradeId[] = ALL_UPGRADE_IDS.filter(
-  (id) => !isSpecialist(id) && !isLowPowerId(id),
+  (id) => !isSpecialist(id) && !isTrinketId(id),
 );
 
 const SCHOOLS: readonly UpgradeSchool[] = [

@@ -34,7 +34,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `pennyCharge` | integer 0..299 | Starting penny charge. [pennies.md](./docs/pennies.md). |
 | `jumpToSpinner` | `1` | Queue one slot spin at board start (defaults start level to 2). Pair with `slot`. |
 | `slot` | `0` or e.g. `1q`, `2q1u`, `1l` | Force every slot spin's line counts. [pennies.md](./docs/pennies.md#slot-machine). |
-| `fruit` | `1` | Spawn a fruit at the start of every board (normal lifetime; pellet-threshold fruit still follows). Play only; LEARN always shows a fruit. |
+| `fruit` | `1` | Sprout a fruit at the start of every board (normal lifetime; pellet-threshold fruit still follows). Play only; LEARN always shows a fruit. |
 | `intermission` | cutscene id (`INTERMISSION_IDS` in `src/domain/intermission.ts`, e.g. `bananaGrab`, `defyDeath`) | Play that cutscene (after levels 2 and 4; a forced id repeats at both): the run opens in it (level 2 unless `level` is set) and continues to the next level; with `jumpToUpgrade` it plays after the modal instead. [levels.md](./docs/levels.md#intermission). |
 | `slotMachine` | `1` | Place one slot-machine world pickup on each eligible Play board start. [pennies.md](./docs/pennies.md#slot-machine). |
 | `enableUpgrade` (alias `enableUpgrades`) | upgrade id or label lowerCamel; repeatable or comma-separated | Grant each valid id into `owned` at create. |
@@ -53,7 +53,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `learnAll` | `1` \| `0` | Boot into LEARN (without `play=1`). `1` lists every upgrade; `0` lists none. Read-only. [learn.md](./docs/learn.md). |
 | `runLogFill` | integer 0..600 | Agent ports only: seed that many synthetic `debug` runs at boot. [RUN_LOG.md](./docs/RUN_LOG.md). |
 | `seed` | 1-32 of `A-Z a-z 0-9 _ -` | Fix every random roll so the URL replays. [VERIFICATION.md](./docs/VERIFICATION.md#seeded-runs). |
-| `levelModifiers` | `0` | Opt out of speed-lane / collapse / lava modifiers. [levels.md](./docs/levels.md). |
+| `levelModifiers` | `0` | Opt out of speed-lane / collapse / sinkhole / lava modifiers. [levels.md](./docs/levels.md). |
 | `knobs` | `1` | Live tuning panels over the gutters; table in `src/domain/tuningKnobs.ts`. |
 | `customMaze` | `1` | Paste-ASCII first board before boot (`pac-rogue.custom-maze.v1`). |
 | `sound` | `1` | Agent ports only: opt in to audio (muted by default). |

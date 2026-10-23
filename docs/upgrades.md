@@ -31,15 +31,26 @@ Every upgrade has an enhanced `<baseId>Plus` form, bought at a [store](./store.m
 - `enhanceUpgrade` swaps in place and once. A store swap carries the enhancement to the incoming upgrade (`carryEnhancement`). Grant side effects on enhancing (extra life, pellet conversion) are part of the enhanced def.
 - A School Specialist makes every owned upgrade of its school act enhanced (`effectiveUpgrades`), with a threshold of other owned upgrades for the base form and none for the Plus form.
 
-## Low-power upgrades
+## Trinkets
 
-A fallback family of neutral, common, passive upgrades (Speed, Tunnel Speed, Tunnel Vortex, Traction, and per-ghost Slowdown, House Delay and Traction), defined in [`src/domain/lowPowerUpgrades.ts`](../src/domain/lowPowerUpgrades.ts). They differ from every other upgrade in three ways:
+A fallback family of neutral, common, passive upgrades (Speed, Tunnel Speed, Tunnel Vortex, Traction, and per-ghost Slowdown, House Delay and Traction), defined in [`src/domain/trinkets.ts`](../src/domain/trinkets.ts). They differ from every other upgrade in three ways:
 
-- **Repeatable and additive.** `owned` holds one entry per copy, up to `LOW_POWER_MAX_COPIES`, and each copy adds its flat step. They never leave the offer or store pool until the cap, and are drawn at `LOW_POWER_OFFER_WEIGHT` (a quarter) of a normal upgrade. The HUD and pause list group copies into one icon.
+- **Repeatable and additive.** `owned` holds one entry per copy, up to `TRINKET_MAX_COPIES`, and each copy adds its flat step. They never leave the offer or store pool until the cap, and are drawn at `TRINKET_OFFER_WEIGHT` (a quarter) of a normal upgrade, with at most one per level-clear card and one per store (`dropTrinkets`).
+- **Outside the slot cap.** They never count toward [the slot cap](#slot-cap-and-salvage), `RARE_MIN_OWNED` or a Specialist, and can never be salvaged. The HUD and pause list draw them as a pool of half-size neutral cards under the slots, copies stacked like paper (`trinketPoolLayout`).
 - **Never enhanced.** No `Plus` form, never an enhance target, not carried by a swap or a Specialist, and never rolled enhanced on a level-clear card. They are not trade-ins at a store swap.
 - **Roster-aware.** A per-ghost upgrade is only offered when that ghost is in the run's roster; `eligibleUpgrades` takes the roster, and the offer and store paths pass it.
 
 Effects are static multipliers applied at the existing speed, turn-window and ghost-release sites; Traction drags a ghost briefly after it turns, since ghosts only turn at tile centers. Bots do not test them.
+
+## Slot cap and salvage
+
+A run holds at most `MAX_RUN_UPGRADES` slot upgrades; Trinkets and a base/Plus pair count as described above. The rules live in [`src/domain/salvage.ts`](../src/domain/salvage.ts) and `PlaySim`.
+
+- A level-clear pick, store `U` purchase or slot win that would exceed the cap queues a prompt instead of granting (`needsSalvage`). The sim freezes on it; there is no dismiss. Everything happens in the left HUD panel: the new card joins as a 7th icon, a dotted red outline blinks with SLOTS FULL (`salvageAlertFrame`), then SALVAGE REQUIRED puts a selector on the new card. Arrows move it over all seven (`salvageSelectionStep`); Enter, Space, `T` or a click salvages the selected one at once, which keeps the other six. Several grants queue and open one at a time; slot wins wait until the final grid is dismissed.
+- **Salvage** revokes the upgrade, clears its live state (`clearStaleUpgradeTimers`), and grants a uniform random eligible Trinket from the `salvage` stream, or a Quarter when none is eligible. An Extra Life's life is kept.
+- On demand, `T` (or a click in the pause list) opens the same selector over the owned slots from the pause screen, the level-clear card and the slot final grid; Esc backs out. Refused during death (including a Possession that defers it), transitions and while a prompt is queued.
+- Exempt: the level-1 starting upgrade and the debug flags never prompt. LEARN has no cap ([parity](./learn.md#parity)).
+- The Trinket lands in the pool with a short in-panel label (`trinketToastAlpha`). The run log records the loss and a `salvage` gain.
 
 ## Schools and rarity
 
@@ -52,7 +63,7 @@ Effects are static multipliers applied at the existing speed, turn-window and gh
 - Level 1 grants one random **starting upgrade** from `STARTING_UPGRADE_POOL` (a no-button card, `startingUpgradeCard.ts`). Later level advances and `level>=2` starts never grant one. On a new device’s first play, that grant prefers Freeze — [new-player.md](./new-player.md#first-play-on-a-new-device).
 - Clearing levels 1-8 (`offersUpgradeAfterLevel`) opens the pick-one modal: two upgrades at left/right. There is no skip or Quarters fallback; if nothing is eligible the offer is skipped. Never offered after level 9 or from fruit.
 - `pickUpgradeChoiceOffer`: no repeated ids, prefers excluding `lastDeclinedUpgradeId` (the one card not taken from the last offer), applies a forced id, and rolls enhancement **last** so seeded offers on other levels stay unchanged.
-- The sim is fully frozen while the modal is open or animating; keys held through open are ignored until released. No dismiss: the player must pick.
+- The sim is fully frozen while the modal is open or animating; keys held through open are ignored until released. No dismiss: the player must pick. A pick at the cap opens the [salvage prompt](#slot-cap-and-salvage).
 
 ## Cross-cutting rules
 

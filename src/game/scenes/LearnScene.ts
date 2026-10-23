@@ -64,11 +64,7 @@ import {
   type UpgradeDef,
   type UpgradeId,
 } from "../../domain/upgrades";
-import {
-  isLowPowerId,
-  lowPowerCopyControls,
-  type LowPowerUpgradeId,
-} from "../../domain/lowPowerUpgrades";
+import { isTrinketId, trinketCopyControls, type TrinketUpgradeId } from "../../domain/trinkets";
 import { loadSeenRecord } from "../storage/seenRecordStorage";
 import { createHeldKeysReader } from "../systems/playerInput";
 import type { HeldKeys } from "../systems/heldKeys";
@@ -285,6 +281,8 @@ export class LearnScene extends Phaser.Scene {
       rightExtent: number;
     };
     hoverPreview: { x: number; y: number } | null;
+    owned: readonly UpgradeId[];
+    tunnelBoring: ReturnType<LearnSim["tunnelBoringDebug"]>;
   } {
     const preview = this.hoverPreviewCard;
     return {
@@ -295,6 +293,8 @@ export class LearnScene extends Phaser.Scene {
         rightExtent: this.scrollExtent.right,
       },
       hoverPreview: preview === null ? null : { x: preview.root.x, y: preview.root.y },
+      owned: this.sim.ownedUpgrades,
+      tunnelBoring: this.sim.tunnelBoringDebug(),
     };
   }
 
@@ -361,7 +361,7 @@ export class LearnScene extends Phaser.Scene {
     this.refreshNoEffectBanner();
   }
 
-  private adjustCopies(id: LowPowerUpgradeId, delta: number): void {
+  private adjustCopies(id: TrinketUpgradeId, delta: number): void {
     this.applyEvents(this.sim.adjustUpgradeCopies(id, delta));
     this.refreshUpgradeRows();
   }
@@ -463,7 +463,7 @@ export class LearnScene extends Phaser.Scene {
     const up = addPixelText(
       this,
       x,
-      LEARN_UPGRADE_CLIP_TOP - 8,
+      LEARN_UPGRADE_CLIP_TOP - 12,
       UPGRADE_SLOT_HINT_GLYPH,
       UPGRADES_HUD_FONT_SIZE,
       TEXT_COLOR_YELLOW,
@@ -542,7 +542,7 @@ export class LearnScene extends Phaser.Scene {
     plusZone.on("pointerover", () => this.cancelUpgradePreview());
     this.upgradeRows.push({
       id: def.baseId,
-      copies: isLowPowerId(def.baseId) ? this.buildCopiesControl(def.baseId, columnX, y) : null,
+      copies: isTrinketId(def.baseId) ? this.buildCopiesControl(def.baseId, columnX, y) : null,
       column,
       baseY: y,
       labelX,
@@ -567,7 +567,7 @@ export class LearnScene extends Phaser.Scene {
     };
   }
 
-  private buildCopiesControl(id: LowPowerUpgradeId, columnX: number, y: number): CopiesControl {
+  private buildCopiesControl(id: TrinketUpgradeId, columnX: number, y: number): CopiesControl {
     const at = this.copiesLayout(columnX);
     const w = COPIES_CHEVRON_W;
     const h = COPIES_CHEVRON_H;
@@ -674,7 +674,7 @@ export class LearnScene extends Phaser.Scene {
       row.label.setVisible(inView);
       row.checkMark.setVisible(inView && selected);
       this.refreshCopiesControl(row, inView && selected);
-      const enhanceable = selected && !isLowPowerId(row.id);
+      const enhanceable = selected && !isTrinketId(row.id);
       row.plus.setVisible(inView && enhanceable);
       row.plusBox.setVisible(inView && enhanceable);
       row.plusBox.setFillStyle(RARE_LABEL_COLOR, state === "on" ? 1 : 0);
@@ -701,8 +701,8 @@ export class LearnScene extends Phaser.Scene {
     if (control === null) {
       return;
     }
-    const copies = this.sim.upgradeCopies(row.id as LowPowerUpgradeId);
-    const { down: canDown, up: canUp } = lowPowerCopyControls(copies);
+    const copies = this.sim.upgradeCopies(row.id as TrinketUpgradeId);
+    const { down: canDown, up: canUp } = trinketCopyControls(copies);
     control.text.setText(String(Math.max(1, copies)));
     placePixelText(
       control.text,

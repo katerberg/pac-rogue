@@ -130,6 +130,7 @@ export type MazeLayout = {
   door: SolidGrid;
   ghostSolids: SolidGrid;
   playerSolids: SolidGrid;
+  ghostActiveSolids: SolidGrid;
   wallPassPlayerSolids: SolidGrid;
   wallPassLoopPlayerSolids: SolidGrid;
   playerSpawn: MazeTile;
@@ -186,7 +187,7 @@ const HOUSE_FLOOR_CHAR = "H";
 const PLAYER_SPAWN_CHAR = "P";
 const EMPTY_CORRIDOR_CHAR = "-";
 const EMPTY_CELL_CHAR = " ";
-const PELLET_CHARS = new Set([".", "@"]);
+export const PELLET_CHARS = new Set([".", "@"]);
 const STORE_SLOT_CHARS = ["U", "S", "E", "F"] as const;
 const EMPTY_CORRIDOR_CHARS = new Set([
   EMPTY_CELL_CHAR,
@@ -723,6 +724,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
     door,
     ghostSolids,
     playerSolids,
+    ghostActiveSolids: playerSolids,
     wallPassPlayerSolids,
     wallPassLoopPlayerSolids,
     playerSpawn,
@@ -769,6 +771,26 @@ export function activateLayout(id: MazeLayoutId): MazeLayout {
   activeLayout = getLayout(id);
   syncActiveGeometry(activeLayout);
   return activeLayout;
+}
+
+export function withSinkholes(layout: MazeLayout, cells: readonly MazeTile[]): MazeLayout {
+  if (cells.length === 0) {
+    return layout;
+  }
+  const blocked = (grid: SolidGrid): boolean[][] => {
+    const copy = grid.map((row) => [...row]);
+    for (const { col, row } of cells) {
+      if (copy[row] !== undefined) {
+        copy[row]![col] = true;
+      }
+    }
+    return copy;
+  };
+  return {
+    ...layout,
+    playerSolids: blocked(layout.playerSolids),
+    wallPassPlayerSolids: blocked(layout.wallPassPlayerSolids),
+  };
 }
 
 export function setActiveLayout(layout: MazeLayout): void {
@@ -821,7 +843,7 @@ export function isGhostWalkable(
 
 export function ghostSolidsForPhase(phase: number): SolidGrid {
   const layout = getActiveLayout();
-  return phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids;
+  return phase === GHOST_PHASE.active ? layout.ghostActiveSolids : layout.ghostSolids;
 }
 
 export function canGhostEnterDirection(

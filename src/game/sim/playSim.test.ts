@@ -35,7 +35,12 @@ import {
   worldToRow,
   type MazeTile,
 } from "../../domain/maze";
-import { tunnelBoringCells } from "../../domain/tunnelBoring";
+import {
+  boreSteps,
+  TUNNEL_BORE_STEP_MS,
+  TUNNEL_BORING_SPEED_MUL,
+  tunnelBoringCells,
+} from "../../domain/tunnelBoring";
 import { ghostBaseSpeedRatio, speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
@@ -107,16 +112,16 @@ import {
   clearUpgradeTimers,
 } from "../../domain/upgrades";
 import {
-  LOW_POWER_IDS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_SLOWDOWN_CUT,
-  LOW_POWER_SPEED_ADD,
-  LOW_POWER_TUNNEL_SPEED_ADD,
-  LOW_POWER_VORTEX_CUT,
-  LOW_POWER_HOUSE_DELAY_MS,
-  LOW_POWER_TRACTION_CUT,
-  isLowPowerId,
-} from "../../domain/lowPowerUpgrades";
+  TRINKET_IDS,
+  TRINKET_MAX_COPIES,
+  TRINKET_SLOWDOWN_CUT,
+  TRINKET_SPEED_ADD,
+  TRINKET_TUNNEL_SPEED_ADD,
+  TRINKET_VORTEX_CUT,
+  TRINKET_HOUSE_DELAY_MS,
+  TRINKET_TRACTION_CUT,
+  isTrinketId,
+} from "../../domain/trinkets";
 import { slotFrame, slotWinTotals } from "../../domain/slotMachine";
 import { schoolArtTextureKey } from "../../domain/schoolArt";
 import { upgradeArtTextureKey } from "../../domain/upgradeArt";
@@ -132,6 +137,8 @@ import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GHOST_PHASE, GhostPhase } from "../components/GhostPhase";
+import { ghostMovementRules } from "../../domain/ghostMovement";
+import { SINKHOLE_INTRO_MS } from "../../domain/sinkholeArt";
 import { DIRECTION, Input } from "../components/Input";
 import { OptionalPellet } from "../components/OptionalPellet";
 import { Pellet } from "../components/Pellet";
@@ -150,8 +157,8 @@ import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
-const MAXED_LOW_POWER: UpgradeId[] = LOW_POWER_IDS.flatMap((id) =>
-  Array.from({ length: LOW_POWER_MAX_COPIES }, () => id),
+const MAXED_TRINKETS: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
+  Array.from({ length: TRINKET_MAX_COPIES }, () => id),
 );
 
 const ONE_QUARTER_SLOT = { quarters: 1, upgrades: 0, lives: 0 };
@@ -761,7 +768,7 @@ describe("PlaySim", () => {
     const sim = startSim({
       jumpToUpgrade: true,
       level: 4,
-      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_LOW_POWER],
+      enableUpgrades: [...ALL_UPGRADE_IDS, ...MAXED_TRINKETS],
     });
     runFrames(sim, 90);
     expect(sim.offer()).toBeNull();
@@ -1888,6 +1895,24 @@ describe("PlaySim", () => {
       expect(sim.snapshot().quarters).toBe(10 - STORE_SWAP_PRICE);
     });
 
+    it("clears the sacrificed upgrade's live timers on a swap", () => {
+      const owned = ["powerPelletFreeze", "passiveAfterburner"] as const;
+      const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: [...owned] });
+      sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 7 };
+      const swap = sim.storeState()!.slots.find((s) => s.kind === "swap")!;
+      teleportPlayer(sim, cellCenterX(swap.col), cellCenterY(swap.row));
+      runFrames(sim, 1);
+      if (sim.storeState()!.sacrifice?.id !== "powerPelletFreeze") {
+        runFrames(sim, 1, { storeDir: "up" });
+      }
+      expect(sim.storeState()!.sacrifice?.id).toBe("powerPelletFreeze");
+      runFrames(sim, 1, { storeDir: "right" });
+      runFrames(sim, 1, { storeDir: "right" });
+      expect(sim.snapshot().upgrades).not.toContain("powerPelletFreeze");
+      expect(sim["runUpgrades"].freezeRemainingMs).toBe(0);
+      expect(sim["runUpgrades"].frozenGhostEid).toBeNull();
+    });
+
     it("leaves the sacrifice selection on left without paying", () => {
       const sim = startSim({
         store: 1,
@@ -1928,8 +1953,8 @@ describe("PlaySim", () => {
 
     it("trades into a rare even when the shelf already shows one", () => {
       const owned = [
-        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isLowPowerId(id)),
-        ...MAXED_LOW_POWER,
+        ...ALL_UPGRADE_IDS.filter((id) => !isRare(id) && !isTrinketId(id)),
+        ...MAXED_TRINKETS,
       ];
       const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: owned });
       const shelf = (
@@ -8854,6 +8879,123 @@ describe("collapsed tunnels", () => {
     expect(state?.arts.every((art) => art.pixels.length > 0 && art.motes.length > 0)).toBe(true);
   });
 
+  it("clears the rubble art off collapsed cells that tunnel boring opens", () => {
+    const sim = startSim({ level: 5, enableUpgrades: ["passiveTunnelBoring"] }, SEED);
+    const before = sim.renderOptions().collapse!;
+    const chain = sim.snapshot().collapse.chains[0]!;
+    sim["clearBoredRubble"](chain);
+    const after = sim.renderOptions().collapse!;
+    expect(after.key).not.toBe(before.key);
+    expect(after.arts[0]!.pixels.length).toBeLessThan(before.arts[0]!.pixels.length / 2);
+    expect(after.arts[1]!.pixels).toEqual(before.arts[1]!.pixels);
+    expect(after.arts.map((art) => art.fresh)).toEqual(before.arts.map((art) => art.fresh));
+  });
+
+  it("bores through rubble tile by tile, clearing its art as each tile opens and leaving a bigger pile", () => {
+    const sim = startSim(
+      { level: 5, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const rubble = new Set(
+      sim
+        .snapshot()
+        .collapse.chains.flat()
+        .map((cell) => `${cell.col},${cell.row}`),
+    );
+    const isRubble = (cell: MazeTile): boolean => rubble.has(`${cell.col},${cell.row}`);
+    const layout = getActiveLayout();
+    const dirs = [
+      { dx: 1, dy: 0, dir: "right" as const },
+      { dx: -1, dy: 0, dir: "left" as const },
+      { dx: 0, dy: 1, dir: "down" as const },
+      { dx: 0, dy: -1, dir: "up" as const },
+    ];
+    let spot: {
+      col: number;
+      row: number;
+      dir: (typeof dirs)[number]["dir"];
+      cells: MazeTile[];
+    } | null = null;
+    for (let row = 0; row < layout.rows && spot === null; row += 1) {
+      for (let col = 0; col < layout.cols && spot === null; col += 1) {
+        for (const step of dirs) {
+          const cells = isWalkable(col, row) ? tunnelBoringCells(col, row, step.dx, step.dy) : null;
+          if (cells !== null && cells.some(isRubble) && !cells.every(isRubble)) {
+            spot = { col, row, dir: step.dir, cells };
+            break;
+          }
+        }
+      }
+    }
+    expect(spot).not.toBeNull();
+    const { cells } = spot!;
+    const artPixels = (): number =>
+      sim.renderOptions().collapse!.arts.reduce((sum, art) => sum + art.pixels.length, 0);
+    const before = artPixels();
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot!.col), cellCenterY(spot!.row));
+    Facing.direction[eid] = DIRECTION.none;
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    const keys = new Set<string>();
+    for (
+      let frame = 0;
+      frame < 300 && sim.snapshot().tunnelBoring.openCells < cells.length;
+      frame += 1
+    ) {
+      runFrames(sim, 1, { keys: held(spot!.dir) });
+      keys.add(sim.renderOptions().collapse!.key);
+    }
+    expect(sim.snapshot().tunnelBoring.openCells).toBe(cells.length);
+    expect(keys.size).toBeGreaterThan(1);
+    expect(keys.size).toBeLessThanOrEqual(boreSteps(cells).length + 1);
+    expect(artPixels()).toBeLessThan(before);
+    const chips = sim.renderOptions().boreJunk!.map((pile) => pile.chips.length);
+    const rubbleChips = cells.map((cell, i) => (isRubble(cell) ? chips[i]! : 0)).filter(Boolean);
+    const wallChips = cells.map((cell, i) => (isRubble(cell) ? 0 : chips[i]!)).filter(Boolean);
+    expect(Math.min(...rubbleChips)).toBeGreaterThan(Math.max(...wallChips));
+  });
+
+  it("leaves the rubble art alone when a bore opens tiles nowhere near rubble", () => {
+    const sim = startSim(
+      { level: 5, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const chains = sim.snapshot().collapse.chains.flat();
+    const near = (cell: MazeTile): boolean =>
+      chains.some(
+        (link) => Math.abs(link.col - cell.col) <= 2 && Math.abs(link.row - cell.row) <= 2,
+      );
+    const layout = getActiveLayout();
+    let spot: { col: number; row: number; dir: "left" | "right" | "up" | "down" } | null = null;
+    for (let row = 0; row < layout.rows && spot === null; row += 1) {
+      for (let col = 0; col < layout.cols && spot === null; col += 1) {
+        for (const [dx, dy, dir] of [
+          [1, 0, "right"],
+          [-1, 0, "left"],
+          [0, 1, "down"],
+          [0, -1, "up"],
+        ] as const) {
+          const cells = isWalkable(col, row) ? tunnelBoringCells(col, row, dx, dy) : null;
+          if (cells !== null && !cells.some(near)) {
+            spot = { col, row, dir };
+            break;
+          }
+        }
+      }
+    }
+    expect(spot).not.toBeNull();
+    const before = sim.renderOptions().collapse!.key;
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot!.col), cellCenterY(spot!.row));
+    Facing.direction[eid] = DIRECTION.none;
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    runFrames(sim, 60, { keys: held(spot!.dir) });
+    expect(sim.snapshot().tunnelBoring.openCells).toBeGreaterThan(0);
+    expect(sim.renderOptions().collapse!.key).toBe(before);
+  });
+
   it("is a level modifier that ?levelModifiers=0 turns off, and the boss board has none", () => {
     expect(chainsAt(7, { levelModifiers: false }).chains).toEqual([]);
     expect(startSim({ level: 7, levelModifiers: false }, SEED).renderOptions().collapse).toBeNull();
@@ -8864,6 +9006,217 @@ describe("collapsed tunnels", () => {
     expect(chainsAt(7)).toEqual(chainsAt(7));
     const other = startSim({ level: 7 }, "collapse-other").snapshot().collapse.chains;
     expect(other).not.toEqual(chainsAt(7).chains);
+  });
+});
+
+describe("sinkhole", () => {
+  const SEED = "collapse-run";
+  const sinkholeAt = (level: number, overrides: Partial<PlayOptions> = {}) =>
+    startSim({ level, ...overrides }, SEED).snapshot().sinkhole;
+  const cellKey = (cell: MazeTile): string => `${cell.col},${cell.row}`;
+
+  it("appears on level 6 as a single corridor run and stays through the pool levels", () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => sinkholeAt(level).cells !== null)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+    ]);
+    const six = sinkholeAt(6).cells!;
+    expect(six.length).toBeGreaterThanOrEqual(3);
+    expect(six.length).toBeLessThanOrEqual(5);
+    expect(sinkholeAt(7).cells).toEqual(six);
+    expect(sinkholeAt(8).cells).toEqual(six);
+  });
+
+  it("is a level modifier that ?levelModifiers=0 turns off", () => {
+    expect(sinkholeAt(6, { levelModifiers: false }).cells).toBeNull();
+    expect(startSim({ level: 6, levelModifiers: false }, SEED).renderOptions().sinkhole).toBeNull();
+  });
+
+  it("blocks Dot-Man in its cells but lets the ghosts cross, and drops their pellets", () => {
+    const sim = startSim({ level: 6 }, SEED);
+    const layout = getActiveLayout();
+    const cells = sim.snapshot().sinkhole.cells!;
+    for (const { col, row } of cells) {
+      expect(layout.playerSolids[row]![col]).toBe(true);
+      expect(layout.wallPassPlayerSolids[row]![col]).toBe(true);
+      expect(layout.ghostActiveSolids[row]![col]).toBe(false);
+      expect(layout.ghostSolids[row]![col]).toBe(false);
+    }
+    const pellets = query(sim.world, [Pellet, Position]);
+    const inside = pellets.filter((eid) =>
+      cells.some(
+        (c) => c.col === worldToCol(Position.x[eid]!) && c.row === worldToRow(Position.y[eid]!),
+      ),
+    );
+    expect(inside).toEqual([]);
+    expect(layout.pelletCount).toBe(pellets.length);
+  });
+
+  it("keeps every remaining pellet reachable around it", () => {
+    for (const seed of ["collapse-a", "collapse-b", "collapse-c", SEED]) {
+      const sim = startSim({ level: 6 }, seed);
+      const { playerSolids, playerSpawn } = getActiveLayout();
+      const seen = new Set<string>([cellKey(playerSpawn)]);
+      const queue = [playerSpawn];
+      for (let i = 0; i < queue.length; i += 1) {
+        const { col, row } = queue[i]!;
+        for (const [dc, dr] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const) {
+          const next = { col: col + dc, row: row + dr };
+          if (!seen.has(cellKey(next)) && isWalkable(next.col, next.row, playerSolids)) {
+            seen.add(cellKey(next));
+            queue.push(next);
+          }
+        }
+      }
+      for (const eid of query(sim.world, [Pellet, Position])) {
+        const cell = { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+        expect(seen.has(cellKey(cell)), `${seed} pellet at ${cellKey(cell)}`).toBe(true);
+      }
+    }
+  });
+
+  const approach = (sim: PlaySim) => {
+    const cells = sim.snapshot().sinkhole.cells!;
+    const inChain = new Set(cells.map(cellKey));
+    const first = cells[0]!;
+    const layout = getActiveLayout();
+    const side = [
+      { dc: 1, dr: 0, key: "left" },
+      { dc: -1, dr: 0, key: "right" },
+      { dc: 0, dr: 1, key: "up" },
+      { dc: 0, dr: -1, key: "down" },
+    ]
+      .map((entry) => ({
+        ...entry,
+        from: { col: first.col + entry.dc, row: first.row + entry.dr },
+      }))
+      .find(
+        (entry) =>
+          !inChain.has(cellKey(entry.from)) &&
+          isWalkable(entry.from.col, entry.from.row, layout.playerSolids),
+      )!;
+    teleportPlayer(sim, cellCenterX(side.from.col), cellCenterY(side.from.row));
+    runFrames(sim, 90, { keys: held(side.key as "left" | "right" | "up" | "down") });
+    const eid = playerEid(sim);
+    const at = { col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) };
+    return { inside: inChain.has(cellKey(at)), first, side };
+  };
+
+  it("stops Dot-Man at the edge while a ghost may enter the same cell", () => {
+    const { inside, first, side } = approach(startSim({ level: 6 }, SEED));
+    expect(inside).toBe(false);
+    const rules = ghostMovementRules(GHOST_PHASE.active);
+    expect(
+      rules.canEnter(
+        cellCenterX(side.from.col),
+        cellCenterY(side.from.row),
+        first.col - side.from.col,
+        first.row - side.from.row,
+      ),
+    ).toBe(true);
+  });
+
+  it("lets a floating Dot-Man pass over it, enhanced or not", () => {
+    for (const id of ["passiveFloating", "passiveFloatingPlus"] as const) {
+      const sim = startSim({ level: 6, enableUpgrades: [id] }, SEED);
+      expect(approach(sim).inside, id).toBe(true);
+    }
+  });
+
+  it("lets Dot-Man walk out if he loses Floating inside it, then blocks him again", () => {
+    const sim = startSim({ level: 6, enableUpgrades: ["passiveFloating"] }, SEED);
+    const cells = sim.snapshot().sinkhole.cells!;
+    const inChain = new Set(cells.map(cellKey));
+    const mid = cells[Math.floor(cells.length / 2)]!;
+    teleportPlayer(sim, cellCenterX(mid.col), cellCenterY(mid.row));
+    runFrames(sim, 5);
+    expect(sim.salvageOwned("passiveFloating").length).toBeGreaterThan(0);
+    runFrames(sim, 2);
+    const eid = playerEid(sim);
+    const at = () => ({ col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) });
+    const towardStart = cells.slice(0, cells.indexOf(mid) + 1).reverse();
+    const keyBetween = (from: MazeTile, to: MazeTile) =>
+      to.col > from.col ? "right" : to.col < from.col ? "left" : to.row > from.row ? "down" : "up";
+    for (let i = 0; i + 1 < towardStart.length; i += 1) {
+      runFrames(sim, 40, { keys: held(keyBetween(towardStart[i]!, towardStart[i + 1]!)) });
+    }
+    const [end, beforeEnd] = [cells[0]!, cells[1]!];
+    runFrames(sim, 60, { keys: held(keyBetween(beforeEnd, end)) });
+    expect(inChain.has(cellKey(at()))).toBe(false);
+    for (const { col, row } of cells) {
+      expect(getActiveLayout().playerSolids[row]![col]).toBe(true);
+    }
+  });
+
+  it("is never dug out by Tunnel Boring", () => {
+    const sim = startSim(
+      { level: 6, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const inChain = new Set(sim.snapshot().sinkhole.cells!.map(cellKey));
+    const layout = getActiveLayout();
+    let nextToHole = 0;
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const) {
+          if (!isWalkable(col, row, layout.playerSolids)) {
+            continue;
+          }
+          nextToHole += inChain.has(cellKey({ col: col + dx, row: row + dy })) ? 1 : 0;
+          const run = tunnelBoringCells(col, row, dx, dy, layout) ?? [];
+          expect(run.some((cell) => inChain.has(cellKey(cell)))).toBe(false);
+        }
+      }
+    }
+    expect(nextToHole).toBeGreaterThan(0);
+  });
+
+  it("flags only the level-6 sinkhole as fresh and runs its opening clock to full length", () => {
+    expect(sinkholeAt(6).fresh).toBe(true);
+    expect(sinkholeAt(7).fresh).toBe(false);
+    const sim = startSim({ level: 6 }, SEED);
+    expect(sim.snapshot().sinkhole.introMs).toBe(0);
+    runFrames(sim, 30, { keys: held("left") });
+    const early = sim.snapshot().sinkhole.introMs;
+    expect(early).toBeGreaterThan(0);
+    runFrames(sim, 600, { keys: held("left") });
+    expect(sim.snapshot().sinkhole.introMs).toBeGreaterThan(early);
+    const settled = sim.snapshot().sinkhole.introMs;
+    expect(settled).toBe(SINKHOLE_INTRO_MS);
+    runFrames(sim, 60);
+    expect(sim.snapshot().sinkhole.introMs).toBe(settled);
+  });
+
+  it("hands the renderer its art only while a sinkhole exists", () => {
+    expect(startSim({ level: 5 }, SEED).renderOptions().sinkhole).toBeNull();
+    const state = startSim({ level: 6 }, SEED).renderOptions().sinkhole;
+    expect(state?.fresh).toBe(true);
+    expect(state?.art.pixels.length).toBeGreaterThan(0);
+    expect(startSim({ level: 7 }, SEED).renderOptions().sinkhole?.fresh).toBe(false);
+  });
+
+  it("replays the same sinkhole for the same seed and differs between seeds", () => {
+    expect(sinkholeAt(6)).toEqual(sinkholeAt(6));
+    expect(startSim({ level: 6 }, "collapse-other").snapshot().sinkhole.cells).not.toEqual(
+      sinkholeAt(6).cells,
+    );
   });
 });
 
@@ -9012,7 +9365,7 @@ describe("Reactive Armor", () => {
   });
 });
 
-describe("PlaySim low-power upgrades", () => {
+describe("PlaySim Trinkets", () => {
   const copies = (id: UpgradeId, n: number): UpgradeId[] => Array.from({ length: n }, () => id);
   const speedOf = (eid: number): number => Speed.px[eid]!;
 
@@ -9044,21 +9397,21 @@ describe("PlaySim low-power upgrades", () => {
     return speedOf(eid);
   }
 
-  it.each(LOW_POWER_IDS)("%s stacks up to the cap and no further", (id) => {
+  it.each(TRINKET_IDS)("%s stacks up to the cap and no further", (id) => {
     const sim = startSim({
       level: 2,
-      enableUpgrades: copies(id, LOW_POWER_MAX_COPIES + 3),
+      enableUpgrades: copies(id, TRINKET_MAX_COPIES + 3),
     });
     expect(sim.snapshot().upgrades.filter((owned) => owned === id)).toHaveLength(
-      LOW_POWER_MAX_COPIES,
+      TRINKET_MAX_COPIES,
     );
   });
 
   it("Speed adds a flat share of Dot-Man's speed per copy", () => {
     const base = playerSpeedAt([], 13, 11);
-    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+    expect(playerSpeedAt(["lowSpeed"], 13, 11) / base).toBeCloseTo(1 + TRINKET_SPEED_ADD);
     expect(playerSpeedAt(copies("lowSpeed", 3), 13, 11) / base).toBeCloseTo(
-      1 + 3 * LOW_POWER_SPEED_ADD,
+      1 + 3 * TRINKET_SPEED_ADD,
     );
   });
 
@@ -9066,7 +9419,7 @@ describe("PlaySim low-power upgrades", () => {
     const tunnelRow = horizontalTunnelRows()[0]!;
     const base = playerSpeedAt([], 0, tunnelRow);
     expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 0, tunnelRow) / base).toBeCloseTo(
-      1 + 2 * LOW_POWER_TUNNEL_SPEED_ADD,
+      1 + 2 * TRINKET_TUNNEL_SPEED_ADD,
     );
     expect(playerSpeedAt(copies("lowTunnelSpeed", 2), 13, 11)).toBeCloseTo(
       playerSpeedAt([], 13, 11),
@@ -9078,7 +9431,7 @@ describe("PlaySim low-power upgrades", () => {
     const base = ghostSpeedOf([], GHOST_KIND.blinky, tunnel);
     expect(
       ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky, tunnel) / base,
-    ).toBeCloseTo(1 - 2 * LOW_POWER_VORTEX_CUT);
+    ).toBeCloseTo(1 - 2 * TRINKET_VORTEX_CUT);
     expect(ghostSpeedOf(copies("lowTunnelVortex", 2), GHOST_KIND.blinky)).toBeCloseTo(
       ghostSpeedOf([], GHOST_KIND.blinky),
     );
@@ -9087,7 +9440,7 @@ describe("PlaySim low-power upgrades", () => {
   it("a ghost slowdown slows only the named ghost", () => {
     const base = ghostSpeedOf([], GHOST_KIND.blinky);
     expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.blinky) / base).toBeCloseTo(
-      1 - 3 * LOW_POWER_SLOWDOWN_CUT,
+      1 - 3 * TRINKET_SLOWDOWN_CUT,
     );
     expect(ghostSpeedOf(copies("lowSlowdownBlinky", 3), GHOST_KIND.inky)).toBeCloseTo(
       ghostSpeedOf([], GHOST_KIND.inky),
@@ -9119,7 +9472,7 @@ describe("PlaySim low-power upgrades", () => {
       const before = speedOf(eid);
       Facing.direction[eid] = DIRECTION.up;
       runFrames(sim, 1);
-      return speedOf(eid) < before * (1 - LOW_POWER_TRACTION_CUT / 2);
+      return speedOf(eid) < before * (1 - TRINKET_TRACTION_CUT / 2);
     };
     expect(dragged(["lowTractionBlinky"], GHOST_KIND.blinky)).toBe(true);
     expect(dragged(["lowTractionBlinky"], GHOST_KIND.inky)).toBe(false);
@@ -9141,8 +9494,8 @@ describe("PlaySim low-power upgrades", () => {
     };
     const plain = releaseMs([]);
     const delayed = releaseMs(copies("lowHouseDelayBlinky", 2));
-    expect(delayed - plain).toBeGreaterThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS - 2 * FRAME_MS);
-    expect(delayed - plain).toBeLessThanOrEqual(2 * LOW_POWER_HOUSE_DELAY_MS + 2 * FRAME_MS);
+    expect(delayed - plain).toBeGreaterThanOrEqual(2 * TRINKET_HOUSE_DELAY_MS - 2 * FRAME_MS);
+    expect(delayed - plain).toBeLessThanOrEqual(2 * TRINKET_HOUSE_DELAY_MS + 2 * FRAME_MS);
   });
 
   it("offers a ghost's upgrades only when the ghost is in the run's roster", () => {
@@ -9158,24 +9511,24 @@ describe("PlaySim low-power upgrades", () => {
         offered.add(id);
       }
     }
-    expect([...offered].some((id) => isLowPowerId(id))).toBe(true);
+    expect([...offered].some((id) => isTrinketId(id))).toBe(true);
     const ghostName = Object.entries(GHOST_KIND).find(([, v]) => v === missing)![0];
     const suffix = ghostName.charAt(0).toUpperCase() + ghostName.slice(1);
-    expect([...offered].filter((id) => id.endsWith(suffix) && isLowPowerId(id))).toEqual([]);
+    expect([...offered].filter((id) => id.endsWith(suffix) && isTrinketId(id))).toEqual([]);
   });
 
-  it("taking an owned low-power upgrade from an offer adds another copy", () => {
+  it("taking an owned Trinket from an offer adds another copy", () => {
     const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: ["lowSpeed"] });
     drainToOffer(sim);
     sim.chooseUpgrade({ kind: "upgrade", id: "lowSpeed" });
     expect(sim.snapshot().upgrades.filter((id) => id === "lowSpeed")).toHaveLength(2);
   });
 
-  it("the cap keeps any low-power upgrade out of the pool once it is reached", () => {
-    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_LOW_POWER });
+  it("the cap keeps any Trinket out of the pool once it is reached", () => {
+    const sim = startSim({ level: 4, jumpToUpgrade: true, enableUpgrades: MAXED_TRINKETS });
     runFrames(sim, 90);
     const offered = sim.offer()?.upgrades ?? [];
-    expect(offered.filter((id) => isLowPowerId(id))).toEqual([]);
+    expect(offered.filter((id) => isTrinketId(id))).toEqual([]);
   });
 });
 
@@ -9330,6 +9683,226 @@ describe("Banana Trail", () => {
   });
 });
 
+describe("PlaySim salvage", () => {
+  const SIX: UpgradeId[] = [
+    "powerPelletFreeze",
+    "passiveAfterburner",
+    "passiveGhostSlow",
+    "powerPelletScatterBurst",
+    "powerPelletGhostRecall",
+    "powerPelletWarpFarthest",
+  ];
+
+  function slotIds(sim: PlaySim): UpgradeId[] {
+    return sim.snapshot().upgrades.filter((id) => !isTrinketId(id));
+  }
+
+  function trinketIds(sim: PlaySim): UpgradeId[] {
+    return sim.snapshot().upgrades.filter((id) => isTrinketId(id));
+  }
+
+  function offerAtCap(seed = "salvage"): { sim: PlaySim; picked: BaseUpgradeId } {
+    const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: SIX }, seed);
+    const offer = drainToOffer(sim);
+    const picked = offer.upgrades.find((id) => !isTrinketId(id))!;
+    sim.chooseUpgrade({ kind: "upgrade", id: picked });
+    return { sim, picked };
+  }
+
+  it("opens a prompt for a level-clear pick at 6 and freezes the sim", () => {
+    const { sim, picked } = offerAtCap();
+    expect(sim.snapshot().salvage).toMatchObject({ open: true, incoming: picked, slotCount: 6 });
+    const before = sim.snapshot().timeRemaining;
+    runFrames(sim, 30);
+    expect(sim.snapshot().timeRemaining).toBe(before);
+    expect(sim.snapshot().salvage.open).toBe(true);
+  });
+
+  it("salvaging the new card keeps the six and adds one Trinket", () => {
+    const { sim } = offerAtCap();
+    const events = sim.salvageNew();
+    const gained = events.find((e) => e.type === "salvage");
+    expect(gained).toMatchObject({ type: "salvage", quarters: 0 });
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toEqual([(gained as { gained: UpgradeId }).gained]);
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, trinketCount: 1 });
+    expect(sim.runLogRecord().loadout.at(-1)).toMatchObject({ source: "salvage" });
+  });
+
+  it("salvaging an owned card keeps the new one", () => {
+    const { sim, picked } = offerAtCap();
+    sim.salvageReplace("passiveGhostSlow");
+    expect(slotIds(sim)).toEqual([...SIX.filter((id) => id !== "passiveGhostSlow"), picked]);
+    expect(trinketIds(sim)).toHaveLength(1);
+    expect(
+      sim.runLogRecord().loadout.find((entry) => entry.id === "passiveGhostSlow"),
+    ).toMatchObject({ removedLevel: 4 });
+  });
+
+  it("refuses to salvage a Trinket or an unowned id at the prompt", () => {
+    const { sim } = offerAtCap();
+    expect(sim.salvageReplace("lowSpeed")).toEqual([]);
+    expect(sim.salvageReplace("passiveExtraLife")).toEqual([]);
+    expect(sim.snapshot().salvage.open).toBe(true);
+  });
+
+  it("salvagePick salvages the new card when it is picked, else the picked owned card", () => {
+    const kept = offerAtCap();
+    kept.sim.salvagePick(kept.picked);
+    expect(slotIds(kept.sim)).toEqual(SIX);
+    const swapped = offerAtCap();
+    swapped.sim.salvagePick("passiveGhostSlow");
+    expect(slotIds(swapped.sim)).toEqual([
+      ...SIX.filter((id) => id !== "passiveGhostSlow"),
+      swapped.picked,
+    ]);
+    expect(trinketIds(swapped.sim)).toHaveLength(1);
+  });
+
+  it("replays the same Trinket for the same seed", () => {
+    const gained = ["a", "b"].map(() => {
+      const { sim } = offerAtCap("salvage-seed");
+      sim.salvageNew();
+      return trinketIds(sim);
+    });
+    expect(gained[0]).toEqual(gained[1]);
+  });
+
+  it("keeps the life an Extra Life already paid", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      infiniteLives: false,
+      lives: 2,
+      maxLives: 6,
+      enableUpgrades: ["passiveExtraLife"],
+    });
+    const lives = sim.snapshot().lives;
+    sim.salvageOwned("passiveExtraLife");
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(sim.snapshot().upgrades).not.toContain("passiveExtraLife");
+  });
+
+  it("salvages on demand under the cap and rejects a Trinket", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["lowSpeed", ...SIX.slice(0, 2)],
+    });
+    expect(sim.salvageOwned("lowSpeed")).toEqual([]);
+    const events = sim.salvageOwned("passiveAfterburner");
+    expect(events.some((e) => e.type === "salvage")).toBe(true);
+    expect(slotIds(sim)).toEqual(["powerPelletFreeze"]);
+    expect(trinketIds(sim)).toHaveLength(2);
+  });
+
+  it("clears a live freeze when Freeze is salvaged mid-level", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 5 };
+    sim.salvageOwned("powerPelletFreeze");
+    expect(sim["runUpgrades"]).toMatchObject({ freezeRemainingMs: 0, frozenGhostEid: null });
+  });
+
+  it("pays a Quarter, logged as salvage, when no Trinket is eligible", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      quarters: 0,
+      enableUpgrades: ["powerPelletFreeze", ...MAXED_TRINKETS],
+    });
+    const events = sim.salvageOwned("powerPelletFreeze");
+    expect(events).toContainEqual({ type: "salvage", gained: null, quarters: 1 });
+    expect(sim.snapshot().quarters).toBe(1);
+    expect(sim.runLogRecord().levels.at(-1)!.quartersEarned.salvage).toBe(1);
+  });
+
+  it("refuses on-demand salvage during a death sequence", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
+    sim["death"] = {} as never;
+    expect(sim.salvageOwned("powerPelletFreeze")).toEqual([]);
+    expect(sim.snapshot().salvage.canSalvage).toBe(false);
+  });
+
+  it("never prompts for the starting upgrade or debug flags past 6", () => {
+    const sim = startSim({ maze: "mazeSmall", enableUpgrades: [...SIX, "passiveExtraLife"] });
+    runFrames(sim, 5, { uiOpen: true });
+    expect(slotIds(sim).length).toBeGreaterThanOrEqual(7);
+    expect(sim.snapshot().salvage.open).toBe(false);
+  });
+
+  it("opens the prompt after a store U purchase at 6, with the Quarters spent", () => {
+    const sim = startSim({ store: 1, level: 5, quarters: 10, enableUpgrades: SIX });
+    const slot = sim
+      .storeState()!
+      .slots.find((cell) => cell.kind === "upgrade" && !isTrinketId(cell.id))!;
+    if (slot.kind !== "upgrade") throw new Error("no upgrade tile");
+    teleportPlayer(sim, cellCenterX(slot.col), cellCenterY(slot.row));
+    runFrames(sim, 1);
+    runFrames(sim, 1, { storeFocus: "yes" });
+    runFrames(sim, 1, { storeConfirm: true });
+    expect(sim.snapshot().quarters).toBeLessThan(10);
+    expect(sim.snapshot().salvage).toMatchObject({
+      open: true,
+      incoming: slot.id,
+    });
+    expect(slotIds(sim)).toEqual(SIX);
+    sim.salvageNew();
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toHaveLength(1);
+  });
+
+  it("grants a neutral slot win's Trinket at 6 without a prompt", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: SIX });
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage.open).toBe(false);
+    expect(slotIds(sim)).toEqual(SIX);
+    expect(trinketIds(sim)).toHaveLength(1);
+  });
+
+  it("prompts for a neutral Overcharge win at 6, and pays a Quarter once the pool is empty", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      quarters: 0,
+      enableUpgrades: [...SIX, ...MAXED_TRINKETS],
+    });
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage).toMatchObject({ open: true, incoming: "passiveOvercharge" });
+    sim.salvageReplace("passiveGhostSlow");
+    expect(sim.snapshot().upgrades).toContain("passiveOvercharge");
+    sim["paySlotWin"]({ line: 0, symbol: "neutral" }, "pennyBar");
+    expect(sim.snapshot().salvage.open).toBe(false);
+    expect(sim.snapshot().quarters).toBe(2);
+  });
+
+  it("holds slot wins at 6 until the final grid is dismissed, one prompt per upgrade", () => {
+    const sim = startSim(
+      {
+        level: 2,
+        maze: "maze1",
+        infiniteLives: true,
+        pennyCharge: 299,
+        slot: { quarters: 0, upgrades: 2, lives: 0 },
+        enableUpgrades: SIX,
+      },
+      "salvage-slots",
+    );
+    sim["slotQueue"].push("pennyBar");
+    runUntil(sim, () => sim.snapshot().slot.held, 900, { keys: held("left") });
+    const won = sim.snapshot().slot.won!.filter((id) => !isTrinketId(id));
+    expect(won).toHaveLength(2);
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, queued: won.length });
+    runFrames(sim, 1, { acknowledge: true });
+    expect(sim.snapshot().salvage.open).toBe(won.length > 0);
+    for (const incoming of won) {
+      expect(sim.snapshot().salvage.incoming).toBe(incoming);
+      sim.salvageNew();
+    }
+    expect(sim.snapshot().salvage).toMatchObject({ open: false, queued: 0 });
+    expect(new Set(won).size).toBe(won.length);
+  });
+});
+
 describe("Martyr", () => {
   const LEFT = { keys: held("left") };
 
@@ -9448,6 +10021,14 @@ describe("Possession", () => {
     return killer;
   }
 
+  it("refuses to salvage anything while a possession defers the death", () => {
+    const sim = startPossession(["passivePossession", "powerPelletFreeze"]);
+    enterPossession(sim);
+    expect(sim.snapshot().salvage.canSalvage).toBe(false);
+    expect(sim.salvageOwned("passivePossession")).toEqual([]);
+    expect(sim.snapshot().possessing).toBe(true);
+  });
+
   it("hides the player and marks the possessed ghost for the renderer", () => {
     const sim = startPossession(["passivePossession"]);
     expect(sim.renderOptions().playerAlpha).toBeUndefined();
@@ -9517,7 +10098,7 @@ describe("Tunnel Boring", () => {
     return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
   }
 
-  function boreSpot(): {
+  function boreSpot(minSteps = 1): {
     col: number;
     row: number;
     dx: number;
@@ -9553,7 +10134,8 @@ describe("Tunnel Boring", () => {
                 layout.house[target.row + dy!]?.[target.col + dx!] ||
                 layout.door[target.row + dy!]?.[target.col + dx!],
             );
-            if (!nearHouse && tunnelBoringCells(col, row, step.dx, step.dy) !== null) {
+            const cells = nearHouse ? null : tunnelBoringCells(col, row, step.dx, step.dy);
+            if (cells !== null && boreSteps(cells).length >= minSteps) {
               return { col, row, ...step };
             }
           }
@@ -9563,8 +10145,7 @@ describe("Tunnel Boring", () => {
     throw new Error("no bore spot");
   }
 
-  function pressBore(sim: PlaySim): MazeTile[] {
-    const spot = boreSpot();
+  function pressBore(sim: PlaySim, spot = boreSpot()): MazeTile[] {
     const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
     const eid = playerEid(sim);
     teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
@@ -9574,6 +10155,40 @@ describe("Tunnel Boring", () => {
     runFrames(sim, 1, { keys: held(spot.dir) });
     return expected;
   }
+
+  it("keeps bored walls open on a board with a sinkhole", () => {
+    const sim = startSim({ level: 6, godMode: true, enableUpgrades: ["passiveTunnelBoring"] });
+    expect(sim.snapshot().sinkhole.cells).not.toBeNull();
+    const bored = pressBore(sim);
+    runFrames(sim, 120);
+    const layout = getActiveLayout();
+    for (const cell of bored) {
+      expect(isWalkable(cell.col, cell.row, layout.playerSolids), `${cell.col},${cell.row}`).toBe(
+        true,
+      );
+    }
+    for (const cell of sim.snapshot().sinkhole.cells!) {
+      expect(isWalkable(cell.col, cell.row, layout.playerSolids), `${cell.col},${cell.row}`).toBe(
+        false,
+      );
+    }
+  });
+
+  it("keeps a floating Dot-Man able to cross the sinkhole after a bore", () => {
+    const sim = startSim({
+      level: 6,
+      godMode: true,
+      enableUpgrades: ["passiveTunnelBoring", "passiveFloating"],
+    });
+    const bored = pressBore(sim);
+    runFrames(sim, 120);
+    const layout = getActiveLayout();
+    for (const cell of [...bored, ...sim.snapshot().sinkhole.cells!]) {
+      expect(isWalkable(cell.col, cell.row, layout.playerSolids), `${cell.col},${cell.row}`).toBe(
+        true,
+      );
+    }
+  });
 
   it("needs a fresh press at rest: a held key never bores until released and re-pressed", () => {
     const sim = start();
@@ -9641,20 +10256,98 @@ describe("Tunnel Boring", () => {
     Facing.direction[eid] = DIRECTION.none;
     runFrames(sim, 1, { keys: held(spot.dir) });
     expect(isWalkable(spot.col + spot.dx, spot.row + spot.dy)).toBe(false);
-    expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells: [] });
+    expect(sim.snapshot().tunnelBoring).toEqual({
+      charges: 0,
+      cells: [],
+      openCells: 0,
+      junkCells: 0,
+      slowed: false,
+    });
   });
 
-  it("while stopped, pressing into a wall punches through and spends the charge", () => {
+  it("a press spends the charge and opens only the first tile; the rest digs open tile by tile", () => {
     const sim = start();
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
-    const cells = pressBore(sim);
-    expect(cells.length).toBeGreaterThan(0);
-    expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells });
+    const spot = boreSpot(3);
+    const cells = pressBore(sim, spot);
+    const steps = boreSteps(cells);
+    expect(sim.snapshot().tunnelBoring).toMatchObject({
+      charges: 0,
+      cells,
+      openCells: steps[0]!.length,
+      junkCells: steps[0]!.length,
+    });
+    expect(steps[0]!.every((cell) => isWalkable(cell.col, cell.row))).toBe(true);
+    expect(
+      steps
+        .slice(1)
+        .flat()
+        .some((cell) => isWalkable(cell.col, cell.row)),
+    ).toBe(false);
+    const seen = new Set<number>();
+    for (
+      let frame = 0;
+      frame < 240 && sim.snapshot().tunnelBoring.openCells < cells.length;
+      frame += 1
+    ) {
+      runFrames(sim, 1, { keys: held(spot.dir) });
+      seen.add(sim.snapshot().tunnelBoring.openCells);
+    }
+    const boundaries = steps.map((_, i) => steps.slice(0, i + 1).flat().length);
+    expect([...seen].sort((a, b) => a - b)).toEqual(boundaries);
     for (const cell of cells) {
       expect(isWalkable(cell.col, cell.row)).toBe(true);
     }
+    expect(sim.snapshot().tunnelBoring.junkCells).toBe(cells.length);
     pressBore(sim);
     expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+  });
+
+  it("slows Dot-Man 25% while he is inside the bore, and not after he leaves it", () => {
+    const sim = start();
+    const spot = boreSpot(3);
+    const cells = pressBore(sim, spot);
+    const eid = playerEid(sim);
+    const inBore = (): boolean =>
+      cells.some(
+        (cell) =>
+          cell.col === worldToCol(Position.x[eid]!) && cell.row === worldToRow(Position.y[eid]!),
+      );
+    const frames: { inside: boolean; speed: number; slowed: boolean }[] = [];
+    for (let frame = 0; frame < 300; frame += 1) {
+      const inside = inBore();
+      runFrames(sim, 1, { keys: held(spot.dir) });
+      frames.push({ inside, speed: Speed.px[eid]!, slowed: sim.snapshot().tunnelBoring.slowed });
+      if (frames.some((f) => f.inside) && !inside) {
+        break;
+      }
+    }
+    const full = PLAYER_SPEED * speedLevelMultiplier(sim["levelIndex"]);
+    const exit = frames.length - 1;
+    expect(frames[exit - 1]!.inside).toBe(true);
+    expect(Math.max(...frames.filter((f) => f.inside).map((f) => f.speed))).toBeCloseTo(
+      full * TUNNEL_BORING_SPEED_MUL,
+      6,
+    );
+    expect(frames[0]!.speed).toBeGreaterThan(full * TUNNEL_BORING_SPEED_MUL);
+    expect(frames[exit]!.slowed).toBe(false);
+    expect(sim["tunnelBore"].progress).toBeNull();
+  });
+
+  it("keeps digging on its timer when Dot-Man backs away, and never slows him outside it", () => {
+    const sim = start();
+    const spot = boreSpot(3);
+    const cells = pressBore(sim, spot);
+    const back = ({ left: "right", right: "left", up: "down", down: "up" } as const)[spot.dir];
+    runFrames(sim, 1, { keys: NO_KEYS_HELD });
+    const steps = boreSteps(cells).length;
+    runFrames(sim, Math.ceil((steps * TUNNEL_BORE_STEP_MS) / FRAME_MS), { keys: held(back) });
+    expect(sim.snapshot().tunnelBoring).toMatchObject({
+      openCells: cells.length,
+      junkCells: cells.length,
+      slowed: false,
+    });
+    expect(sim["tunnelBore"].progress).toBeNull();
   });
 
   it("press-through adopts facing into the opened cell", () => {
@@ -9695,7 +10388,7 @@ describe("Tunnel Boring", () => {
     expect(sim.snapshot().tunnelBoring.charges).toBe(0);
   });
 
-  it("keeps bored cells on the next pool board with the same map", () => {
+  it("keeps the whole bore, even mid-dig, on the next board with the same map, but not its junk", () => {
     const sim = startSim(
       {
         level: 2,
@@ -9706,17 +10399,23 @@ describe("Tunnel Boring", () => {
       "tunnelPersist",
     );
     expect(sim.snapshot().layout.startsWith("pool-")).toBe(true);
-    const cells = pressBore(sim);
+    const cells = pressBore(sim, boreSpot(2));
     expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+    expect(sim.snapshot().tunnelBoring.openCells).toBeLessThan(cells.length);
     const mapKey = sim.snapshot().layout;
     sim["levelIndex"] = 3;
     sim["startBoard"](null);
     expect(sim.snapshot().layout).toBe(mapKey);
-    expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+    expect(sim.snapshot().tunnelBoring).toMatchObject({
+      cells,
+      openCells: cells.length,
+      junkCells: 0,
+      charges: 1,
+    });
+    expect(sim.renderOptions().boreJunk).toEqual([]);
     for (const cell of cells) {
       expect(isWalkable(cell.col, cell.row)).toBe(true);
     }
-    expect(sim.snapshot().tunnelBoring.charges).toBe(1);
   });
 });
 

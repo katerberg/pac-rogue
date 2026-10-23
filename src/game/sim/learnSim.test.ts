@@ -6,13 +6,13 @@ import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
 import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorner";
 import { GHOST_KIND } from "../../domain/ghostKind";
 import {
-  LOW_POWER_IDS,
-  LOW_POWER_MAX_COPIES,
-  LOW_POWER_SLOWDOWN_CUT,
-  LOW_POWER_SPEED_ADD,
-  LOW_POWER_TUNNEL_SPEED_ADD,
-  isLowPowerId,
-} from "../../domain/lowPowerUpgrades";
+  TRINKET_IDS,
+  TRINKET_MAX_COPIES,
+  TRINKET_SLOWDOWN_CUT,
+  TRINKET_SPEED_ADD,
+  TRINKET_TUNNEL_SPEED_ADD,
+  isTrinketId,
+} from "../../domain/trinkets";
 import {
   SPUNKY_AGGRO_TILES,
   WARDY_STRIKE_TILES,
@@ -33,7 +33,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { tunnelBoringCells } from "../../domain/tunnelBoring";
+import { boreSteps, tunnelBoringCells } from "../../domain/tunnelBoring";
 import {
   TITHE_SPEED_MUL,
   INVULN_MS,
@@ -1973,7 +1973,7 @@ describe("LearnSim upgrade demos", () => {
     expect(sim.statusText()).toContain("NEXT FRUIT AT 60 PELLETS");
   });
 
-  it("copies of a low-power upgrade step between 1 and the cap, and toggling off clears them all", () => {
+  it("copies of a Trinket step between 1 and the cap, and toggling off clears them all", () => {
     const { sim, player } = setup("lowSpeed");
     expect(sim.upgradeCopies("lowSpeed")).toBe(1);
     sim.adjustUpgradeCopies("lowSpeed", -1);
@@ -1981,9 +1981,9 @@ describe("LearnSim upgrade demos", () => {
     sim.adjustUpgradeCopies("lowSpeed", 2);
     expect(sim.upgradeCopies("lowSpeed")).toBe(3);
     sim.step(NO_KEYS_HELD, FRAME_MS);
-    expect(Speed.px[player]! / setupSpeed()).toBeCloseTo(1 + 3 * LOW_POWER_SPEED_ADD);
+    expect(Speed.px[player]! / setupSpeed()).toBeCloseTo(1 + 3 * TRINKET_SPEED_ADD);
     sim.adjustUpgradeCopies("lowSpeed", 100);
-    expect(sim.upgradeCopies("lowSpeed")).toBe(LOW_POWER_MAX_COPIES);
+    expect(sim.upgradeCopies("lowSpeed")).toBe(TRINKET_MAX_COPIES);
     sim.toggleUpgrade("lowSpeed");
     expect(sim.ownedUpgrades).toEqual([]);
     sim.adjustUpgradeCopies("lowSpeed", 1);
@@ -2002,7 +2002,7 @@ describe("LearnSim upgrade demos", () => {
       sim.step(NO_KEYS_HELD, FRAME_MS);
       return Speed.px[player]!;
     };
-    expect(speed("lowSpeed") / speed()).toBeCloseTo(1 + LOW_POWER_SPEED_ADD);
+    expect(speed("lowSpeed") / speed()).toBeCloseTo(1 + TRINKET_SPEED_ADD);
   });
 
   it("Tunnel Speed speeds Maze-Man up only inside a tunnel", () => {
@@ -2018,7 +2018,7 @@ describe("LearnSim upgrade demos", () => {
     };
     const row = horizontalTunnelRows()[0]!;
     expect(speedAt(0, row, "lowTunnelSpeed") / speedAt(0, row)).toBeCloseTo(
-      1 + LOW_POWER_TUNNEL_SPEED_ADD,
+      1 + TRINKET_TUNNEL_SPEED_ADD,
     );
     expect(speedAt(13, 11, "lowTunnelSpeed")).toBeCloseTo(speedAt(13, 11));
   });
@@ -2031,7 +2031,7 @@ describe("LearnSim upgrade demos", () => {
       sim.step(NO_KEYS_HELD, FRAME_MS);
       return Speed.px[ghost]!;
     };
-    expect(ghostSpeed("lowSlowdownBlinky") / ghostSpeed()).toBeCloseTo(1 - LOW_POWER_SLOWDOWN_CUT);
+    expect(ghostSpeed("lowSlowdownBlinky") / ghostSpeed()).toBeCloseTo(1 - TRINKET_SLOWDOWN_CUT);
     expect(ghostSpeed("lowSlowdownClyde")).toBeCloseTo(ghostSpeed());
   });
 
@@ -2149,11 +2149,46 @@ describe("LearnSim upgrade demos", () => {
       sim.step(held(spot.dir), FRAME_MS);
       expect(sim["tunnelBoringCharges"]).toBe(0);
       expect(sim["tunnelBoredCells"]).toEqual(expected);
+      const first = boreSteps(expected)[0]!;
+      expect(sim.tunnelBoringDebug()).toMatchObject({
+        openCells: first.length,
+        junkCells: first.length,
+      });
+      for (
+        let t = 0;
+        t < 4_000 && sim.tunnelBoringDebug().openCells < expected.length;
+        t += FRAME_MS
+      ) {
+        sim.step(held(spot.dir), FRAME_MS);
+      }
       for (const cell of expected) {
         expect(isWalkable(cell.col, cell.row)).toBe(true);
       }
+      expect(sim.tunnelBoringDebug().junkCells).toBe(expected.length);
       sim.step(held(spot.dir), FRAME_MS);
       expect(sim["tunnelBoredCells"]).toEqual(expected);
+    });
+
+    it("slows Dot-Man 25% while he is inside the bore", () => {
+      const { sim, player } = setup("passiveTunnelBoring");
+      const spot = boreSpot();
+      const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
+      moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
+      Facing.direction[player] = DIRECTION.none;
+      Velocity.x[player] = 0;
+      Velocity.y[player] = 0;
+      sim.step(held(spot.dir), FRAME_MS);
+      const inBore = (): boolean =>
+        expected.some(
+          (cell) =>
+            cell.col === worldToCol(Position.x[player]!) &&
+            cell.row === worldToRow(Position.y[player]!),
+        );
+      for (let t = 0; t < 2_000 && !inBore(); t += FRAME_MS) {
+        sim.step(held(spot.dir), FRAME_MS);
+      }
+      expect(inBore()).toBe(true);
+      expect(sim.tunnelBoringDebug().slowed).toBe(true);
     });
 
     it("Plus recharges the drill on a power pellet", () => {
@@ -2195,6 +2230,7 @@ const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
   "timedTunnel",
   "lava",
   "collapse",
+  "sinkhole",
   "speedZones",
   "pupilTarget",
 ];
@@ -2209,10 +2245,10 @@ function lastDrawOptions(events: SimEvent[]): SimRenderOptions {
 
 describe("LearnSim upgrade registry", () => {
   const listed = UPGRADE_DEFS.filter(
-    (def) => !isSpecialist(def.id) && !isEnhancedId(def.id) && !isLowPowerId(def.id),
+    (def) => !isSpecialist(def.id) && !isEnhancedId(def.id) && !isTrinketId(def.id),
   ).map((def) => def.id as BaseUpgradeId);
 
-  it.each(LOW_POWER_IDS)("%s toggles on and off and runs, with no Plus form", (id) => {
+  it.each(TRINKET_IDS)("%s toggles on and off and runs, with no Plus form", (id) => {
     const sim = new LearnSim("learn");
     sim.start();
     sim.selectGhost(GHOST_KIND.blinky);

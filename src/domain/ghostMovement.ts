@@ -34,7 +34,7 @@ export function ghostMovementRules(
     worldToCol(ghostAt.x) === droppedWall.col &&
     worldToRow(ghostAt.y) === droppedWall.row;
   const solids = withSolidCell(
-    phase === GHOST_PHASE.active ? layout.playerSolids : layout.ghostSolids,
+    phase === GHOST_PHASE.active ? layout.ghostActiveSolids : layout.ghostSolids,
     onWall ? null : droppedWall,
   );
   const { door } = layout;

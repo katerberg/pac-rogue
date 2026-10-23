@@ -1,6 +1,9 @@
+import { isTrinketId, slotCount } from "../../../domain/trinkets";
 import {
   baseIdOf,
+  enhancedIdOf,
   getUpgradeDef,
+  isEnhancedId,
   type BaseUpgradeId,
   type UpgradeChoiceOffer,
   type UpgradeChoiceOption,
@@ -15,17 +18,17 @@ const MULTIPLIERS: ReadonlySet<BaseUpgradeId> = new Set([
   "passiveStreakEngine",
 ]);
 
-export function upgradeScore(
-  id: BaseUpgradeId,
-  owned: readonly UpgradeId[],
-  persona: Persona,
-): number {
-  const school = getUpgradeDef(id).school;
-  const sameSchool = owned.filter((own) => getUpgradeDef(baseIdOf(own)).school === school).length;
+export function upgradeScore(id: UpgradeId, owned: readonly UpgradeId[], persona: Persona): number {
+  const baseId = baseIdOf(id);
+  const school = getUpgradeDef(baseId).school;
+  const sameSchool = owned.filter(
+    (own) => baseIdOf(own) !== baseId && getUpgradeDef(baseIdOf(own)).school === school,
+  ).length;
   return (
     persona.schoolPreference[school] +
     (sameSchool >= 2 ? 1 : 0) +
-    (MULTIPLIERS.has(id) && owned.length >= 2 ? 0.5 : 0)
+    (MULTIPLIERS.has(baseId) && slotCount(owned) >= 2 ? 0.5 : 0) +
+    (isEnhancedId(id) ? 0.5 : 0)
   );
 }
 
@@ -50,11 +53,38 @@ export function pickOffer(
   let best = options[0]!;
   let bestScore = -Infinity;
   for (const option of options) {
-    const score = upgradeScore(option.id, owned, persona) + (option.enhanced ? 0.5 : 0);
+    const score = upgradeScore(
+      option.enhanced === true ? enhancedIdOf(option.id) : option.id,
+      owned,
+      persona,
+    );
     if (score > bestScore) {
       best = option;
       bestScore = score;
     }
   }
   return best;
+}
+
+export function pickSalvage(
+  incoming: UpgradeId,
+  owned: readonly UpgradeId[],
+  persona: Persona,
+  rng: () => number,
+): UpgradeId | null {
+  const slots = owned.filter((id) => !isTrinketId(id));
+  if (persona.randomPicks) {
+    const index = Math.floor(rng() * (slots.length + 1));
+    return slots[index] ?? null;
+  }
+  let lowest: UpgradeId | null = null;
+  let lowestScore = upgradeScore(incoming, owned, persona);
+  for (const id of slots) {
+    const score = upgradeScore(id, owned, persona);
+    if (score < lowestScore) {
+      lowest = id;
+      lowestScore = score;
+    }
+  }
+  return lowest;
 }

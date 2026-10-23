@@ -103,13 +103,10 @@ import {
   applyShieldBreakInvuln,
   applyStreakEngineInvuln,
   streakEngineEvery,
-  streakEngineInvulnMs,
   bankShields,
   bankPeels,
   bananaPeelCap,
   grantStartingShields,
-  shieldBankCap,
-  peelBankCap,
   powerPelletPickupFires,
   shieldBreakOwned,
   reactiveArmorOwned,
@@ -126,7 +123,7 @@ import {
   tickHyperspeed,
   createRunUpgrades,
   clearUpgradeTimers,
-  echoEffects,
+  clearStaleUpgradeTimers,
   pickFruitPowerBases,
   queueEcho,
   armHaunt,
@@ -143,7 +140,6 @@ import {
   tickWallDrop,
   HAUNTING_MS,
   frozenGhostEid,
-  getUpgradeDef,
   ghostSpeedMultiplier,
   grantUpgrade,
   pelletCollectRadiusBonusPx,
@@ -158,11 +154,9 @@ import {
   tickWallPass,
   wallPassActive,
   type RunUpgrades,
-  type UpgradeDef,
   type UpgradeId,
   remoteTransferEvery,
   eatFrightenedGhost,
-  NO_FRIGHT,
   frightenedGhostEids,
   frightenedGhosts,
   hunterHoldsEaten,
@@ -208,7 +202,13 @@ import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "..
 import {
   adoptTunnelBoringFacing,
   applyBoredCellsToActiveLayout,
+  beginTunnelBore,
+  NO_TUNNEL_BORE,
+  openBoredCells,
+  stepTunnelBore,
   tryTunnelBoring,
+  tunnelBoringSpeedMul,
+  type TunnelBore,
 } from "../systems/tunnelBoring";
 import {
   followProgrammer,
@@ -307,15 +307,15 @@ import {
 } from "../../domain/ghostCornerWarp";
 import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import {
-  isLowPowerId,
-  lowPowerCopies,
-  lowPowerHouseDelayMs,
-  type LowPowerUpgradeId,
-  withLowPowerCopies,
-  lowPowerPlayerSpeedMul,
-  lowPowerPreTurnBonusPx,
-} from "../../domain/lowPowerUpgrades";
-import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
+  isTrinketId,
+  trinketCopies,
+  trinketHouseDelayMs,
+  type TrinketUpgradeId,
+  withTrinketCopies,
+  trinketPlayerSpeedMul,
+  trinketPreTurnBonusPx,
+} from "../../domain/trinkets";
+import { GhostTractionState, playerInTunnel } from "../systems/trinketGhosts";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
 import { playerCell } from "../systems/playerCell";
 import { tagOptionalPellets } from "../systems/lazyLooper";
@@ -377,6 +377,7 @@ export class LearnSim {
   private eatenHoldRemainingMs = 0;
   private tunnelBoringCharges = 0;
   private tunnelBoredCells: MazeTile[] = [];
+  private tunnelBore: TunnelBore = NO_TUNNEL_BORE;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
@@ -635,10 +636,12 @@ export class LearnSim {
                 ? speedBurstMultiplier(this.learnUpgrades.owned)
                 : 1) *
               this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
-              lowPowerPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
+              trinketPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
     applyPlayerSpeed(
       this.world,
-      rawPlayerSpeedMul * titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned),
+      rawPlayerSpeedMul *
+        titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned) *
+        tunnelBoringSpeedMul(this.world, this.tunnelBore),
     );
     this.ghostTraction.tick(this.world, this.learnUpgrades.owned, delta);
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
@@ -653,7 +656,7 @@ export class LearnSim {
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
-    this.tryBoreTunnel(prevKeys, keys);
+    this.stepTunnelBoring(prevKeys, keys, delta);
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
@@ -668,7 +671,7 @@ export class LearnSim {
         this.world,
         frameDelta,
         playerSolids,
-        playerPreTurnPx() + lowPowerPreTurnBonusPx(this.learnUpgrades.owned),
+        playerPreTurnPx() + trinketPreTurnBonusPx(this.learnUpgrades.owned),
         ghostsBlockedFromTunnels(this.learnUpgrades.owned),
         null,
         this.learnUpgrades.droppedWall,
@@ -864,6 +867,7 @@ export class LearnSim {
           this.learnUpgrades.owned,
           shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
         ),
+        boreJunk: this.tunnelBore.junk,
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
@@ -951,17 +955,17 @@ export class LearnSim {
     return this.takeEvents();
   }
 
-  upgradeCopies(id: LowPowerUpgradeId): number {
-    return lowPowerCopies(this.learnUpgrades.owned, id);
+  upgradeCopies(id: TrinketUpgradeId): number {
+    return trinketCopies(this.learnUpgrades.owned, id);
   }
 
-  adjustUpgradeCopies(id: LowPowerUpgradeId, delta: number): SimEvent[] {
+  adjustUpgradeCopies(id: TrinketUpgradeId, delta: number): SimEvent[] {
     this.events = [];
     const current = this.upgradeCopies(id);
     if (current > 0) {
       this.applyToggled({
         ...this.learnUpgrades,
-        owned: withLowPowerCopies(this.learnUpgrades.owned, id, current + delta),
+        owned: withTrinketCopies(this.learnUpgrades.owned, id, current + delta),
       });
     }
     return this.takeEvents();
@@ -970,7 +974,7 @@ export class LearnSim {
   toggleEnhanced(baseId: BaseUpgradeId): SimEvent[] {
     this.events = [];
     const current = ownedFormOf(this.learnUpgrades.owned, baseId);
-    if (current === null || isLowPowerId(baseId)) {
+    if (current === null || isTrinketId(baseId)) {
       return this.takeEvents();
     }
     const enhancing = !isEnhancedId(current);
@@ -1021,7 +1025,7 @@ export class LearnSim {
   private houseHoldWanted(owned: readonly UpgradeId[]): boolean {
     return (
       hasUpgrade(owned, "passiveGhostHouseDelay") ||
-      (this.selected !== null && lowPowerHouseDelayMs(owned, this.selected) > 0)
+      (this.selected !== null && trinketHouseDelayMs(owned, this.selected) > 0)
     );
   }
 
@@ -1048,6 +1052,15 @@ export class LearnSim {
     } else if (scheduled && lifetimeRatio > 1) {
       this.fruitPresence = extendFruitLifetime(this.fruitPresence, lifetimeRatio);
     }
+  }
+
+  tunnelBoringDebug(): { charges: number; openCells: number; junkCells: number; slowed: boolean } {
+    return {
+      charges: this.tunnelBoringCharges,
+      openCells: openBoredCells(this.tunnelBoredCells, this.tunnelBore).length,
+      junkCells: this.tunnelBore.junk.length,
+      slowed: tunnelBoringSpeedMul(this.world, this.tunnelBore) < 1,
+    };
   }
 
   playerWorldPosition(): { x: number; y: number } | null {
@@ -1251,7 +1264,16 @@ export class LearnSim {
     }
   }
 
-  private tryBoreTunnel(prevKeys: HeldKeys, keys: HeldKeys): void {
+  private openBoredSteps(opened: readonly MazeTile[]): void {
+    if (opened.length > 0) {
+      applyBoredCellsToActiveLayout(openBoredCells(this.tunnelBoredCells, this.tunnelBore));
+    }
+  }
+
+  private stepTunnelBoring(prevKeys: HeldKeys, keys: HeldKeys, delta: number): void {
+    const stepped = stepTunnelBore(this.world, this.tunnelBore, delta, () => false);
+    this.tunnelBore = stepped.bore;
+    this.openBoredSteps(stepped.opened);
     if (!hasUpgrade(this.learnUpgrades.owned, "passiveTunnelBoring")) {
       return;
     }
@@ -1261,9 +1283,10 @@ export class LearnSim {
     }
     this.tunnelBoredCells = mergeBoredCells(this.tunnelBoredCells, attempt.cells);
     this.tunnelBoringCharges = attempt.charges;
-    applyBoredCellsToActiveLayout(this.tunnelBoredCells);
+    const begun = beginTunnelBore(this.tunnelBore, attempt, () => false);
+    this.tunnelBore = begun.bore;
+    this.openBoredSteps(begun.opened);
     adoptTunnelBoringFacing(this.world, attempt.direction);
-    this.events.push({ type: "resetBoard" });
   }
 
   private stepStreakEngine(cells: readonly Cell[], delta: number): void {
@@ -2117,45 +2140,4 @@ export class LearnSim {
 
 function sumGrantedLives(owned: readonly UpgradeId[]): number {
   return owned.reduce((sum, id) => sum + grantLivesForUpgrade(id), 0);
-}
-
-function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades): RunUpgrades {
-  const hasField = (key: keyof NonNullable<UpgradeDef["onPowerPellet"]>): boolean =>
-    owned.some((id) => getUpgradeDef(id).onPowerPellet?.[key] !== undefined);
-  return {
-    ...state,
-    freezeRemainingMs: hasField("freezeClosestGhostMs") ? state.freezeRemainingMs : 0,
-    frozenGhostEid: hasField("freezeClosestGhostMs") ? state.frozenGhostEid : null,
-    wallPassRemainingMs: hasField("wallPassMs") ? state.wallPassRemainingMs : 0,
-    invulnRemainingMs:
-      hasField("playerInvulnMs") ||
-      hasField("warpInvulnMs") ||
-      owned.some((id) => getUpgradeDef(id).tunnelExitInvulnMs !== undefined) ||
-      streakEngineInvulnMs(owned) > 0
-        ? state.invulnRemainingMs
-        : 0,
-    speedBurstRemainingMs: hasField("playerSpeedBurstMs") ? state.speedBurstRemainingMs : 0,
-    hyperspeedRemainingMs: hasField("hyperspeedMs") ? state.hyperspeedRemainingMs : 0,
-    hyperspeedTurnDelayMs: hasField("hyperspeedMs") ? state.hyperspeedTurnDelayMs : 0,
-    hyperspeedShieldRemainingMs: hasField("hyperspeedShieldMs")
-      ? state.hyperspeedShieldRemainingMs
-      : 0,
-    ghostHarvestRemainingMs: hasField("ghostHarvestMs") ? state.ghostHarvestRemainingMs : 0,
-    titheRemainingMs: hasField("titheMs") ? state.titheRemainingMs : 0,
-    defyDeathRemainingMs: hasField("defyDeathMs") ? state.defyDeathRemainingMs : 0,
-    shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
-    peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
-    pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
-    sonicHits: hasUpgrade(owned, "passiveSonicBoom") ? state.sonicHits : [],
-    wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
-    mirrorActive: hasField("mirror") && state.mirrorActive,
-    programmer: hasField("programmerSets") ? state.programmer : null,
-    droppedWall: hasField("armWallDrop") ? state.droppedWall : null,
-    chaff: hasField("chaffMs") ? state.chaff : null,
-    ...(hasField("frightenGhostsMs") || hasUpgrade(owned, "passivePossession")
-      ? { hunterHeldEids: hunterHoldsEaten(owned) ? state.hunterHeldEids : [] }
-      : NO_FRIGHT),
-    possessionRemainingMs: hasUpgrade(owned, "passivePossession") ? state.possessionRemainingMs : 0,
-    possessedGhostEid: hasUpgrade(owned, "passivePossession") ? state.possessedGhostEid : null,
-  };
 }

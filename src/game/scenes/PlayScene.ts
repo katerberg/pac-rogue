@@ -23,7 +23,7 @@ import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
 import { playSonicBoomEcho } from "./sonicBoomEcho";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
-import { stepMusicDuck } from "../../domain/slotMachine";
+import { slotHeld, stepMusicDuck } from "../../domain/slotMachine";
 import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
@@ -48,6 +48,7 @@ import { parsePlayOptions } from "../../domain/playOptions";
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { mintFreshSeed } from "../../domain/ghostRoster";
 import { withSeenGhosts, withSeenUpgrade } from "../../domain/seenRecord";
+import { isTrinketId } from "../../domain/trinkets";
 import { baseIdOf, ownedUpgradeStacks, type UpgradeId } from "../../domain/upgrades";
 import {
   isSfxPlaying,
@@ -90,16 +91,25 @@ import {
   UPGRADE_HUD_COMPACT_SIZE,
   upgradeHudIconPosition,
   upgradeHudIconSize,
+  trinketPoolLayout,
+  upgradeHudTextAnchor,
 } from "../../domain/upgradeHud";
 import { createKnobsPanel, type KnobsPanel } from "./knobsPanel";
 import { createIntermissionActors, type IntermissionActors } from "./intermissionActors";
 import { createReplayPlayer, type ReplayPlayback } from "./replayPlayer";
 import { createRunEndMenu, type RunEndMenu } from "./runEndMenu";
+import { createUpgradeHoverPreview, type UpgradeHoverPreview } from "./upgradeHoverPreview";
 import { addSeedLabel } from "./seedLabel";
 import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingUpgradeCard";
 import { playStreakPop } from "./streakPop";
 import { drawUpgradeDrain, pulseUpgradeMarks, type UpgradeMark } from "./upgradeTimerFx";
 import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
+import {
+  addTrinketCard,
+  createSalvagePanel,
+  type PanelItem,
+  type SalvagePanel,
+} from "./salvagePanel";
 import { storeFocusForDir, type StoreDir } from "../../domain/store";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
 import { createUpgradeChoiceModal, type UpgradeChoiceModal } from "./upgradeChoiceModal";
@@ -155,6 +165,9 @@ export class PlayScene extends Phaser.Scene {
   private walletCoins: Phaser.GameObjects.Image[] = [];
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradeIcons: UpgradeMark[] = [];
+  private trinketCards: Phaser.GameObjects.Container[] = [];
+  private salvageUi!: SalvagePanel;
+  private keyT!: Phaser.Input.Keyboard.Key;
   private upgradeDrain!: Phaser.GameObjects.Graphics;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Container[] = [];
@@ -173,6 +186,7 @@ export class PlayScene extends Phaser.Scene {
   private storeConfirmKeys: Phaser.Input.Keyboard.Key[] = [];
   private musicPendingFanfareEnd: SfxId | null = null;
   private runEndMenu: RunEndMenu | null = null;
+  private upgradeHoverPreview: UpgradeHoverPreview | null = null;
   private replayPlayer: ReplayPlayback | null = null;
   private deathFadeOverlay: Phaser.GameObjects.Rectangle | null = null;
   private intermission: IntermissionActors | null = null;
@@ -224,14 +238,17 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.slotOverlay = createSlotOverlay(this);
+    this.salvageUi?.destroy();
+    this.salvageUi = createSalvagePanel(this);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.repeat && event.key !== "Escape") {
+      if (!event.repeat && event.key !== "Escape" && event.key.toLowerCase() !== "t") {
         this.keyPressed = true;
       }
     };
     this.input.keyboard?.on("keydown", onKeyDown);
     this.closeStoreUi();
     this.runEndMenu = null;
+    this.upgradeHoverPreview = null;
     this.replayPlayer = null;
     this.deathFadeOverlay = null;
     this.intermission = null;
@@ -244,6 +261,7 @@ export class PlayScene extends Phaser.Scene {
     placePixelText(this.timerText, PLAYFIELD_WIDTH - 12, 8, 1, 0);
 
     this.upgradeIcons = [];
+    this.trinketCards = [];
     this.upgradeDrain = this.add.graphics();
     this.chrome.add(this.upgradeDrain);
 
@@ -261,6 +279,7 @@ export class PlayScene extends Phaser.Scene {
     this.readHeldKeys = createHeldKeysReader(this);
     this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.keyT = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.T);
     const { KeyCodes } = Phaser.Input.Keyboard;
     this.storeYesKeys = [KeyCodes.UP, KeyCodes.W].map((code) => this.input.keyboard!.addKey(code));
     this.storeNoKeys = [KeyCodes.DOWN, KeyCodes.S].map((code) => this.input.keyboard!.addKey(code));
@@ -306,6 +325,7 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "revive");
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
+      this.salvageUi.destroy();
       this.closeStoreUi();
       this.clearLevelBanner();
       this.knobsPanel?.destroy();
@@ -368,23 +388,31 @@ export class PlayScene extends Phaser.Scene {
     }
 
     const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
-    if (escDown && this.runEndMenu === null && !this.sim.storeRouting()) {
+    const salvaging = this.salvageUi.mode() !== null;
+    if (escDown && !salvaging && this.runEndMenu === null && !this.sim.storeRouting()) {
       this.pauseForMenu();
       return;
     }
 
-    if (this.startingUpgradeCard.isActive()) {
+    this.salvageUi.tick(delta, salvaging && escDown);
+    if (salvaging) {
+      this.keyPressed = false;
+    } else if (this.startingUpgradeCard.isActive()) {
       this.startingUpgradeCard.tick(delta);
     } else if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.tick(delta);
     }
+    this.syncSalvageUi();
     const readsStoreKeys = this.sim.readsStoreKeys();
     const keyDir = readsStoreKeys ? this.storeDirPressed() : null;
     const storeDir = keyDir ?? (readsStoreKeys ? this.storeDir : null);
     const events = this.sim.step(
       {
         keys: this.readHeldKeys(),
-        uiOpen: this.startingUpgradeCard.isActive() || this.upgradeChoiceModal.isActive(),
+        uiOpen:
+          this.startingUpgradeCard.isActive() ||
+          this.upgradeChoiceModal.isActive() ||
+          this.salvageUi.mode() !== null,
         storeFocus: storeFocusForDir(keyDir),
         storeDir,
         storeConfirm:
@@ -446,6 +474,8 @@ export class PlayScene extends Phaser.Scene {
         texture: mark instanceof Phaser.GameObjects.Image ? mark.texture.key : null,
       })),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
+      salvageUi: this.salvageUi.mode(),
+      trinketPool: this.trinketCards.length,
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
       cursor: this.input.manager.canvas.style.cursor || "default",
@@ -496,6 +526,7 @@ export class PlayScene extends Phaser.Scene {
   private pauseForMenu(): void {
     this.pausedAtMs = performance.now();
     this.upgradeIcons.forEach(({ mark }) => mark.setVisible(false));
+    this.trinketCards.forEach((card) => card.setVisible(false));
     this.upgradeDrain.clear();
     this.clearStoreExitCursor();
     this.scene.pause();
@@ -588,6 +619,10 @@ export class PlayScene extends Phaser.Scene {
       case "upgrades":
         this.refreshUpgradesHud();
         break;
+      case "salvage":
+        this.refreshUpgradesHud();
+        this.salvageUi.toast(event.gained, this.poolTarget(event.gained), this.panelText());
+        break;
       case "upgradePulse":
         pulseUpgradeMarks(this, this.upgradeIcons, event.ids);
         break;
@@ -649,6 +684,7 @@ export class PlayScene extends Phaser.Scene {
           this.applyEvents(this.sim.chooseRunEnd(choice), delta);
         });
         this.liftHudIconsAboveRunEnd();
+        this.makeUpgradeIconsHoverable();
         break;
       case "goToMenu":
         this.scene.start("MenuScene");
@@ -696,6 +732,7 @@ export class PlayScene extends Phaser.Scene {
       this.intermission.place(frame);
     }
     this.upgradeIcons.forEach(({ mark }) => mark.setVisible(frame === null));
+    this.trinketCards.forEach((card) => card.setVisible(frame === null));
   }
 
   private storeDirPressed(): StoreDir | null {
@@ -1046,21 +1083,127 @@ export class PlayScene extends Phaser.Scene {
     y: number;
     size: number;
   }[] {
+    const { size, left } = this.hudIconGeometry();
+    return ownedUpgradeStacks(this.hudUpgradeIds())
+      .filter(({ id }) => !isTrinketId(id))
+      .map(({ id, copies }, i) => ({
+        id,
+        copies,
+        size,
+        ...upgradeHudIconPosition(i, size, pelletDisplaySize(), left),
+      }));
+  }
+
+  private hudIconGeometry(): { size: number; left: number | undefined } {
     const knobs = this.knobsPanel !== null;
-    const size = knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X);
-    const left = knobs ? MAZE_OFFSET_X + 4 : undefined;
-    return ownedUpgradeStacks(this.sim.hud().upgrades).map(({ id, copies }, i) => ({
-      id,
-      copies,
+    return {
+      size: knobs ? UPGRADE_HUD_COMPACT_SIZE : upgradeHudIconSize(MAZE_OFFSET_X),
+      left: knobs ? MAZE_OFFSET_X + 4 : undefined,
+    };
+  }
+
+  private hudUpgradeIds(): UpgradeId[] {
+    const incoming = this.sim.salvagePrompt()?.incoming;
+    const owned = this.sim.hud().upgrades;
+    return incoming === undefined ? [...owned] : [...owned, incoming];
+  }
+
+  public panelText(): { x: number; y: number } {
+    const { size, left } = this.hudIconGeometry();
+    return upgradeHudTextAnchor(
+      [...this.upgradeHudSlots(), ...this.trinketPoolCards()],
       size,
-      ...upgradeHudIconPosition(i, size, pelletDisplaySize(), left),
-    }));
+      pelletDisplaySize(),
+      left,
+    );
+  }
+
+  public trinketPoolCards() {
+    const { size, left } = this.hudIconGeometry();
+    const stacks = ownedUpgradeStacks(this.hudUpgradeIds());
+    return trinketPoolLayout(
+      stacks.filter(({ id }) => isTrinketId(id)),
+      stacks.filter(({ id }) => !isTrinketId(id)).length,
+      size,
+      pelletDisplaySize(),
+      left,
+    );
+  }
+
+  public poolTarget(gained: UpgradeId | null): PanelItem | null {
+    const cards = this.trinketPoolCards().filter((card) => card.id === gained);
+    return cards[cards.length - 1] ?? null;
+  }
+
+  public canSalvageNow(): boolean {
+    return this.sim.canSalvageNow() && this.upgradeHudSlots().length > 0;
+  }
+
+  public salvageFromPause(id: UpgradeId): { gained: UpgradeId | null } | null {
+    const events = this.sim.salvageOwned(id);
+    const salvage = events.find((event) => event.type === "salvage");
+    this.applyEvents(
+      events.filter((event) => event.type !== "salvage"),
+      0,
+    );
+    this.upgradeIcons.forEach(({ mark }) => mark.setVisible(false));
+    this.trinketCards.forEach((card) => card.setVisible(false));
+    return salvage?.type === "salvage" ? { gained: salvage.gained } : null;
+  }
+
+  private syncSalvageUi(): void {
+    if (this.salvageUi.mode() !== null) {
+      return;
+    }
+    const prompt = this.sim.salvagePrompt();
+    if (prompt !== null) {
+      if (!this.upgradeChoiceModal.isActive() && this.sim.slotView() === null) {
+        this.openSalvageRequired();
+      }
+      return;
+    }
+    if (!Phaser.Input.Keyboard.JustDown(this.keyT)) {
+      return;
+    }
+    const slot = this.sim.slotView();
+    const choosing = this.upgradeChoiceModal.offer() !== null;
+    const slotWaiting = slot !== null && slotHeld(slot.timeline, slot.elapsedMs);
+    if ((choosing || slotWaiting) && this.canSalvageNow()) {
+      this.salvageUi.open({
+        items: this.upgradeHudSlots(),
+        text: this.panelText(),
+        alert: false,
+        cancellable: true,
+        onPick: (id) => {
+          this.upgradeChoiceModal.rearmSelectionKeys();
+          this.applyEvents(this.sim.salvageOwned(id), 0);
+        },
+        onClose: () => this.upgradeChoiceModal.rearmSelectionKeys(),
+      });
+    }
+  }
+
+  private openSalvageRequired(): void {
+    this.refreshUpgradesHud();
+    this.salvageUi.open({
+      items: this.upgradeHudSlots(),
+      text: this.panelText(),
+      alert: true,
+      cancellable: false,
+      onPick: (id) => this.applyEvents(this.sim.salvagePick(id), 0),
+    });
   }
 
   private refreshUpgradesHud(): void {
     this.upgradeIcons.forEach(({ mark }) => {
       this.tweens.killTweensOf(mark);
       mark.destroy();
+    });
+    this.trinketCards.forEach((card) => card.destroy());
+    this.trinketCards = this.trinketPoolCards().map(({ x, y, size }) => {
+      const card = addTrinketCard(this, x, y, size).setVisible(this.intermission === null);
+      this.addHudIcon(card);
+      return card;
     });
     this.upgradeIcons = this.upgradeHudSlots().map(({ id, x, y, size }) => {
       const icon = this.add
@@ -1070,10 +1213,13 @@ export class PlayScene extends Phaser.Scene {
       this.addHudIcon(icon);
       return { id: baseIdOf(id), mark: icon };
     });
+    if (this.runEndMenu !== null) {
+      this.makeUpgradeIconsHoverable();
+    }
     this.chrome.bringToTop(this.upgradeDrain);
   }
 
-  private addHudIcon(icon: Phaser.GameObjects.Image): void {
+  private addHudIcon(icon: Phaser.GameObjects.Image | Phaser.GameObjects.Container): void {
     if (this.runEndMenu === null) {
       this.chrome.add(icon);
     } else {
@@ -1085,10 +1231,22 @@ export class PlayScene extends Phaser.Scene {
     return this.runEndMenu === null ? alpha : alpha * RUN_END_WALLET_ALPHA;
   }
 
+  private makeUpgradeIconsHoverable(): void {
+    this.upgradeHoverPreview?.hide();
+    const preview = createUpgradeHoverPreview(this, RUN_END_HUD_DEPTH + 1);
+    this.upgradeHoverPreview = preview;
+    const slots = this.upgradeHudSlots();
+    this.upgradeIcons.forEach(({ mark }, i) => {
+      const { id, copies, size } = slots[i]!;
+      preview.attach(mark, { id, copies, size });
+    });
+  }
+
   private liftHudIconsAboveRunEnd(): void {
     const upgradeMarks = this.upgradeIcons.map(({ mark }) => mark);
     for (const icon of [
       ...upgradeMarks,
+      ...this.trinketCards,
       ...this.quarterIcons,
       ...this.pennyIcons,
       ...this.pennyStackIcons,

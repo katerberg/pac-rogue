@@ -133,6 +133,8 @@ import {
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
+  setActiveLayout,
+  withSinkholes,
   activateLayout,
   cellCenterX,
   cellCenterY,
@@ -160,12 +162,21 @@ import {
 } from "../../domain/timedTunnel";
 import {
   applyCollapse,
+  applySinkhole,
   collapsedChainsFor,
   isFreshCollapse,
+  isFreshSinkhole,
   pickCollapsePlan,
+  sinkholeFor,
   type CollapseChain,
   type CollapsePlan,
 } from "../../domain/collapse";
+import {
+  buildSinkholeArt,
+  SINKHOLE_INTRO_MS,
+  type SinkholeArt,
+  type SinkholeRenderState,
+} from "../../domain/sinkholeArt";
 import {
   applyTunnelBoringAscii,
   mergeBoredCells,
@@ -249,7 +260,20 @@ import {
   type SlotTimeline,
   type SlotWin,
 } from "../../domain/slotMachine";
-import { TEST_RUN_LOG_META, type QuarterSource, type RunLogMeta } from "../../domain/runLog";
+import {
+  TEST_RUN_LOG_META,
+  type QuarterSource,
+  type RunLogMeta,
+  type UpgradeSource,
+} from "../../domain/runLog";
+import {
+  canSalvage,
+  isAtCap,
+  needsSalvage,
+  salvageNew,
+  salvageUpgrade,
+  type SalvageResult,
+} from "../../domain/salvage";
 import { playerExitedTunnel } from "../../domain/tunnelExit";
 import { ELROY_TIER, elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
@@ -292,6 +316,9 @@ import {
   bananaPeelCap,
   grantStartingShields,
   clearUpgradeTimers,
+  clearStaleUpgradeTimers,
+  isEnhancedId,
+  withDeclined,
   queueEcho,
   powerPelletPickupFires,
   shieldBreakOwned,
@@ -353,7 +380,7 @@ import {
   enhancedIdOf,
   wallPassLoopOwned,
   floatingZoneEffect,
-  floatsOverLava,
+  floatsOverHazards,
   fruitFeastThresholds,
   pickFruitPowerBases,
   fruitPersistsUntilLevelEnd,
@@ -541,7 +568,13 @@ import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "..
 import {
   adoptTunnelBoringFacing,
   applyBoredCellsToActiveLayout,
+  beginTunnelBore,
+  NO_TUNNEL_BORE,
+  openBoredCells,
+  stepTunnelBore,
   tryTunnelBoring,
+  tunnelBoringSpeedMul,
+  type TunnelBore,
 } from "../systems/tunnelBoring";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -570,12 +603,14 @@ import { teleportGhostsToCorners } from "../systems/ghostCornerTeleport";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { hunterFrightenLimit } from "../../domain/hunter";
 import {
-  isLowPowerId,
-  lowPowerKindReleaseAdds,
-  lowPowerPlayerSpeedMul,
-  lowPowerPreTurnBonusPx,
-} from "../../domain/lowPowerUpgrades";
-import { GhostTractionState, playerInTunnel } from "../systems/lowPowerGhosts";
+  isTrinketId,
+  slotCount,
+  trinketCounts,
+  trinketKindReleaseAdds,
+  trinketPlayerSpeedMul,
+  trinketPreTurnBonusPx,
+} from "../../domain/trinkets";
+import { GhostTractionState, playerInTunnel } from "../systems/trinketGhosts";
 import { nameOf, worldSnapshot } from "../systems/worldSnapshot";
 import type { MoneyTalksSpend, SimEvent, SimRenderOptions } from "./simEvents";
 import {
@@ -654,6 +689,8 @@ export class PlaySim {
   private lastPlayerCell: Cell | null = null;
   private timePennyDrain: TimePennyDrain | null = null;
   private slotQueue: QuarterSource[] = [];
+  private salvageQueue: { incoming: UpgradeId; source: UpgradeSource }[] = [];
+  private awaitingSalvageClose = false;
   private slot:
     (SlotView & { source: QuarterSource; resultSounded: boolean; megaSounded: boolean }) | null =
     null;
@@ -684,6 +721,7 @@ export class PlaySim {
   private secondChompUsed = 0;
   private tunnelBoringCharges = 0;
   private tunnelBored: { mapKey: string; cells: MazeTile[] } | null = null;
+  private tunnelBore: TunnelBore = NO_TUNNEL_BORE;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
   private readonly ghostTraction = new GhostTractionState();
@@ -700,6 +738,11 @@ export class PlaySim {
   private collapseArts: CollapseArt[] = [];
   private collapseSpeedBoard: MazeLayout | null = null;
   private collapseIntroMs = 0;
+  private sinkholeChain: CollapseChain | null = null;
+  private sinkholeLayouts: { open: MazeLayout; blocked: MazeLayout } | null = null;
+  private sinkholeArt: SinkholeArt | null = null;
+  private sinkholeBoardCount = 0;
+  private sinkholeIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
   private speedTrail: SpeedTrail = [];
   private hyperspeedDirection: Direction | null = null;
@@ -919,9 +962,17 @@ export class PlaySim {
       return [];
     }
     this.pendingChoice = null;
-    const alreadyOwned = !isLowPowerId(chosen.id) && hasUpgrade(this.runUpgrades.owned, chosen.id);
+    const alreadyOwned = !isTrinketId(chosen.id) && hasUpgrade(this.runUpgrades.owned, chosen.id);
     const grantedId = chosen.enhanced === true ? enhancedIdOf(chosen.id) : chosen.id;
     this.recorder.picked(chosen.id);
+    if (!alreadyOwned && needsSalvage(this.runUpgrades.owned, grantedId)) {
+      this.runUpgrades = withDeclined(
+        this.runUpgrades,
+        offer.upgrades.filter((id) => id !== chosen.id),
+      );
+      this.salvageQueue.push({ incoming: grantedId, source: "offer" });
+      return this.takeEvents();
+    }
     this.runUpgrades = confirmUpgradeChoice(this.runUpgrades, offer.upgrades, chosen.id, grantedId);
     if (!alreadyOwned) {
       this.recorder.gained(grantedId, "offer", this.levelIndex);
@@ -935,6 +986,105 @@ export class PlaySim {
     }
     this.emit({ type: "upgrades" });
     return this.takeEvents();
+  }
+
+  salvagePrompt(): { incoming: UpgradeId; source: UpgradeSource } | null {
+    return this.slot === null ? (this.salvageQueue[0] ?? null) : null;
+  }
+
+  canSalvageNow(): boolean {
+    return (
+      this.salvageQueue.length === 0 &&
+      this.death === null &&
+      !possessionActive(this.runUpgrades) &&
+      this.runEndElapsedMs === null &&
+      this.bossStageTransition === null &&
+      this.intermission === null &&
+      this.levelTransitionRemainingMs === 0
+    );
+  }
+
+  salvageNew(): SimEvent[] {
+    this.events = [];
+    const prompt = this.salvagePrompt();
+    if (prompt === null) {
+      return [];
+    }
+    this.salvageQueue.shift();
+    this.applySalvage(
+      salvageNew(this.runUpgrades, this.rosterKinds(), this.random.stream("salvage")),
+      null,
+    );
+    return this.takeEvents();
+  }
+
+  salvageReplace(outgoingId: UpgradeId): SimEvent[] {
+    this.events = [];
+    const prompt = this.salvagePrompt();
+    if (prompt === null || !canSalvage(this.runUpgrades.owned, outgoingId)) {
+      return [];
+    }
+    this.salvageQueue.shift();
+    this.applySalvage(
+      salvageUpgrade(
+        this.runUpgrades,
+        outgoingId,
+        this.rosterKinds(),
+        this.random.stream("salvage"),
+      ),
+      outgoingId,
+    );
+    this.grantNow(prompt.incoming, prompt.source);
+    this.emit({ type: "lives", pulse: false });
+    return this.takeEvents();
+  }
+
+  salvagePick(id: UpgradeId): SimEvent[] {
+    const prompt = this.salvagePrompt();
+    if (prompt === null) {
+      return [];
+    }
+    return id === prompt.incoming ? this.salvageNew() : this.salvageReplace(id);
+  }
+
+  salvageOwned(id: UpgradeId): SimEvent[] {
+    this.events = [];
+    if (!this.canSalvageNow() || !canSalvage(this.runUpgrades.owned, id)) {
+      return [];
+    }
+    this.applySalvage(
+      salvageUpgrade(this.runUpgrades, id, this.rosterKinds(), this.random.stream("salvage")),
+      id,
+    );
+    return this.takeEvents();
+  }
+
+  private applySalvage(result: SalvageResult, outgoingId: UpgradeId | null): void {
+    const lost = this.runUpgrades.owned.find(
+      (id) => outgoingId !== null && baseIdOf(id) === baseIdOf(outgoingId),
+    );
+    if (lost !== undefined) {
+      this.recorder.lost(lost, this.levelIndex);
+    }
+    this.runUpgrades = result.state;
+    if (result.gained !== null) {
+      this.recorder.gained(result.gained, "salvage", this.levelIndex);
+    }
+    this.grantQuarters(result.quarters, "salvage", true);
+    this.awaitingSalvageClose = true;
+    this.recordSeenUpgrades();
+    this.emit({ type: "salvage", gained: result.gained, quarters: result.quarters });
+    this.emit({ type: "upgrades" });
+  }
+
+  private grantNow(id: UpgradeId, source: UpgradeSource): void {
+    this.recorder.gained(id, source, this.levelIndex);
+    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
+    if (isEnhancedId(id)) {
+      this.enhanceLivesPaid.add(baseIdOf(id));
+    }
+    this.applyGrantEffects(id);
+    this.grantSpecialistLives();
   }
 
   finishRun(outcome: "quit"): SimEvent[] {
@@ -1047,6 +1197,8 @@ export class PlaySim {
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
       collapse: this.collapseRenderState(),
+      sinkhole: this.sinkholeRenderState(),
+      boreJunk: this.tunnelBore.junk,
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
@@ -1114,6 +1266,16 @@ export class PlaySim {
         held: this.slot !== null && slotHeld(this.slot.timeline, this.slot.elapsedMs),
         won: this.slot?.won ?? null,
       },
+      salvage: {
+        open: this.salvagePrompt() !== null,
+        incoming: this.salvagePrompt()?.incoming ?? null,
+        queued: this.salvageQueue.length,
+        slotCount: slotCount(upgrades.owned),
+        cap: isAtCap(upgrades.owned),
+        trinketCount: upgrades.owned.length - slotCount(upgrades.owned),
+        canSalvage: this.canSalvageNow(),
+      },
+      trinkets: trinketCounts(upgrades.owned),
       slotPickup: {
         progress: this.slotPickupProgress,
         cells: this.slotPickupCells.map((cell) => ({ ...cell })),
@@ -1182,6 +1344,11 @@ export class PlaySim {
         fresh: this.collapseArts.map((art) => art.fresh),
         introMs: this.collapseIntroMs,
       },
+      sinkhole: {
+        cells: this.sinkholeChain,
+        fresh: this.sinkholeChain !== null && isFreshSinkhole(this.levelIndex),
+        introMs: this.sinkholeIntroMs,
+      },
       mirror: {
         active: upgrades.mirrorActive,
         x: twinPosition?.x ?? null,
@@ -1209,6 +1376,12 @@ export class PlaySim {
       tunnelBoring: {
         charges: this.tunnelBoringCharges,
         cells: this.tunnelBored?.cells.map((cell) => ({ ...cell })) ?? [],
+        openCells:
+          this.tunnelBored === null
+            ? 0
+            : openBoredCells(this.tunnelBored.cells, this.tunnelBore).length,
+        junkCells: this.tunnelBore.junk.length,
+        slowed: tunnelBoringSpeedMul(this.world, this.tunnelBore) < 1,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -1367,6 +1540,18 @@ export class PlaySim {
       return;
     }
 
+    if (this.salvagePrompt() !== null) {
+      return;
+    }
+
+    if (this.awaitingSalvageClose) {
+      if (input.uiOpen) {
+        return;
+      }
+      this.awaitingSalvageClose = false;
+      this.suppressInputUntilKeyRelease = true;
+    }
+
     if (this.store !== null) {
       this.tickStore(input, delta);
       return;
@@ -1406,6 +1591,8 @@ export class PlaySim {
     this.tickTimedTunnel(delta);
     this.tickSpeedZoneShift(delta);
     this.collapseIntroMs = Math.min(RUBBLE_INTRO_MS, this.collapseIntroMs + delta);
+    this.sinkholeIntroMs = Math.min(SINKHOLE_INTRO_MS, this.sinkholeIntroMs + delta);
+    this.syncSinkholeFloat();
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
     const programming = this.runUpgrades.programmer !== null;
@@ -1546,10 +1733,12 @@ export class PlaySim {
                 : 1) *
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
-              lowPowerPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
+              trinketPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
               speedZoneMultiplier(this.zoneEffects().effect);
     const playerSpeedMul =
-      rawPlayerSpeedMul * titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades());
+      rawPlayerSpeedMul *
+      titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades()) *
+      tunnelBoringSpeedMul(this.world, this.tunnelBore);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     this.ghostTraction.tick(this.world, this.effectiveUpgrades(), delta);
     applyGhostSpeed(this.world, this.pelletsForElroy(), this.levelIndex, {
@@ -1570,7 +1759,7 @@ export class PlaySim {
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
-    this.tryBoreTunnel();
+    this.stepTunnelBoring(delta);
     const playerSolids = this.playerSolids();
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
@@ -1586,7 +1775,7 @@ export class PlaySim {
         this.world,
         frameDelta,
         playerSolids,
-        playerPreTurnPx(this.currentTuning) + lowPowerPreTurnBonusPx(this.effectiveUpgrades()),
+        playerPreTurnPx(this.currentTuning) + trinketPreTurnBonusPx(this.effectiveUpgrades()),
         this.ghostsBlockedFromTunnels(),
         blockTunnelRow,
         this.runUpgrades.droppedWall,
@@ -2143,7 +2332,7 @@ export class PlaySim {
     return {
       delayAddMs: ghostHouseReleaseDelayAddMs(this.effectiveUpgrades()),
       reliefPelletAdd: ghostHouseReliefPelletAdd(this.effectiveUpgrades()),
-      kindAdds: lowPowerKindReleaseAdds(this.effectiveUpgrades()),
+      kindAdds: trinketKindReleaseAdds(this.effectiveUpgrades()),
       tuning: this.currentTuning,
       heldGhostEids: [...(haunted === null ? [] : [haunted]), ...this.runUpgrades.hunterHeldEids],
     };
@@ -2267,7 +2456,7 @@ export class PlaySim {
       this.lavaZone === null ||
       eid === undefined ||
       catchOptions.playerInvulnerable === true ||
-      floatsOverLava(this.effectiveUpgrades())
+      floatsOverHazards(this.effectiveUpgrades())
     ) {
       return false;
     }
@@ -2524,6 +2713,7 @@ export class PlaySim {
     this.ghostCornerWarps = [];
     this.shieldBounce = NO_SHIELD_BOUNCE;
     this.resetStreak();
+    this.tunnelBore = NO_TUNNEL_BORE;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -2748,6 +2938,7 @@ export class PlaySim {
     this.emit({ type: "quarters", pulse: false });
     this.emitMunch();
     let id: UpgradeId;
+    let queued = false;
     if (purchase.kind === "enhance") {
       id = enhancedIdOf(purchase.targetId);
       this.recorder.lost(purchase.targetId, this.levelIndex);
@@ -2759,16 +2950,19 @@ export class PlaySim {
       if (purchase.kind === "swap") {
         this.recorder.lost(purchase.outgoingId, this.levelIndex);
         this.runUpgrades = revokeUpgrade(this.runUpgrades, purchase.outgoingId);
+        this.runUpgrades = clearStaleUpgradeTimers(this.runUpgrades.owned, this.runUpgrades);
       }
       id = purchase.kind === "swap" ? purchase.incomingId : purchase.id;
-      this.recorder.gained(id, "store", this.levelIndex);
-      this.runUpgrades = grantUpgrade(this.runUpgrades, id);
-      this.applyGrantEffects(id);
-      this.grantSpecialistLives();
+      queued = purchase.kind !== "swap" && needsSalvage(this.runUpgrades.owned, id);
+      if (queued) {
+        this.salvageQueue.push({ incoming: id, source: "store" });
+      } else {
+        this.grantNow(id, "store");
+      }
     }
     this.emit({
       type: "lives",
-      pulse: grantLivesForUpgrade(id) > 0 || baseIdOf(id) === "passiveMyogenesis",
+      pulse: !queued && (grantLivesForUpgrade(id) > 0 || baseIdOf(id) === "passiveMyogenesis"),
     });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });
@@ -2860,6 +3054,7 @@ export class PlaySim {
       }
     }
     this.boardLayoutLabel = layoutLabel;
+    this.tunnelBore = NO_TUNNEL_BORE;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -2961,19 +3156,47 @@ export class PlaySim {
     this.collapseArts = [];
     this.collapseSpeedBoard = null;
     this.collapseIntroMs = 0;
+    this.sinkholeChain = null;
+    this.sinkholeLayouts = null;
+    this.sinkholeArt = null;
+    this.sinkholeIntroMs = 0;
   }
 
-  private setUpCollapse(chains: readonly CollapseChain[]): void {
+  private setUpCollapse(
+    chains: readonly CollapseChain[],
+    bored: readonly MazeTile[],
+    sinkhole: CollapseChain | null,
+  ): void {
     const held = this.collapsePlan;
     if (held === null) {
       return;
     }
     const layout = getActiveLayout();
-    this.collapseSpeedBoard = layoutFromAscii(applyCollapse(held.baseAscii, held.plan.chains));
+    this.collapseSpeedBoard = layoutFromAscii(
+      applyCollapse(
+        held.baseAscii,
+        held.plan.sinkhole === null ? held.plan.chains : [...held.plan.chains, held.plan.sinkhole],
+      ),
+    );
+    if (sinkhole !== null) {
+      this.sinkholeChain = sinkhole;
+      this.sinkholeBoardCount += 1;
+      this.sinkholeArt = buildSinkholeArt(
+        { ascii: layout.ascii, tileSize: layout.tileSize },
+        sinkhole,
+        held.plan.artSeed + 404,
+      );
+    }
     if (chains.length === 0) {
       return;
     }
     this.collapseChains = [...chains];
+    this.buildCollapseArts(held.plan.artSeed, bored);
+  }
+
+  private buildCollapseArts(artSeed: number, bored: readonly MazeTile[]): void {
+    const layout = getActiveLayout();
+    const boredKeys = new Set(bored.map((cell) => `${cell.col},${cell.row}`));
     const board = {
       ascii: layout.ascii,
       tileSize: layout.tileSize,
@@ -2986,9 +3209,66 @@ export class PlaySim {
     };
     this.collapseBoardCount += 1;
     this.collapseArts = this.collapseChains.map((chain, index) => ({
-      ...buildRubbleArt(board, chain, held.plan.artSeed + index * 101),
+      ...buildRubbleArt(
+        board,
+        chain.filter((cell) => !boredKeys.has(`${cell.col},${cell.row}`)),
+        artSeed + index * 101,
+      ),
       fresh: isFreshCollapse(index, this.levelIndex),
     }));
+  }
+
+  private playerInSinkhole(): boolean {
+    const eid = query(this.world, [Player, Position])[0];
+    return (
+      eid !== undefined &&
+      (this.sinkholeChain ?? []).some(
+        (cell) =>
+          cell.col === worldToCol(Position.x[eid]!) && cell.row === worldToRow(Position.y[eid]!),
+      )
+    );
+  }
+
+  private setSinkholeLayouts(sinkhole: CollapseChain): void {
+    const open = getActiveLayout();
+    this.sinkholeLayouts = { open, blocked: withSinkholes(open, sinkhole) };
+    this.syncSinkholeFloat();
+  }
+
+  private syncSinkholeFloat(): void {
+    if (this.sinkholeLayouts === null) {
+      return;
+    }
+    const wanted =
+      floatsOverHazards(this.effectiveUpgrades()) || this.playerInSinkhole()
+        ? this.sinkholeLayouts.open
+        : this.sinkholeLayouts.blocked;
+    if (getActiveLayout() !== wanted) {
+      setActiveLayout(wanted);
+    }
+  }
+
+  private sinkholeRenderState(): SinkholeRenderState | null {
+    return this.sinkholeArt === null
+      ? null
+      : {
+          key: `board-${this.sinkholeBoardCount}`,
+          art: this.sinkholeArt,
+          elapsedMs: this.sinkholeIntroMs,
+          fresh: isFreshSinkhole(this.levelIndex),
+        };
+  }
+
+  private sinkholeChainFor(): CollapseChain | null {
+    return this.options.levelModifiers && this.collapsePlan !== null
+      ? sinkholeFor(this.collapsePlan.plan, this.levelIndex)
+      : null;
+  }
+
+  private clearBoredRubble(bored: readonly MazeTile[]): void {
+    if (this.collapsePlan !== null && this.collapseChains.length > 0) {
+      this.buildCollapseArts(this.collapsePlan.plan.artSeed, bored);
+    }
   }
 
   private collapseRenderState(): CollapseRenderState | null {
@@ -3007,13 +3287,17 @@ export class PlaySim {
     chains: readonly CollapseChain[] | null = null,
   ): string {
     try {
-      const collapsed = applyCollapse(ascii, chains ?? []);
+      const sinkhole = chains === null ? null : this.sinkholeChainFor();
+      const collapsed = applySinkhole(applyCollapse(ascii, chains ?? []), sinkhole);
       const boredCells = this.boredCellsForMap(label);
       const bored = applyTunnelBoringAscii(collapsed, boredCells);
       activateAsciiLayout(bored);
       openBoredCellsOnLayout(getActiveLayout(), boredCells);
+      if (sinkhole !== null) {
+        this.setSinkholeLayouts(sinkhole);
+      }
       if (chains !== null) {
-        this.setUpCollapse(chains);
+        this.setUpCollapse(chains, boredCells, sinkhole);
       }
       return label;
     } catch (error) {
@@ -3038,7 +3322,36 @@ export class PlaySim {
     return this.tunnelBored.cells;
   }
 
-  private tryBoreTunnel(): void {
+  private readonly isRubbleCell = (cell: MazeTile): boolean =>
+    this.collapseChains.some((chain) =>
+      chain.some((link) => link.col === cell.col && link.row === cell.row),
+    );
+
+  private openBoredSteps(opened: readonly MazeTile[]): void {
+    if (opened.length === 0 || this.tunnelBored === null) {
+      return;
+    }
+    const open = openBoredCells(this.tunnelBored.cells, this.tunnelBore);
+    applyBoredCellsToActiveLayout(open);
+    if (this.sinkholeLayouts !== null) {
+      this.setSinkholeLayouts(this.sinkholeChain ?? []);
+    }
+    const touchesRubble = opened.some((cell) =>
+      this.collapseChains.some((chain) =>
+        chain.some(
+          (link) => Math.abs(link.col - cell.col) <= 1 && Math.abs(link.row - cell.row) <= 1,
+        ),
+      ),
+    );
+    if (touchesRubble) {
+      this.clearBoredRubble(open);
+    }
+  }
+
+  private stepTunnelBoring(delta: number): void {
+    const stepped = stepTunnelBore(this.world, this.tunnelBore, delta, this.isRubbleCell);
+    this.tunnelBore = stepped.bore;
+    this.openBoredSteps(stepped.opened);
     if (!hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")) {
       return;
     }
@@ -3057,9 +3370,10 @@ export class PlaySim {
     const cells = mergeBoredCells(prior, attempt.cells);
     this.tunnelBored = { mapKey, cells };
     this.tunnelBoringCharges = attempt.charges;
-    applyBoredCellsToActiveLayout(cells);
+    const begun = beginTunnelBore(this.tunnelBore, attempt, this.isRubbleCell);
+    this.tunnelBore = begun.bore;
+    this.openBoredSteps(begun.opened);
     adoptTunnelBoringFacing(this.world, attempt.direction);
-    this.emit({ type: "resetBoard" });
     this.recorder.activation("tunnelBoring");
   }
 
@@ -3517,7 +3831,12 @@ export class PlaySim {
     const id =
       win.symbol === "quarter"
         ? null
-        : pickSlotUpgrade(this.runUpgrades.owned, win.symbol, this.random.stream("slots"));
+        : pickSlotUpgrade(
+            [...this.runUpgrades.owned, ...this.salvageQueue.map((entry) => entry.incoming)],
+            win.symbol,
+            this.random.stream("slots"),
+            this.rosterKinds(),
+          );
     if (id === null) {
       this.quarters += 1;
       this.recorder.quarters(source, 1);
@@ -3525,10 +3844,11 @@ export class PlaySim {
       return;
     }
     this.slot?.won.push(id);
-    this.recorder.gained(id, "slots", this.levelIndex);
-    this.runUpgrades = grantUpgrade(this.runUpgrades, id);
-    this.applyGrantEffects(id);
-    this.grantSpecialistLives();
+    if (needsSalvage(this.runUpgrades.owned, id)) {
+      this.salvageQueue.push({ incoming: id, source: "slots" });
+      return;
+    }
+    this.grantNow(id, "slots");
     this.emit({ type: "lives", pulse: false });
     this.recordSeenUpgrades();
     this.emit({ type: "upgrades" });

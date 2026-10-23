@@ -61,6 +61,8 @@ import {
   HOUSE_FLOOR_MIN_ROWS,
   HOUSE_SPAWN_ROW_MIN_FLOORS,
   layoutFromAscii,
+  getLayout,
+  withSinkholes,
 } from "./maze";
 import { invertMazeAscii } from "./mazeGenerate";
 import { SMALL_MAZE_ASCII, tinyHouseMazeAscii } from "./mazeLayouts";
@@ -804,5 +806,25 @@ describe("maze", () => {
 
     const oneByTwo = ascii.replaceAll("##HH##", "###H##");
     expect(() => layoutFromAscii(oneByTwo, "generated")).toThrow(/ghost house floors 1x2/);
+  });
+});
+
+describe("withSinkholes", () => {
+  it("blocks the player in the cells but leaves ghosts, walls and the source layout alone", () => {
+    const layout = getLayout("mazeSmall");
+    const open = [...Array(layout.rows).keys()]
+      .flatMap((row) => [...Array(layout.cols).keys()].map((col) => ({ col, row })))
+      .filter(({ col, row }) => !layout.playerSolids[row]![col])
+      .slice(5, 8);
+    const holed = withSinkholes(layout, open);
+    for (const { col, row } of open) {
+      expect(holed.playerSolids[row]![col]).toBe(true);
+      expect(holed.wallPassPlayerSolids[row]![col]).toBe(true);
+      expect(holed.ghostActiveSolids[row]![col]).toBe(false);
+      expect(holed.ghostSolids[row]![col]).toBe(false);
+      expect(layout.playerSolids[row]![col]).toBe(false);
+    }
+    expect(holed.walls).toBe(layout.walls);
+    expect(withSinkholes(layout, [])).toBe(layout);
   });
 });

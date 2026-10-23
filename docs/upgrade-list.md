@@ -56,7 +56,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveStartingShield` | Starting Shield | protection | Start every level with a shield. A ghost hit breaks it. | Start every level with 2 shields. Each ghost hit breaks one. |
 | `powerPelletHyperspeed` | Hyperspeed (rare) | speed | Power pellet: for 2s, run at 10x speed. Every turn costs a beat. | Power pellet: for 3s, run at 10x speed. A shield blocks one catch for 2s. |
 | `passiveShieldBreak` | Shield Break (rare) | protection | When a shield breaks, fire all power pellet effects. Power pellet effects no longer trigger at pickup. | When a shield breaks, fire all power pellet effects. Getting a shield at your maximum fires them too. |
-| `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: spawns a fruit, if none is out. | Power pellet: spawns an extra fruit even if there are others. |
+| `powerPelletCornucopia` | Cornucopia | harvest | Power pellet: sprouts a fruit, if none is out. | Power pellet: sprouts an extra fruit even if there are others. |
 | `powerPelletWallDrop` | Wall Drop | protection | Power pellet: your next reversal drops a wall behind you for 8s. | Power pellet: your next reversal drops a wall behind you for the level. Walk through it to remove it. |
 | `powerPelletProgrammer` | Programmer (rare) | automation | Power pellet: stop and program 5 turns, then blast through them at hyperspeed. | Power pellet: stop and program 5 turns, blast through them at hyperspeed, then program and run 5 more. |
 | `passiveInheritance` | Inheritance | death | Clear a level: gain a Quarter for each empty life slot. | Clear a level: gain a Quarter for each time you died on it. |
@@ -69,7 +69,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveTunnelBoring` | Tunnel Boring | speed | Once per level, while stopped, press into a wall to punch through until open space — exterior walls open a wrap tunnel to the far side. | Once per level, while stopped, press into a wall to punch through until open space — exterior walls open a wrap tunnel to the far side. Power pellets recharge the drill. |
 | `passiveMartyr` | Martyr (rare) | death | Dying fires every power-pellet effect you own. | Dying — or a Defy Death / Money Talks save — fires every power-pellet effect you own. |
 | `passivePossession` | Possession (rare) | death | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after. |
-| `passiveFloating` | Floating | speed | Pass over lava unharmed. | Pass over lava unharmed and move through the slow side of speed zones freely. |
+| `passiveFloating` | Floating | speed | Pass over lava and sinkholes unharmed. | Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely. |
 | `passiveSonicBoom` | Sonic Boom | speed | At top speed, a boom turns nearby ghosts around, and ripples 4 tiles down side hallways at T and X junctions. | At top speed, a boom stuns nearby ghosts for 2s and you pass through them. Ripples 4 tiles down side hallways at T and X junctions. |
 | `lowSpeed` | Speed | neutral | +6% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +16% Dot-Man speed inside tunnels. Stacks. |  |
