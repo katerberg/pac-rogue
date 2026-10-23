@@ -172,6 +172,22 @@ export function resolveGhostTarget(
   });
 }
 
+function avoidingCanEnter(
+  x: number,
+  y: number,
+  rules: ReturnType<typeof ghostMovementRules>,
+  blocked: (dx: number, dy: number) => boolean,
+): GhostCanEnter {
+  const anyFree = openGhostDirsAt(x, y, rules.solids, rules.canEnter).some((dir) => {
+    const { dx, dy } = ghostDirStep(dir);
+    return !blocked(dx, dy);
+  });
+  if (!anyFree) {
+    return rules.canEnter;
+  }
+  return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
+}
+
 export function bossAwareCanEnter(
   world: World,
   eid: number,
@@ -185,16 +201,9 @@ export function bossAwareCanEnter(
   }
   const col = worldToCol(x);
   const row = worldToRow(y);
-  const blocked = (dx: number, dy: number) =>
-    corridorOccupied(col, row, dx, dy, occupied, rules.solids);
-  const anyFree = openGhostDirsAt(x, y, rules.solids, rules.canEnter).some((dir) => {
-    const { dx, dy } = ghostDirStep(dir);
-    return !blocked(dx, dy);
-  });
-  if (!anyFree) {
-    return rules.canEnter;
-  }
-  return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
+  return avoidingCanEnter(x, y, rules, (dx, dy) =>
+    corridorOccupied(col, row, dx, dy, occupied, rules.solids),
+  );
 }
 
 export type ScentField = { zones: readonly ScentZone[]; radiusTiles: number };
@@ -206,21 +215,14 @@ export function scentAwareCanEnter(
   field: ScentField,
 ): GhostCanEnter {
   const from = { col: worldToCol(x), row: worldToRow(y) };
-  const blocked = (dx: number, dy: number) =>
+  return avoidingCanEnter(x, y, rules, (dx, dy) =>
     scentBlocksStep(
       field.zones,
       from,
       { col: from.col + dx, row: from.row + dy },
       field.radiusTiles,
-    );
-  const anyFree = openGhostDirsAt(x, y, rules.solids, rules.canEnter).some((dir) => {
-    const { dx, dy } = ghostDirStep(dir);
-    return !blocked(dx, dy);
-  });
-  if (!anyFree) {
-    return rules.canEnter;
-  }
-  return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
+    ),
+  );
 }
 
 export function ghostAi(
