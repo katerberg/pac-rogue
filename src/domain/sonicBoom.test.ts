@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { MAZE_COLS, MAZE_ROWS, TILE_SIZE, cellCenterX, cellCenterY, type SolidGrid } from "./maze";
 import {
-  applySonicStuns,
+  applySonicHits,
   atTopSpeed,
   sonicBoomBranches,
-  sonicBoomStunMs,
+  sonicBoomHitMs,
+  sonicBoomStuns,
   sonicBoomTargets,
-  sonicStunRemainingMs,
+  sonicHitRemainingMs,
   sonicStunShakePx,
+  sonicStunnedEids,
   sonicStunSpriteOffsets,
-  tickSonicStuns,
+  tickSonicHits,
 } from "./sonicBoom";
-import { SONIC_BOOM_STUN_MS, createRunUpgrades } from "./upgrades";
+import { SONIC_BOOM_STUN_MS, SONIC_BOOM_TURN_COOLDOWN_MS, createRunUpgrades } from "./upgrades";
 
 function gridWithOpen(cells: readonly (readonly [number, number])[]): SolidGrid {
   const open = new Set(cells.map(([c, r]) => `${c},${r}`));
@@ -39,37 +41,35 @@ const player = (col: number, row: number, dc: number, dr: number) => ({
 const ghost = (eid: number, col: number, row: number) => ({ eid, ...at(col, row) });
 
 describe("Sonic Boom", () => {
-  it("stuns a ghost within 2 tiles and not beyond it", () => {
+  const BASE = ["passiveSonicBoom"] as const;
+  const PLUS = ["passiveSonicBoomPlus"] as const;
+
+  it("hits a ghost within 2 tiles and not beyond it", () => {
     const near = { eid: 1, x: at(C, R).x + TILE_SIZE * 2, y: at(C, R).y };
     const far = { eid: 2, x: at(C, R).x + TILE_SIZE * 2.5, y: at(C, R).y };
-    expect(sonicBoomTargets(["passiveSonicBoom"], player(C, R, 1, 0), [near, far], CROSS)).toEqual([
-      1,
-    ]);
+    expect(sonicBoomTargets(BASE, player(C, R, 1, 0), [near, far], CROSS)).toEqual([1]);
   });
 
   it("does nothing when not owned", () => {
     expect(sonicBoomTargets([], player(C, R, 1, 0), [ghost(1, C, R)], CROSS)).toEqual([]);
   });
 
-  it("base form ignores ghosts down a side hallway", () => {
-    expect(
-      sonicBoomTargets(["passiveSonicBoom"], player(C, R, 1, 0), [ghost(1, C, R - 3)], CROSS),
-    ).toEqual([]);
-  });
+  it.each(["passiveSonicBoom", "passiveSonicBoomPlus"] as const)(
+    "%s reaches 4 tiles down both side hallways of an X",
+    (id) => {
+      const hits = sonicBoomTargets(
+        [id],
+        player(C, R, 1, 0),
+        [ghost(1, C, R - 4), ghost(2, C, R + 4), ghost(3, C, R - 5)],
+        CROSS,
+      );
+      expect(hits.sort()).toEqual([1, 2]);
+    },
+  );
 
-  it("Plus reaches 4 tiles down both side hallways of an X", () => {
+  it("never reaches forward or backward", () => {
     const hits = sonicBoomTargets(
-      ["passiveSonicBoomPlus"],
-      player(C, R, 1, 0),
-      [ghost(1, C, R - 4), ghost(2, C, R + 4), ghost(3, C, R - 5)],
-      CROSS,
-    );
-    expect(hits.sort()).toEqual([1, 2]);
-  });
-
-  it("Plus never reaches forward or backward", () => {
-    const hits = sonicBoomTargets(
-      ["passiveSonicBoomPlus"],
+      BASE,
       player(C, R, 1, 0),
       [ghost(1, C + 4, R), ghost(2, C - 4, R)],
       CROSS,
@@ -77,9 +77,9 @@ describe("Sonic Boom", () => {
     expect(hits).toEqual([]);
   });
 
-  it("Plus reaches the one side hallway of a T", () => {
+  it("reaches the one side hallway of a T", () => {
     const hits = sonicBoomTargets(
-      ["passiveSonicBoomPlus"],
+      BASE,
       player(C, R, 1, 0),
       [ghost(1, C, R + 4), ghost(2, C, R - 4)],
       T_JUNCTION,
@@ -87,14 +87,8 @@ describe("Sonic Boom", () => {
     expect(hits).toEqual([1]);
   });
 
-  it("Plus ignores plain corridors", () => {
-    const hits = sonicBoomTargets(
-      ["passiveSonicBoomPlus"],
-      player(C + 2, R, 1, 0),
-      [ghost(1, C, R + 3)],
-      CROSS,
-    );
-    expect(hits).toEqual([]);
+  it("ignores plain corridors", () => {
+    expect(sonicBoomTargets(BASE, player(C + 2, R, 1, 0), [ghost(1, C, R + 3)], CROSS)).toEqual([]);
   });
 
   it("is blocked by walls in the hallway", () => {
@@ -104,23 +98,28 @@ describe("Sonic Boom", () => {
       [C, R - 1],
       [C, R - 3],
     ]);
-    expect(
-      sonicBoomTargets(["passiveSonicBoomPlus"], player(C, R, 1, 0), [ghost(1, C, R - 3)], walled),
-    ).toEqual([]);
+    expect(sonicBoomTargets(BASE, player(C, R, 1, 0), [ghost(1, C, R - 3)], walled)).toEqual([]);
   });
 
-  it("stuns refresh instead of stacking and tick away", () => {
-    const base = createRunUpgrades(["passiveSonicBoom"]);
-    const once = applySonicStuns(base, [7], 1000);
-    const again = applySonicStuns(tickSonicStuns(once, 400), [7], 1000);
-    expect(again.sonicStuns).toEqual([{ eid: 7, remainingMs: 1000 }]);
-    expect(sonicStunRemainingMs(tickSonicStuns(again, 1000))).toBe(0);
+  it("Plus stuns refresh instead of stacking and tick away", () => {
+    const once = applySonicHits(createRunUpgrades(), [7], 2000, true);
+    const again = applySonicHits(tickSonicHits(once, 400), [7], 2000, true);
+    expect(again.sonicHits).toEqual([{ eid: 7, remainingMs: 2000 }]);
+    expect(sonicHitRemainingMs(tickSonicHits(again, 2000))).toBe(0);
   });
 
-  it("uses the same stun length in both forms", () => {
-    expect(sonicBoomStunMs(["passiveSonicBoom"])).toBe(SONIC_BOOM_STUN_MS);
-    expect(sonicBoomStunMs(["passiveSonicBoomPlus"])).toBe(SONIC_BOOM_STUN_MS);
-    expect(sonicBoomStunMs([])).toBe(0);
+  it("base turn cooldown keeps its timer when hit again", () => {
+    const once = applySonicHits(createRunUpgrades(), [7], 1000, false);
+    const again = applySonicHits(tickSonicHits(once, 400), [7], 1000, false);
+    expect(again.sonicHits).toEqual([{ eid: 7, remainingMs: 600 }]);
+  });
+
+  it("base turns ghosts around for a 1s cooldown, Plus stuns them for 2s", () => {
+    expect(sonicBoomHitMs(BASE)).toBe(SONIC_BOOM_TURN_COOLDOWN_MS);
+    expect(sonicBoomHitMs(PLUS)).toBe(SONIC_BOOM_STUN_MS);
+    expect(sonicBoomStuns(BASE)).toBe(false);
+    expect(sonicBoomStuns(PLUS)).toBe(true);
+    expect(sonicBoomHitMs([])).toBe(0);
   });
 
   it("counts a blur trail or Afterburner on a cleared tile as top speed", () => {
@@ -131,26 +130,29 @@ describe("Sonic Boom", () => {
     expect(atTopSpeed([], false, true, false)).toBe(false);
   });
 
-  it("shakes stunned ghosts sideways only", () => {
-    const stunned = applySonicStuns(createRunUpgrades(["passiveSonicBoom"]), [7], 1000);
-    const offsets = sonicStunSpriteOffsets(tickSonicStuns(stunned, 20), undefined)!;
-    expect(offsets[7]!.x).toBeCloseTo(sonicStunShakePx(980));
-    expect(Math.abs(offsets[7]!.x)).toBeGreaterThan(0);
-    expect(offsets[7]!.y).toBe(0);
-    expect(sonicStunSpriteOffsets(createRunUpgrades(), undefined)).toBeUndefined();
-  });
-
   it("counts a fast speed zone as top speed", () => {
     expect(atTopSpeed([], false, false, true)).toBe(true);
   });
 
+  it("shakes stunned ghosts sideways only, and only when Plus stuns", () => {
+    const stunned = applySonicHits(createRunUpgrades(PLUS), [7], 2000, true);
+    const offsets = sonicStunSpriteOffsets(tickSonicHits(stunned, 20), PLUS, undefined)!;
+    expect(offsets[7]!.x).toBeCloseTo(sonicStunShakePx(1980));
+    expect(Math.abs(offsets[7]!.x)).toBeGreaterThan(0);
+    expect(offsets[7]!.y).toBe(0);
+    expect(sonicStunSpriteOffsets(stunned, BASE, undefined)).toBeUndefined();
+    expect(sonicStunSpriteOffsets(createRunUpgrades(), PLUS, undefined)).toBeUndefined();
+    expect([...sonicStunnedEids(stunned, PLUS)]).toEqual([7]);
+    expect([...sonicStunnedEids(stunned, BASE)]).toEqual([]);
+  });
+
   it("lists each side hallway of a junction up to the reach, never forward or back", () => {
-    const branches = sonicBoomBranches(["passiveSonicBoomPlus"], player(C, R, 1, 0), CROSS);
+    const branches = sonicBoomBranches(BASE, player(C, R, 1, 0), CROSS);
     expect(branches.map((b) => [b.dc, b.dr, b.cells.length]).sort()).toEqual([
       [0, -1, 4],
       [0, 1, 4],
     ]);
-    expect(sonicBoomBranches(["passiveSonicBoom"], player(C, R, 1, 0), CROSS)).toEqual([]);
-    expect(sonicBoomBranches(["passiveSonicBoomPlus"], player(C + 2, R, 1, 0), CROSS)).toEqual([]);
+    expect(sonicBoomBranches([], player(C, R, 1, 0), CROSS)).toEqual([]);
+    expect(sonicBoomBranches(BASE, player(C + 2, R, 1, 0), CROSS)).toEqual([]);
   });
 });

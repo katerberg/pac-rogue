@@ -34,9 +34,13 @@ export function atTopSpeed(
   return trailActive || inFastZone || (hasUpgrade(owned, "passiveAfterburner") && onClearedTile);
 }
 
-export function sonicBoomStunMs(owned: readonly UpgradeId[]): number {
+export function sonicBoomStuns(owned: readonly UpgradeId[]): boolean {
+  return owned.some((id) => getUpgradeDef(id).sonicBoomStuns === true);
+}
+
+export function sonicBoomHitMs(owned: readonly UpgradeId[]): number {
   for (const id of owned) {
-    const ms = getUpgradeDef(id).sonicBoomStunMs;
+    const ms = getUpgradeDef(id).sonicBoomHitMs;
     if (ms !== undefined) {
       return ms;
     }
@@ -118,29 +122,35 @@ export function sonicBoomTargets(
   return [...hit];
 }
 
-export function applySonicStuns(
+export function applySonicHits(
   state: RunUpgrades,
   eids: readonly number[],
-  stunMs: number,
+  hitMs: number,
+  refresh: boolean,
 ): RunUpgrades {
-  if (eids.length === 0 || stunMs <= 0) {
+  const targets = refresh
+    ? eids
+    : eids.filter((eid) => !state.sonicHits.some((h) => h.eid === eid));
+  if (targets.length === 0 || hitMs <= 0) {
     return state;
   }
-  const kept = state.sonicStuns.filter((s) => !eids.includes(s.eid));
   return {
     ...state,
-    sonicStuns: [...kept, ...eids.map((eid) => ({ eid, remainingMs: stunMs }))],
+    sonicHits: [
+      ...state.sonicHits.filter((h) => !targets.includes(h.eid)),
+      ...targets.map((eid) => ({ eid, remainingMs: hitMs })),
+    ],
   };
 }
 
-export function tickSonicStuns(state: RunUpgrades, deltaMs: number): RunUpgrades {
-  if (state.sonicStuns.length === 0) {
+export function tickSonicHits(state: RunUpgrades, deltaMs: number): RunUpgrades {
+  if (state.sonicHits.length === 0) {
     return state;
   }
   const dt = Math.max(0, deltaMs);
   return {
     ...state,
-    sonicStuns: state.sonicStuns
+    sonicHits: state.sonicHits
       .map((s) => ({ eid: s.eid, remainingMs: s.remainingMs - dt }))
       .filter((s) => s.remainingMs > 0),
   };
@@ -157,23 +167,27 @@ type SpriteOffsets = Record<number, { x: number; y: number; rotation?: number }>
 
 export function sonicStunSpriteOffsets(
   state: RunUpgrades,
+  owned: readonly UpgradeId[],
   base: SpriteOffsets | undefined,
 ): SpriteOffsets | undefined {
-  if (state.sonicStuns.length === 0) {
+  if (state.sonicHits.length === 0 || !sonicBoomStuns(owned)) {
     return base;
   }
   return {
     ...Object.fromEntries(
-      state.sonicStuns.map((s) => [s.eid, { x: sonicStunShakePx(s.remainingMs), y: 0 }]),
+      state.sonicHits.map((s) => [s.eid, { x: sonicStunShakePx(s.remainingMs), y: 0 }]),
     ),
     ...base,
   };
 }
 
-export function sonicStunnedEids(state: RunUpgrades): ReadonlySet<number> {
-  return new Set(state.sonicStuns.map((s) => s.eid));
+export function sonicStunnedEids(
+  state: RunUpgrades,
+  owned: readonly UpgradeId[],
+): ReadonlySet<number> {
+  return sonicBoomStuns(owned) ? new Set(state.sonicHits.map((s) => s.eid)) : new Set();
 }
 
-export function sonicStunRemainingMs(state: RunUpgrades): number {
-  return Math.max(0, ...state.sonicStuns.map((s) => s.remainingMs));
+export function sonicHitRemainingMs(state: RunUpgrades): number {
+  return Math.max(0, ...state.sonicHits.map((s) => s.remainingMs));
 }

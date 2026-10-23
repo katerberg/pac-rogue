@@ -1,4 +1,4 @@
-import { sonicStunRemainingMs } from "./sonicBoom";
+import { sonicHitRemainingMs } from "./sonicBoom";
 import type { BaseUpgradeId, RunUpgrades } from "./upgrades";
 
 export type UpgradeTimer = { remainingMs: number; totalMs: number };
@@ -19,7 +19,7 @@ const TIMER_READINGS: Partial<Record<BaseUpgradeId, (state: RunUpgrades) => numb
   passiveDefyDeath: (s) => s.defyDeathRemainingMs,
   passiveHaunting: (s) => finite(s.hauntRemainingMs),
   passivePossession: (s) => s.possessionRemainingMs,
-  passiveSonicBoom: sonicStunRemainingMs,
+  passiveSonicBoom: sonicHitRemainingMs,
   passiveEcho: (s) => Math.max(0, ...s.pendingEchoes.map((echo) => echo.remainingMs)),
 };
 

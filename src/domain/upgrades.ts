@@ -123,8 +123,9 @@ export type UpgradeEffects = {
   lowPower?: LowPowerEffect;
   playerSpeedMul?: number;
   emptyCellSpeedMul?: number;
-  sonicBoomStunMs?: number;
+  sonicBoomHitMs?: number;
   sonicBoomHallwayTiles?: number;
+  sonicBoomStuns?: true;
   pelletCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
@@ -307,7 +308,8 @@ export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
 export const AFTERBURNER_ENHANCED_MUL = 1.5;
 export const SONIC_BOOM_RADIUS_TILES = 2;
-export const SONIC_BOOM_STUN_MS = 1000;
+export const SONIC_BOOM_TURN_COOLDOWN_MS = 1000;
+export const SONIC_BOOM_STUN_MS = 2000;
 export const SONIC_BOOM_HALLWAY_TILES = 4;
 export const MOLE_ENHANCED_PELLET_MUL = 1.3;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
@@ -1148,16 +1150,19 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveSonicBoom",
     label: "Sonic Boom",
     school: "speed",
-    description: "At top speed, passing within 2 tiles of a ghost stuns it briefly.",
+    description:
+      "At top speed, a boom turns nearby ghosts around, and ripples 4 tiles down side hallways at T and X junctions.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote:
-        "Sonic Boom also stuns ghosts up to 4 tiles down side hallways at T and X junctions.",
+        "Sonic Boom stuns ghosts for 2 seconds and lets you pass through them, instead of turning them around.",
       description:
-        "At top speed, passing within 2 tiles of a ghost stuns it briefly. Booms also ripple 4 tiles down side hallways at T and X junctions.",
-      sonicBoomHallwayTiles: SONIC_BOOM_HALLWAY_TILES,
+        "At top speed, a boom stuns nearby ghosts for 2s and you pass through them. Ripples 4 tiles down side hallways at T and X junctions.",
+      sonicBoomHitMs: SONIC_BOOM_STUN_MS,
+      sonicBoomStuns: true,
     },
-    sonicBoomStunMs: SONIC_BOOM_STUN_MS,
+    sonicBoomHitMs: SONIC_BOOM_TURN_COOLDOWN_MS,
+    sonicBoomHallwayTiles: SONIC_BOOM_HALLWAY_TILES,
   },
 ];
 
@@ -1386,7 +1391,7 @@ export type RunUpgrades = {
   shieldsBanked: number;
   peelsBanked: number;
   pendingEchoes: PendingEcho[];
-  sonicStuns: readonly { eid: number; remainingMs: number }[];
+  sonicHits: readonly { eid: number; remainingMs: number }[];
   frightenedRemainingMs: number;
   frightenedGhostEids: number[];
   hunterHeldEids: number[];
@@ -1446,7 +1451,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     shieldsBanked: 0,
     peelsBanked: 0,
     pendingEchoes: [],
-    sonicStuns: [],
+    sonicHits: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,
@@ -1789,7 +1794,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     possessionRemainingMs: 0,
     possessedGhostEid: null,
     pendingEchoes: [],
-    sonicStuns: [],
+    sonicHits: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,

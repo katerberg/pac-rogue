@@ -2,9 +2,10 @@ import { query, type World } from "bitecs";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { cellCenterX, cellCenterY, worldToCol, worldToRow } from "../../domain/maze";
 import {
-  applySonicStuns,
+  applySonicHits,
   sonicBoomBranches,
-  sonicBoomStunMs,
+  sonicBoomHitMs,
+  sonicBoomStuns,
   sonicBoomTargets,
   type SonicBoomGhost,
   type SonicBoomPlayer,
@@ -102,13 +103,16 @@ export function stepSonicBoom(
   state: RunUpgrades,
   owned: readonly UpgradeId[],
   atSpeed: boolean,
-): { state: RunUpgrades; echoes: SonicBoomEcho[] } {
+): { state: RunUpgrades; echoes: SonicBoomEcho[]; reversed: number[] } {
   const fired = echoes.step(world, owned, atSpeed);
   if (!atSpeed) {
-    return { state, echoes: fired };
+    return { state, echoes: fired, reversed: [] };
   }
+  const targets = sonicBoomWorldTargets(world, owned);
+  const stuns = sonicBoomStuns(owned);
   return {
-    state: applySonicStuns(state, sonicBoomWorldTargets(world, owned), sonicBoomStunMs(owned)),
+    state: applySonicHits(state, targets, sonicBoomHitMs(owned), stuns),
     echoes: fired,
+    reversed: stuns ? [] : targets.filter((eid) => !state.sonicHits.some((h) => h.eid === eid)),
   };
 }

@@ -283,8 +283,9 @@ import {
   atTopSpeed,
   sonicStunnedEids,
   sonicStunSpriteOffsets,
-  tickSonicStuns,
+  tickSonicHits,
 } from "../../domain/sonicBoom";
+import { forceGhostReverse } from "../systems/ghostReverse";
 import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
@@ -561,7 +562,7 @@ export class LearnSim {
     const levelSpeedMul = speedLevelMultiplier(LEARN_LEVEL);
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
-    this.learnUpgrades = tickSonicStuns(this.learnUpgrades, delta);
+    this.learnUpgrades = tickSonicHits(this.learnUpgrades, delta);
     const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
@@ -647,7 +648,7 @@ export class LearnSim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
-        ...sonicStunnedEids(this.learnUpgrades),
+        ...sonicStunnedEids(this.learnUpgrades, this.learnUpgrades.owned),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
@@ -728,6 +729,9 @@ export class LearnSim {
     );
     const boom = stepSonicBoom(this.world, this.sonicEchoes, this.learnUpgrades, owned, atSpeed);
     this.learnUpgrades = boom.state;
+    if (boom.reversed.length > 0) {
+      forceGhostReverse(this.world, false, new Set(boom.reversed));
+    }
     for (const echo of boom.echoes) {
       this.events.push({ type: "sonicBoomEcho", ...echo });
     }
@@ -857,6 +861,7 @@ export class LearnSim {
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         spriteOffsets: sonicStunSpriteOffsets(
           this.learnUpgrades,
+          this.learnUpgrades.owned,
           shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
         ),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
@@ -1645,6 +1650,7 @@ export class LearnSim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...sonicStunnedEids(this.learnUpgrades, this.learnUpgrades.owned),
         ...(possessedGhostEid(this.learnUpgrades) === null
           ? []
           : [possessedGhostEid(this.learnUpgrades)!]),
@@ -2140,7 +2146,7 @@ function clearStaleUpgradeTimers(owned: readonly UpgradeId[], state: RunUpgrades
     shieldsBanked: Math.min(state.shieldsBanked, shieldBankCap(owned)),
     peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
-    sonicStuns: hasUpgrade(owned, "passiveSonicBoom") ? state.sonicStuns : [],
+    sonicHits: hasUpgrade(owned, "passiveSonicBoom") ? state.sonicHits : [],
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
     mirrorActive: hasField("mirror") && state.mirrorActive,
     programmer: hasField("programmerSets") ? state.programmer : null,

@@ -2383,7 +2383,7 @@ describe("Sonic Boom (LEARN)", () => {
       Position.y[ghost] = Position.y[player]!;
       GhostPhase.value[ghost] = GHOST_PHASE.active;
       sim.step(NO_KEYS_HELD, FRAME_MS);
-      expect(sim["learnUpgrades"].sonicStuns.length).toBeGreaterThan(0);
+      expect(sim["learnUpgrades"].sonicHits.length).toBeGreaterThan(0);
       expect(sim.upgradeTimerFractions().passiveSonicBoom).toBeGreaterThan(0);
     },
   );
@@ -2392,10 +2392,10 @@ describe("Sonic Boom (LEARN)", () => {
     const sim = boomSim("passiveSonicBoom");
     sim["learnUpgrades"] = {
       ...sim["learnUpgrades"],
-      sonicStuns: [{ eid: 1, remainingMs: 500 }],
+      sonicHits: [{ eid: 1, remainingMs: 500 }],
     };
     sim.toggleUpgrade("passiveSonicBoom");
-    expect(sim["learnUpgrades"].sonicStuns).toEqual([]);
+    expect(sim["learnUpgrades"].sonicHits).toEqual([]);
   });
   it("echoes down a side hallway when Plus crosses a junction at top speed", () => {
     const sim = boomSim("passiveSonicBoomPlus");

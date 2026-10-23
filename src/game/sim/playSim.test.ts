@@ -9793,17 +9793,25 @@ describe("Floating", () => {
 });
 
 describe("Sonic Boom", () => {
-  function boomSim(enableUpgrades: PlayOptions["enableUpgrades"]): { sim: PlaySim; ghost: number } {
-    const sim = startSim(
-      { level: 2, maze: "maze1", infiniteLives: true, enableUpgrades },
-      "sonic-boom",
-    );
+  const BASE = "passiveSonicBoom";
+  const PLUS = "passiveSonicBoomPlus";
+  type BoomId = typeof BASE | typeof PLUS;
+
+  function boomSim(
+    enableUpgrades: PlayOptions["enableUpgrades"],
+    infiniteLives = true,
+  ): { sim: PlaySim; ghost: number } {
+    const sim = startSim({ level: 2, maze: "maze1", infiniteLives, enableUpgrades }, "sonic-boom");
     const [ghost, ...rest] = query(sim.world, [Ghost, Position]);
     for (const eid of rest) {
       removeEntity(sim.world, eid);
     }
     runFrames(sim, 1);
     return { sim, ghost: ghost! };
+  }
+
+  function atSpeed(sim: PlaySim): void {
+    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 60_000 };
   }
 
   function placeGhost(ghost: number, x: number, y: number): void {
@@ -9817,76 +9825,110 @@ describe("Sonic Boom", () => {
     placeGhost(ghost, Position.x[player]! + 12, Position.y[player]!);
   }
 
-  it.each(["passiveSonicBoom", "passiveSonicBoomPlus"] as const)(
-    "%s stuns a ghost passed within 2 tiles at top speed",
-    (id) => {
-      const { sim, ghost } = boomSim([id]);
-      sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
-      nearPlayer(sim, ghost);
-      runFrames(sim, 2);
-      expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
-      expect(Speed.px[ghost]).toBe(0);
-    },
-  );
+  const hits = (sim: PlaySim): number => sim["runUpgrades"].sonicHits.length;
 
-  it("does not stun below top speed", () => {
-    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
+  it("base turns a ghost passed within 2 tiles around without stunning it", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    atSpeed(sim);
     nearPlayer(sim, ghost);
+    Facing.direction[ghost] = DIRECTION.left;
     runFrames(sim, 1);
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
+    expect(hits(sim)).toBe(1);
+    expect(Facing.direction[ghost]).toBe(DIRECTION.right);
+    runFrames(sim, 1);
+    expect(Speed.px[ghost]).toBeGreaterThan(0);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]).toBeUndefined();
   });
 
-  it("does nothing without the upgrade", () => {
-    const { sim, ghost } = boomSim([]);
-    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+  it("base does not turn the same ghost again within the cooldown", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    atSpeed(sim);
     nearPlayer(sim, ghost);
     runFrames(sim, 1);
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
-  });
-
-  it("counts Afterburner on a cleared tile as top speed only while moving", () => {
-    const { sim, ghost } = boomSim(["passiveSonicBoom", "passiveAfterburner"]);
-    for (const eid of query(sim.world, [Pellet])) {
-      removeEntity(sim.world, eid);
-    }
-    nearPlayer(sim, ghost);
-    runFrames(sim, 2);
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
-    runFrames(sim, 2, { keys: held("left") });
-    nearPlayer(sim, ghost);
-    runFrames(sim, 1, { keys: held("left") });
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
-  });
-
-  it("shakes a stunned ghost and it still kills on touch", () => {
-    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
-    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+    const facing = Facing.direction[ghost];
     nearPlayer(sim, ghost);
     runFrames(sim, 1);
-    expect(sim.renderOptions().spriteOffsets?.[ghost]?.x).not.toBe(0);
+    expect(Facing.direction[ghost]).toBe(facing);
+    expect(hits(sim)).toBe(1);
+  });
+
+  it("base ghosts still kill on touch", () => {
+    const { sim, ghost } = boomSim([BASE], false);
+    atSpeed(sim);
     const player = playerEid(sim);
     placeGhost(ghost, Position.x[player]!, Position.y[player]!);
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
   });
 
+  it("Plus stuns a passed ghost for 2s, shakes it, and lets you pass through it", () => {
+    const { sim, ghost } = boomSim([PLUS], false);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 2);
+    expect(sim.snapshot().timers.sonicBoomHitMs).toBeGreaterThan(1500);
+    expect(Speed.px[ghost]).toBe(0);
+    expect(sim.renderOptions().spriteOffsets?.[ghost]?.x).not.toBe(0);
+    const player = playerEid(sim);
+    placeGhost(ghost, Position.x[player]!, Position.y[player]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+  });
+
+  it("Plus stun wears off and clears with the other timers", () => {
+    const { sim, ghost } = boomSim([PLUS]);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(1);
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(hits(sim)).toBe(0);
+  });
+
+  it.each([BASE, PLUS] as const)("%s does nothing below top speed", (id) => {
+    const { sim, ghost } = boomSim([id]);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const { sim, ghost } = boomSim([]);
+    atSpeed(sim);
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1);
+    expect(hits(sim)).toBe(0);
+  });
+
   it("leaves a far ghost alone", () => {
-    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
-    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
+    const { sim, ghost } = boomSim([BASE]);
+    atSpeed(sim);
     const player = playerEid(sim);
     placeGhost(ghost, Position.x[player]! + 60, Position.y[player]!);
     runFrames(sim, 1);
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBe(0);
+    expect(hits(sim)).toBe(0);
   });
 
-  it("wears off and clears with the other timers", () => {
-    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
-    sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 60_000 };
+  it("counts Afterburner on a cleared tile as top speed only while moving", () => {
+    const { sim, ghost } = boomSim([BASE, "passiveAfterburner"]);
+    for (const eid of query(sim.world, [Pellet])) {
+      removeEntity(sim.world, eid);
+    }
     nearPlayer(sim, ghost);
+    runFrames(sim, 2);
+    expect(hits(sim)).toBe(0);
+    runFrames(sim, 2, { keys: held("left") });
+    nearPlayer(sim, ghost);
+    runFrames(sim, 1, { keys: held("left") });
+    expect(hits(sim)).toBeGreaterThan(0);
+  });
+
+  it("counts a fast speed zone as top speed", () => {
+    const { sim, ghost } = boomSim([BASE]);
+    nearPlayer(sim, ghost);
+    sim["playerSpeedZone"] = () => "fast";
     runFrames(sim, 1);
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
-    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
-    expect(sim["runUpgrades"].sonicStuns).toEqual([]);
+    expect(hits(sim)).toBeGreaterThan(0);
   });
 
   function junctionSpot(): { col: number; row: number; sc: number; sr: number } {
@@ -9902,12 +9944,7 @@ describe("Sonic Boom", () => {
           [0, -1],
           [0, 1],
         ] as const) {
-          if (
-            open(col + sc, row + sr) &&
-            open(col + sc * 2, row + sr * 2) &&
-            open(col + sc * 3, row + sr * 3) &&
-            open(col + sc * 4, row + sr * 4)
-          ) {
+          if ([1, 2, 3, 4].every((n) => open(col + sc * n, row + sr * n))) {
             spots.push({ col, row, sc, sr });
           }
         }
@@ -9916,52 +9953,38 @@ describe("Sonic Boom", () => {
     return spots[0]!;
   }
 
-  it("Plus stuns a ghost down a side hallway of a junction, base does not", () => {
+  it.each([BASE, PLUS] as const)("%s hits a ghost 4 tiles down a side hallway", (id: BoomId) => {
     const spot = junctionSpot();
-    const run = (id: "passiveSonicBoom" | "passiveSonicBoomPlus"): number => {
-      const { sim, ghost } = boomSim([id]);
-      sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
-      const player = playerEid(sim);
-      teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
-      Facing.direction[player] = DIRECTION.right;
-      placeGhost(ghost, cellCenterX(spot.col + spot.sc * 4), cellCenterY(spot.row + spot.sr * 4));
-      sim["sonicBoom"]();
-      return sim["runUpgrades"].sonicStuns.length;
-    };
-    expect(run("passiveSonicBoom")).toBe(0);
-    expect(run("passiveSonicBoomPlus")).toBe(1);
-  });
-  function crossJunction(
-    id: "passiveSonicBoom" | "passiveSonicBoomPlus",
-    atSpeed: Partial<{ speedBurstRemainingMs: number }>,
-  ): { echoes: SimEvent[]; sim: PlaySim } {
-    const spot = junctionSpot();
-    const { sim } = boomSim([id]);
-    sim["runUpgrades"] = { ...sim["runUpgrades"], ...atSpeed };
+    const { sim, ghost } = boomSim([id]);
+    atSpeed(sim);
     const player = playerEid(sim);
     teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
     Facing.direction[player] = DIRECTION.right;
-    const echoes = runFrames(sim, 3).filter((event) => event.type === "sonicBoomEcho");
-    return { echoes, sim };
+    placeGhost(ghost, cellCenterX(spot.col + spot.sc * 4), cellCenterY(spot.row + spot.sr * 4));
+    sim["sonicBoom"]();
+    expect(hits(sim)).toBe(1);
+  });
+
+  function crossJunction(id: BoomId, speed: boolean): SimEvent[] {
+    const spot = junctionSpot();
+    const { sim } = boomSim([id]);
+    if (speed) {
+      atSpeed(sim);
+    }
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
+    Facing.direction[player] = DIRECTION.right;
+    return runFrames(sim, 3).filter((event) => event.type === "sonicBoomEcho");
   }
 
-  it("Plus echoes down each side hallway once per junction while at top speed", () => {
-    const { echoes } = crossJunction("passiveSonicBoomPlus", { speedBurstRemainingMs: 3000 });
+  it.each([BASE, PLUS] as const)("%s echoes down each side hallway once per junction", (id) => {
+    const echoes = crossJunction(id, true);
     expect(echoes.length).toBeGreaterThan(0);
     expect(echoes.every((e) => e.type === "sonicBoomEcho" && e.tiles === 4)).toBe(true);
     expect(new Set(echoes.map((e) => JSON.stringify(e))).size).toBe(echoes.length);
   });
 
-  it("does not echo at base, or below top speed", () => {
-    expect(crossJunction("passiveSonicBoom", { speedBurstRemainingMs: 3000 }).echoes).toEqual([]);
-    expect(crossJunction("passiveSonicBoomPlus", {}).echoes).toEqual([]);
-  });
-
-  it("counts a fast speed zone as top speed", () => {
-    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
-    nearPlayer(sim, ghost);
-    sim["playerSpeedZone"] = () => "fast";
-    runFrames(sim, 1);
-    expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
+  it("does not echo below top speed", () => {
+    expect(crossJunction(BASE, false)).toEqual([]);
   });
 });

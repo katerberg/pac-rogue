@@ -517,8 +517,8 @@ import {
   atTopSpeed,
   sonicStunnedEids,
   sonicStunSpriteOffsets,
-  sonicStunRemainingMs,
-  tickSonicStuns,
+  sonicHitRemainingMs,
+  tickSonicHits,
 } from "../../domain/sonicBoom";
 import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { pelletAtCell } from "../systems/pelletAtCell";
@@ -1035,6 +1035,7 @@ export class PlaySim {
       ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
       spriteOffsets: sonicStunSpriteOffsets(
         this.runUpgrades,
+        this.effectiveUpgrades(),
         shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
       ),
       hauntedGhost: hauntedGhost(this.runUpgrades),
@@ -1141,7 +1142,7 @@ export class PlaySim {
       effectiveUpgrades: this.effectiveUpgrades(),
       timers: {
         freezeMs: upgrades.freezeRemainingMs,
-        sonicBoomStunMs: sonicStunRemainingMs(upgrades),
+        sonicBoomHitMs: sonicHitRemainingMs(upgrades),
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
@@ -1483,7 +1484,7 @@ export class PlaySim {
     }
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
-    this.runUpgrades = tickSonicStuns(this.runUpgrades, delta);
+    this.runUpgrades = tickSonicHits(this.runUpgrades, delta);
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
@@ -1560,7 +1561,7 @@ export class PlaySim {
       heldGhostEids: new Set([
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
-        ...sonicStunnedEids(this.runUpgrades),
+        ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
@@ -2116,6 +2117,7 @@ export class PlaySim {
       skipGhostEids: new Set([
         ...glidingGhostEids(this.ghostCornerWarps),
         ...shieldBounceCatchSkips(this.shieldBounce),
+        ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
         ...(possessedGhostEid(this.runUpgrades) === null
           ? []
           : [possessedGhostEid(this.runUpgrades)!]),
@@ -4267,6 +4269,15 @@ export class PlaySim {
       );
     const boom = stepSonicBoom(this.world, this.sonicEchoes, this.runUpgrades, owned, atSpeed);
     this.runUpgrades = boom.state;
+    if (boom.reversed.length > 0) {
+      forceGhostReverse(
+        this.world,
+        this.ghostsBlockedFromTunnels(),
+        new Set(boom.reversed),
+        this.closedGatedTunnelRow(),
+        this.runUpgrades.droppedWall,
+      );
+    }
     for (const echo of boom.echoes) {
       this.emit({ type: "sonicBoomEcho", ...echo });
     }
