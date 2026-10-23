@@ -15,10 +15,8 @@ import {
   type UpgradeId,
 } from "./upgrades";
 
-export type SonicBoomPlayer = { x: number; y: number; heading: { dc: number; dr: number } };
+type SonicBoomPlayer = { x: number; y: number; heading: { dc: number; dr: number } };
 export type SonicBoomGhost = { eid: number; x: number; y: number };
-
-export type SonicBoomStun = { eid: number; remainingMs: number };
 
 const STEPS: readonly { dc: number; dr: number }[] = [
   { dc: 0, dr: -1 },
@@ -33,10 +31,6 @@ export function atTopSpeed(
   onClearedTile: boolean,
 ): boolean {
   return trailActive || (hasUpgrade(owned, "passiveAfterburner") && onClearedTile);
-}
-
-export function sonicBoomActive(owned: readonly UpgradeId[]): boolean {
-  return hasUpgrade(owned, "passiveSonicBoom");
 }
 
 export function sonicBoomStunMs(owned: readonly UpgradeId[]): number {
@@ -65,7 +59,7 @@ export function sonicBoomTargets(
   ghosts: readonly SonicBoomGhost[],
   solids?: SolidGrid,
 ): number[] {
-  if (!sonicBoomActive(owned)) {
+  if (!hasUpgrade(owned, "passiveSonicBoom")) {
     return [];
   }
   const radius = SONIC_BOOM_RADIUS_TILES * TILE_SIZE_PX;
