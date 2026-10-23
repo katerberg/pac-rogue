@@ -12,6 +12,7 @@ import type {
   UpgradeId,
 } from "../../domain/upgrades";
 import type { SfxId } from "../../domain/sfxId";
+import type { BoreJunk } from "../../domain/boreJunk";
 import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { SinkholeRenderState } from "../../domain/sinkholeArt";
 import type { LavaRenderState } from "../../domain/lavaZone";
@@ -50,6 +51,7 @@ export type SimRenderOptions = {
   lava?: LavaRenderState | null;
   collapse?: CollapseRenderState | null;
   sinkhole?: SinkholeRenderState | null;
+  boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];

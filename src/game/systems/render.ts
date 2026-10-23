@@ -15,6 +15,7 @@ import {
   worldToCol,
   worldToRow,
   wrappedTwinPosition,
+  type MazeLayout,
   type WallPathCommand,
 } from "../../domain/maze";
 import {
@@ -33,6 +34,7 @@ import {
   sinkholeSettled,
   type SinkholeRenderState,
 } from "../../domain/sinkholeArt";
+import { BORE_JUNK_SETTLE_MS, type BoreJunk } from "../../domain/boreJunk";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import {
   SPEED_ZONE_MAX_COUNT,
@@ -684,6 +686,7 @@ export type RenderOptions = {
   lava?: LavaRenderState | null;
   collapse?: CollapseRenderState | null;
   sinkhole?: SinkholeRenderState | null;
+  boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
@@ -887,6 +890,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const collapseGraphics = scene.add.graphics();
   const collapseMoteGraphics = scene.add.graphics();
   const sinkholeGraphics = scene.add.graphics();
+  const boreJunkGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
@@ -920,6 +924,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const programmerGraphics = scene.add.graphics();
   programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
+  let drawnWallLayout: MazeLayout | null = null;
+  let drawnBoreJunk: readonly BoreJunk[] = [];
+  let drawnBoreJunkStyle: WallStyle | null = null;
   let drawnCollapse: string | null = null;
   let collapseMotesSettled = false;
   let drawnSinkhole: string | null = null;
@@ -1034,6 +1041,30 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
   };
 
+  const drawBoreJunk = (junk: readonly BoreJunk[], style: WallStyle): void => {
+    const settled = junk.every((pile) => pile.ageMs >= BORE_JUNK_SETTLE_MS);
+    if (junk === drawnBoreJunk && settled && sameWallStyle(style, drawnBoreJunkStyle)) {
+      return;
+    }
+    boreJunkGraphics.clear();
+    drawnBoreJunk = junk;
+    drawnBoreJunkStyle = style;
+    const palette = rubblePalette(style.color, style.background);
+    const origin = { x: cellOriginX(0), y: cellOriginY(0) };
+    for (const pile of junk) {
+      for (const chip of pile.chips) {
+        const at = rubbleMotePosition(chip, pile.ageMs);
+        boreJunkGraphics.fillStyle(palette[chip.tone]!, 1);
+        boreJunkGraphics.fillRect(
+          origin.x + at.x * WALL_ART_PX,
+          origin.y + at.y * WALL_ART_PX,
+          WALL_ART_PX,
+          WALL_ART_PX,
+        );
+      }
+    }
+  };
+
   const releaseDrawable = (eid: number): void => {
     destroySkirt(eid);
     destroyImage(String(eid));
@@ -1086,6 +1117,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     drawnCollapse = null;
     sinkholeGraphics.clear();
     drawnSinkhole = null;
+    boreJunkGraphics.clear();
+    drawnBoreJunk = [];
     wallGraphics.setAlpha(1);
     chainGraphics.setAlpha(1);
     drawnWallStyle = null;
@@ -1157,10 +1190,15 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     const wallStyle = mazeInverted
       ? { ...baseWallStyle, color: invertRgb24(baseWallStyle.color) }
       : baseWallStyle;
-    if (!sameWallStyle(wallStyle, drawnWallStyle) || mazeInverted !== drawnMazeInverted) {
+    if (
+      !sameWallStyle(wallStyle, drawnWallStyle) ||
+      mazeInverted !== drawnMazeInverted ||
+      getActiveLayout() !== drawnWallLayout
+    ) {
       bossPelletTint = brightenColor(wallStyle.color, 0.5);
       const commands = wallPathCommands(undefined, undefined, wallStyle.cornerRadius);
       strokeWallPath(wallGraphics, commands, wallStyle, 1);
+      drawnWallLayout = getActiveLayout();
       if (wallStyleOverride !== null || sidebarBands) {
         scene.cameras.main.setBackgroundColor(baseWallStyle.background);
       }
@@ -1809,6 +1847,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
 
     drawCollapse(opts?.collapse ?? null, wallStyle);
     drawSinkhole(opts?.sinkhole ?? null, wallStyle);
+    drawBoreJunk(opts?.boreJunk ?? [], wallStyle);
 
     lavaGraphics.clear();
     if (opts?.lava) {

@@ -560,7 +560,13 @@ import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "..
 import {
   adoptTunnelBoringFacing,
   applyBoredCellsToActiveLayout,
+  beginTunnelBore,
+  NO_TUNNEL_BORE,
+  openBoredCells,
+  stepTunnelBore,
   tryTunnelBoring,
+  tunnelBoringSpeedMul,
+  type TunnelBore,
 } from "../systems/tunnelBoring";
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
@@ -707,6 +713,7 @@ export class PlaySim {
   private secondChompUsed = 0;
   private tunnelBoringCharges = 0;
   private tunnelBored: { mapKey: string; cells: MazeTile[] } | null = null;
+  private tunnelBore: TunnelBore = NO_TUNNEL_BORE;
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
   private readonly ghostTraction = new GhostTractionState();
@@ -1178,6 +1185,7 @@ export class PlaySim {
       lava: this.lavaRenderState(),
       collapse: this.collapseRenderState(),
       sinkhole: this.sinkholeRenderState(),
+      boreJunk: this.tunnelBore.junk,
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
@@ -1354,6 +1362,12 @@ export class PlaySim {
       tunnelBoring: {
         charges: this.tunnelBoringCharges,
         cells: this.tunnelBored?.cells.map((cell) => ({ ...cell })) ?? [],
+        openCells:
+          this.tunnelBored === null
+            ? 0
+            : openBoredCells(this.tunnelBored.cells, this.tunnelBore).length,
+        junkCells: this.tunnelBore.junk.length,
+        slowed: tunnelBoringSpeedMul(this.world, this.tunnelBore) < 1,
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
@@ -1707,7 +1721,9 @@ export class PlaySim {
               trinketPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
               speedZoneMultiplier(this.zoneEffects().effect);
     const playerSpeedMul =
-      rawPlayerSpeedMul * titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades());
+      rawPlayerSpeedMul *
+      titheSpeedMultiplier(this.runUpgrades, this.effectiveUpgrades()) *
+      tunnelBoringSpeedMul(this.world, this.tunnelBore);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     this.ghostTraction.tick(this.world, this.effectiveUpgrades(), delta);
     applyGhostSpeed(this.world, this.pelletsForElroy(), this.levelIndex, {
@@ -1727,7 +1743,7 @@ export class PlaySim {
     if (this.bossState?.def.chained === false) {
       bossGhostBlock(this.world);
     }
-    this.tryBoreTunnel();
+    this.stepTunnelBoring(delta);
     const playerSolids = this.playerSolids();
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
@@ -2679,6 +2695,7 @@ export class PlaySim {
     this.ghostCornerWarps = [];
     this.shieldBounce = NO_SHIELD_BOUNCE;
     this.resetStreak();
+    this.tunnelBore = NO_TUNNEL_BORE;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -3018,6 +3035,7 @@ export class PlaySim {
       }
     }
     this.boardLayoutLabel = layoutLabel;
+    this.tunnelBore = NO_TUNNEL_BORE;
     this.emit({ type: "resetBoard" });
     this.world = createWorld();
     spawnWalls(this.world);
@@ -3125,7 +3143,11 @@ export class PlaySim {
     this.sinkholeIntroMs = 0;
   }
 
-  private setUpCollapse(chains: readonly CollapseChain[], sinkhole: CollapseChain | null): void {
+  private setUpCollapse(
+    chains: readonly CollapseChain[],
+    bored: readonly MazeTile[],
+    sinkhole: CollapseChain | null,
+  ): void {
     const held = this.collapsePlan;
     if (held === null) {
       return;
@@ -3150,6 +3172,12 @@ export class PlaySim {
       return;
     }
     this.collapseChains = [...chains];
+    this.buildCollapseArts(held.plan.artSeed, bored);
+  }
+
+  private buildCollapseArts(artSeed: number, bored: readonly MazeTile[]): void {
+    const layout = getActiveLayout();
+    const boredKeys = new Set(bored.map((cell) => `${cell.col},${cell.row}`));
     const board = {
       ascii: layout.ascii,
       tileSize: layout.tileSize,
@@ -3162,7 +3190,11 @@ export class PlaySim {
     };
     this.collapseBoardCount += 1;
     this.collapseArts = this.collapseChains.map((chain, index) => ({
-      ...buildRubbleArt(board, chain, held.plan.artSeed + index * 101),
+      ...buildRubbleArt(
+        board,
+        chain.filter((cell) => !boredKeys.has(`${cell.col},${cell.row}`)),
+        artSeed + index * 101,
+      ),
       fresh: isFreshCollapse(index, this.levelIndex),
     }));
   }
@@ -3208,6 +3240,12 @@ export class PlaySim {
       : null;
   }
 
+  private clearBoredRubble(bored: readonly MazeTile[]): void {
+    if (this.collapsePlan !== null && this.collapseChains.length > 0) {
+      this.buildCollapseArts(this.collapsePlan.plan.artSeed, bored);
+    }
+  }
+
   private collapseRenderState(): CollapseRenderState | null {
     return this.collapseArts.length === 0
       ? null
@@ -3236,7 +3274,7 @@ export class PlaySim {
         this.syncSinkholeFloat();
       }
       if (chains !== null) {
-        this.setUpCollapse(chains, sinkhole);
+        this.setUpCollapse(chains, boredCells, sinkhole);
       }
       return label;
     } catch (error) {
@@ -3261,7 +3299,33 @@ export class PlaySim {
     return this.tunnelBored.cells;
   }
 
-  private tryBoreTunnel(): void {
+  private readonly isRubbleCell = (cell: MazeTile): boolean =>
+    this.collapseChains.some((chain) =>
+      chain.some((link) => link.col === cell.col && link.row === cell.row),
+    );
+
+  private openBoredSteps(opened: readonly MazeTile[]): void {
+    if (opened.length === 0 || this.tunnelBored === null) {
+      return;
+    }
+    const open = openBoredCells(this.tunnelBored.cells, this.tunnelBore);
+    applyBoredCellsToActiveLayout(open);
+    const touchesRubble = opened.some((cell) =>
+      this.collapseChains.some((chain) =>
+        chain.some(
+          (link) => Math.abs(link.col - cell.col) <= 1 && Math.abs(link.row - cell.row) <= 1,
+        ),
+      ),
+    );
+    if (touchesRubble) {
+      this.clearBoredRubble(open);
+    }
+  }
+
+  private stepTunnelBoring(delta: number): void {
+    const stepped = stepTunnelBore(this.world, this.tunnelBore, delta, this.isRubbleCell);
+    this.tunnelBore = stepped.bore;
+    this.openBoredSteps(stepped.opened);
     if (!hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")) {
       return;
     }
@@ -3280,9 +3344,10 @@ export class PlaySim {
     const cells = mergeBoredCells(prior, attempt.cells);
     this.tunnelBored = { mapKey, cells };
     this.tunnelBoringCharges = attempt.charges;
-    applyBoredCellsToActiveLayout(cells);
+    const begun = beginTunnelBore(this.tunnelBore, attempt, this.isRubbleCell);
+    this.tunnelBore = begun.bore;
+    this.openBoredSteps(begun.opened);
     adoptTunnelBoringFacing(this.world, attempt.direction);
-    this.emit({ type: "resetBoard" });
     this.recorder.activation("tunnelBoring");
   }
 
