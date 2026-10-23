@@ -1,7 +1,6 @@
 import type { World } from "bitecs";
 import { addScentLingers, tickScentLingers, type ScentLinger } from "../../domain/scarecrow";
 import { scarecrowEffects, type RunUpgrades, type UpgradeId } from "../../domain/upgrades";
-import { cellCenterX, cellCenterY, getActiveLayout } from "../../domain/maze";
 import type { ScentField } from "./ghostAi";
 import { fruitTiles } from "./collectFruit";
 
@@ -45,7 +44,12 @@ export function leaveScent(
   return { ...state, scentLingers: addScentLingers(state.scentLingers, picked, lingerMs) };
 }
 
-export type ScentSprite = { x: number; y: number; radiusPx: number; remainingMs: number | null };
+export type ScentSprite = {
+  col: number;
+  row: number;
+  radiusTiles: number;
+  remainingMs: number | null;
+};
 
 export function scentSprites(
   owned: readonly UpgradeId[],
@@ -56,14 +60,8 @@ export function scentSprites(
   if (radiusTiles === null) {
     return [];
   }
-  const radiusPx = radiusTiles * getActiveLayout().tileSize;
-  const at = (zone: { col: number; row: number }) => ({
-    x: cellCenterX(zone.col),
-    y: cellCenterY(zone.row),
-    radiusPx,
-  });
   return [
-    ...fruitTiles(world).map((zone) => ({ ...at(zone), remainingMs: null })),
-    ...lingers.map((zone) => ({ ...at(zone), remainingMs: zone.remainingMs })),
+    ...fruitTiles(world).map(({ col, row }) => ({ col, row, radiusTiles, remainingMs: null })),
+    ...lingers.map(({ col, row, remainingMs }) => ({ col, row, radiusTiles, remainingMs })),
   ];
 }

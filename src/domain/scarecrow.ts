@@ -1,19 +1,20 @@
 export const SCARECROW_RADIUS_TILES = 4;
 export const SCARECROW_LINGER_MS = 5000;
 export const SCARECROW_LINGER_BLINK_MS = 1000;
-export const SCARECROW_COLOR = 0xc8d85a;
-export const SCARECROW_RING_COUNT = 3;
-export const SCARECROW_WAVE_POINTS = 48;
-export const SCARECROW_WAVE_LOBES = 6;
-export const SCARECROW_WAVE_AMPLITUDE_PX = 2;
-export const SCARECROW_WAVE_SPEED = 0.003;
-export const SCARECROW_RING_ALPHA = 0.85;
-export const SCARECROW_RING_FADE_PER_RING = 0.2;
+export const SCARECROW_COLOR = 0xa8b860;
+export const SCARECROW_PIXEL_PX = 2;
+export const SCARECROW_WAVE_AMPLITUDE_PX = 4;
+export const SCARECROW_WAVE_LENGTH_PX = 24;
+export const SCARECROW_WAFT_PX_PER_MS = 0.02;
+export const SCARECROW_BASE_ALPHA = 0.42;
+export const SCARECROW_STRAND_COUNT = 2;
+export const SCARECROW_FAR_ALPHA_MUL = 0.3;
 
 export type ScentZone = { col: number; row: number };
 export type ScentLinger = ScentZone & { remainingMs: number };
 
-export type ScentWavePoint = { x: number; y: number };
+export type ScentCell = { col: number; row: number; dist: number };
+export type ScentPixel = { x: number; y: number; size: number; alpha: number };
 
 function distSq(a: ScentZone, col: number, row: number): number {
   return (a.col - col) ** 2 + (a.row - row) ** 2;
@@ -57,25 +58,91 @@ export function scentLingerAlphaMul(remainingMs: number, timeMs: number): number
   return Math.floor(timeMs / 100) % 2 === 0 ? 1 : 0.35;
 }
 
-export function scentWavePoints(
-  cx: number,
-  cy: number,
-  radiusPx: number,
-  ring: number,
-  timeMs: number,
-): ScentWavePoint[] {
-  const ringRadius = radiusPx * (1 - ring * 0.18);
-  const phase = timeMs * SCARECROW_WAVE_SPEED * (ring % 2 === 0 ? 1 : -1) + ring;
-  const points: ScentWavePoint[] = [];
-  for (let i = 0; i < SCARECROW_WAVE_POINTS; i += 1) {
-    const angle = (i / SCARECROW_WAVE_POINTS) * Math.PI * 2;
-    const r =
-      ringRadius + Math.sin(angle * SCARECROW_WAVE_LOBES + phase) * SCARECROW_WAVE_AMPLITUDE_PX;
-    points.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
+export function scentCells(
+  zone: ScentZone,
+  radiusTiles: number,
+  walkable: (col: number, row: number) => boolean,
+): ScentCell[] {
+  const limit = radiusTiles * radiusTiles;
+  const seen = new Set<string>([`${zone.col},${zone.row}`]);
+  const cells: ScentCell[] = [];
+  const queue: ScentZone[] = [zone];
+  while (queue.length > 0) {
+    const cell = queue.shift()!;
+    cells.push({ ...cell, dist: Math.sqrt(distSq(zone, cell.col, cell.row)) });
+    for (const [dc, dr] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const next = { col: cell.col + dc, row: cell.row + dr };
+      const key = `${next.col},${next.row}`;
+      if (
+        !seen.has(key) &&
+        distSq(zone, next.col, next.row) <= limit &&
+        walkable(next.col, next.row)
+      ) {
+        seen.add(key);
+        queue.push(next);
+      }
+    }
   }
-  return points;
+  return cells;
 }
 
-export function scentRingAlpha(ring: number): number {
-  return Math.max(0, SCARECROW_RING_ALPHA - ring * SCARECROW_RING_FADE_PER_RING);
+export function scentPixels(
+  zone: ScentZone,
+  cells: readonly ScentCell[],
+  radiusTiles: number,
+  tileSize: number,
+  originX: number,
+  originY: number,
+  timeMs: number,
+  walkable: (col: number, row: number) => boolean,
+): ScentPixel[] {
+  const pixels: ScentPixel[] = [];
+  const steps = Math.floor(tileSize / SCARECROW_PIXEL_PX);
+  const half = SCARECROW_PIXEL_PX / 2;
+  const waft = timeMs * SCARECROW_WAFT_PX_PER_MS;
+  const wave = (alongPx: number, strand: number): number =>
+    Math.round(
+      (Math.sin(((alongPx - waft) * Math.PI * 2) / SCARECROW_WAVE_LENGTH_PX + strand * Math.PI) *
+        SCARECROW_WAVE_AMPLITUDE_PX) /
+        SCARECROW_PIXEL_PX,
+    ) * SCARECROW_PIXEL_PX;
+  for (const cell of cells) {
+    const alpha =
+      SCARECROW_BASE_ALPHA * (1 - (1 - SCARECROW_FAR_ALPHA_MUL) * (cell.dist / radiusTiles));
+    const cx = originX + cell.col * tileSize + tileSize / 2;
+    const cy = originY + cell.row * tileSize + tileSize / 2;
+    const zx = originX + zone.col * tileSize + tileSize / 2;
+    const zy = originY + zone.row * tileSize + tileSize / 2;
+    const horizontal = walkable(cell.col - 1, cell.row) || walkable(cell.col + 1, cell.row);
+    const vertical = walkable(cell.col, cell.row - 1) || walkable(cell.col, cell.row + 1);
+    for (let strand = 0; strand < SCARECROW_STRAND_COUNT; strand += 1) {
+      for (let i = 0; i < steps; i += 1) {
+        const along = (i - steps / 2) * SCARECROW_PIXEL_PX + half;
+        if (horizontal) {
+          const x = cx + along;
+          pixels.push({
+            x: x - half,
+            y: cy + wave(Math.abs(x - zx), strand) - half,
+            size: SCARECROW_PIXEL_PX,
+            alpha,
+          });
+        }
+        if (vertical) {
+          const y = cy + along;
+          pixels.push({
+            x: cx + wave(Math.abs(y - zy), strand) - half,
+            y: y - half,
+            size: SCARECROW_PIXEL_PX,
+            alpha,
+          });
+        }
+      }
+    }
+  }
+  return pixels;
 }

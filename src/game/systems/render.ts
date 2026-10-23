@@ -1,9 +1,8 @@
 import {
   SCARECROW_COLOR,
-  SCARECROW_RING_COUNT,
+  scentCells,
   scentLingerAlphaMul,
-  scentRingAlpha,
-  scentWavePoints,
+  scentPixels,
 } from "../../domain/scarecrow";
 import type { ScentSprite } from "./scarecrow";
 import { hasComponent, query, type World } from "bitecs";
@@ -15,6 +14,7 @@ import {
   cellOriginX,
   cellOriginY,
   getActiveLayout,
+  isWalkable,
   isSolid,
   playerDisplaySize,
   pelletDisplaySize,
@@ -1821,14 +1821,28 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
 
     scentGraphics.clear();
-    for (const scent of opts?.scent ?? []) {
-      const blink = scentLingerAlphaMul(scent.remainingMs ?? Infinity, scene.time.now);
-      for (let ring = 0; ring < SCARECROW_RING_COUNT; ring += 1) {
-        scentGraphics.lineStyle(2, SCARECROW_COLOR, scentRingAlpha(ring) * blink);
-        strokePolyline(
-          scentGraphics,
-          scentWavePoints(scent.x, scent.y, scent.radiusPx, ring, scene.time.now),
-        );
+    const scents = opts?.scent ?? [];
+    if (scents.length > 0) {
+      const { tileSize } = getActiveLayout();
+      const originX = cellCenterX(0) - tileSize / 2;
+      const originY = cellCenterY(0) - tileSize / 2;
+      for (const scent of scents) {
+        const zone = { col: scent.col, row: scent.row };
+        const blink = scentLingerAlphaMul(scent.remainingMs ?? Infinity, scene.time.now);
+        const cells = scentCells(zone, scent.radiusTiles, isWalkable);
+        for (const px of scentPixels(
+          zone,
+          cells,
+          scent.radiusTiles,
+          tileSize,
+          originX,
+          originY,
+          scene.time.now,
+          isWalkable,
+        )) {
+          scentGraphics.fillStyle(SCARECROW_COLOR, px.alpha * blink);
+          scentGraphics.fillRect(px.x, px.y, px.size, px.size);
+        }
       }
     }
 
