@@ -2397,4 +2397,23 @@ describe("Sonic Boom (LEARN)", () => {
     sim.toggleUpgrade("passiveSonicBoom");
     expect(sim["learnUpgrades"].sonicStuns).toEqual([]);
   });
+  it("echoes down a side hallway when Plus crosses a junction at top speed", () => {
+    const sim = boomSim("passiveSonicBoomPlus");
+    const layout = getActiveLayout();
+    const open = (c: number, r: number): boolean => !layout.playerSolids[r]?.[c];
+    let spot: { col: number; row: number } | null = null;
+    for (let row = 2; row < layout.rows - 2 && spot === null; row += 1) {
+      for (let col = 2; col < layout.cols - 2 && spot === null; col += 1) {
+        if (open(col, row) && open(col - 1, row) && open(col + 1, row) && open(col, row + 1)) {
+          spot = { col, row };
+        }
+      }
+    }
+    const player = query(sim.world, [Player, Position])[0]!;
+    Position.x[player] = cellCenterX(spot!.col);
+    Position.y[player] = cellCenterY(spot!.row);
+    Facing.direction[player] = DIRECTION.right;
+    const events = [sim.step(NO_KEYS_HELD, FRAME_MS), sim.step(NO_KEYS_HELD, FRAME_MS)].flat();
+    expect(events.some((event) => event.type === "sonicBoomEcho")).toBe(true);
+  });
 });

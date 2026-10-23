@@ -522,7 +522,11 @@ import {
   sonicStunRemainingMs,
   tickSonicStuns,
 } from "../../domain/sonicBoom";
-import { movingOverClearedTile, sonicBoomWorldTargets } from "../systems/sonicBoom";
+import {
+  SonicBoomEchoes,
+  movingOverClearedTile,
+  sonicBoomWorldTargets,
+} from "../systems/sonicBoom";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import { programmerQueueSlots } from "../../domain/programmer";
@@ -689,6 +693,7 @@ export class PlaySim {
   private timedTunnelGatedRow: number | null = null;
   private timedTunnelElapsedMs = 0;
   private readonly ghostTraction = new GhostTractionState();
+  private readonly sonicEchoes = new SonicBoomEchoes();
   private lavaZone: LavaZone | null = null;
   private lavaElapsedMs = 0;
   private lavaStarted = false;
@@ -2811,6 +2816,7 @@ export class PlaySim {
   private startBoard(layoutOverride: BoardOverride | null = null): void {
     this.resetStreak();
     this.ghostTraction.reset();
+    this.sonicEchoes.reset();
     this.mirrorPop = null;
     this.deathsThisBoard = 0;
     this.elroySuppressed = false;
@@ -4257,10 +4263,18 @@ export class PlaySim {
 
   private sonicBoom(): void {
     const owned = this.effectiveUpgrades();
-    if (
-      !atTopSpeed(owned, this.speedTrailActive(), movingOverClearedTile(this.world)) ||
-      this.death !== null
-    ) {
+    const atSpeed =
+      this.death === null &&
+      atTopSpeed(
+        owned,
+        this.speedTrailActive(),
+        movingOverClearedTile(this.world),
+        floatingZoneEffect(owned, this.playerSpeedZone()) === "fast",
+      );
+    for (const echo of this.sonicEchoes.step(this.world, owned, atSpeed)) {
+      this.emit({ type: "sonicBoomEcho", ...echo });
+    }
+    if (!atSpeed) {
       return;
     }
     this.runUpgrades = applySonicStuns(
@@ -4361,6 +4375,7 @@ export class PlaySim {
 
   private resetAfterLifeLoss(): void {
     this.ghostTraction.reset();
+    this.sonicEchoes.reset();
     this.lavaElapsedMs = 0;
     this.lavaStarted = false;
     this.resetHyperspeedMovement();

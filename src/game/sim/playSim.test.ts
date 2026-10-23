@@ -9889,7 +9889,7 @@ describe("Sonic Boom", () => {
     expect(sim["runUpgrades"].sonicStuns).toEqual([]);
   });
 
-  it("Plus stuns a ghost down a side hallway of a junction, base does not", () => {
+  function junctionSpot(): { col: number; row: number; sc: number; sr: number } {
     const layout = getActiveLayout();
     const open = (c: number, r: number): boolean => !layout.playerSolids[r]?.[c];
     const spots = [] as { col: number; row: number; sc: number; sr: number }[];
@@ -9913,7 +9913,11 @@ describe("Sonic Boom", () => {
         }
       }
     }
-    const spot = spots[0]!;
+    return spots[0]!;
+  }
+
+  it("Plus stuns a ghost down a side hallway of a junction, base does not", () => {
+    const spot = junctionSpot();
     const run = (id: "passiveSonicBoom" | "passiveSonicBoomPlus"): number => {
       const { sim, ghost } = boomSim([id]);
       sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
@@ -9926,5 +9930,38 @@ describe("Sonic Boom", () => {
     };
     expect(run("passiveSonicBoom")).toBe(0);
     expect(run("passiveSonicBoomPlus")).toBe(1);
+  });
+  function crossJunction(
+    id: "passiveSonicBoom" | "passiveSonicBoomPlus",
+    atSpeed: Partial<{ speedBurstRemainingMs: number }>,
+  ): { echoes: SimEvent[]; sim: PlaySim } {
+    const spot = junctionSpot();
+    const { sim } = boomSim([id]);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], ...atSpeed };
+    const player = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
+    Facing.direction[player] = DIRECTION.right;
+    const echoes = runFrames(sim, 3).filter((event) => event.type === "sonicBoomEcho");
+    return { echoes, sim };
+  }
+
+  it("Plus echoes down each side hallway once per junction while at top speed", () => {
+    const { echoes } = crossJunction("passiveSonicBoomPlus", { speedBurstRemainingMs: 3000 });
+    expect(echoes.length).toBeGreaterThan(0);
+    expect(echoes.every((e) => e.type === "sonicBoomEcho" && e.tiles === 4)).toBe(true);
+    expect(new Set(echoes.map((e) => JSON.stringify(e))).size).toBe(echoes.length);
+  });
+
+  it("does not echo at base, or below top speed", () => {
+    expect(crossJunction("passiveSonicBoom", { speedBurstRemainingMs: 3000 }).echoes).toEqual([]);
+    expect(crossJunction("passiveSonicBoomPlus", {}).echoes).toEqual([]);
+  });
+
+  it("counts a fast speed zone as top speed", () => {
+    const { sim, ghost } = boomSim(["passiveSonicBoom"]);
+    nearPlayer(sim, ghost);
+    sim["playerSpeedZone"] = () => "fast";
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.sonicBoomStunMs).toBeGreaterThan(0);
   });
 });

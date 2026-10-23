@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  MAZE_COLS,
-  MAZE_ROWS,
-  TILE_SIZE_PX,
-  cellCenterX,
-  cellCenterY,
-  type SolidGrid,
-} from "./maze";
+import { MAZE_COLS, MAZE_ROWS, TILE_SIZE, cellCenterX, cellCenterY, type SolidGrid } from "./maze";
 import {
   applySonicStuns,
   atTopSpeed,
+  sonicBoomBranches,
   sonicBoomStunMs,
   sonicBoomTargets,
   sonicStunRemainingMs,
@@ -46,8 +40,8 @@ const ghost = (eid: number, col: number, row: number) => ({ eid, ...at(col, row)
 
 describe("Sonic Boom", () => {
   it("stuns a ghost within 2 tiles and not beyond it", () => {
-    const near = { eid: 1, x: at(C, R).x + TILE_SIZE_PX * 2, y: at(C, R).y };
-    const far = { eid: 2, x: at(C, R).x + TILE_SIZE_PX * 2.5, y: at(C, R).y };
+    const near = { eid: 1, x: at(C, R).x + TILE_SIZE * 2, y: at(C, R).y };
+    const far = { eid: 2, x: at(C, R).x + TILE_SIZE * 2.5, y: at(C, R).y };
     expect(sonicBoomTargets(["passiveSonicBoom"], player(C, R, 1, 0), [near, far], CROSS)).toEqual([
       1,
     ]);
@@ -130,11 +124,11 @@ describe("Sonic Boom", () => {
   });
 
   it("counts a blur trail or Afterburner on a cleared tile as top speed", () => {
-    expect(atTopSpeed([], true, false)).toBe(true);
-    expect(atTopSpeed(["passiveAfterburner"], false, true)).toBe(true);
-    expect(atTopSpeed(["passiveAfterburnerPlus"], false, true)).toBe(true);
-    expect(atTopSpeed(["passiveAfterburner"], false, false)).toBe(false);
-    expect(atTopSpeed([], false, true)).toBe(false);
+    expect(atTopSpeed([], true, false, false)).toBe(true);
+    expect(atTopSpeed(["passiveAfterburner"], false, true, false)).toBe(true);
+    expect(atTopSpeed(["passiveAfterburnerPlus"], false, true, false)).toBe(true);
+    expect(atTopSpeed(["passiveAfterburner"], false, false, false)).toBe(false);
+    expect(atTopSpeed([], false, true, false)).toBe(false);
   });
 
   it("shakes stunned ghosts sideways only", () => {
@@ -144,5 +138,19 @@ describe("Sonic Boom", () => {
     expect(Math.abs(offsets[7]!.x)).toBeGreaterThan(0);
     expect(offsets[7]!.y).toBe(0);
     expect(sonicStunSpriteOffsets(createRunUpgrades(), undefined)).toBeUndefined();
+  });
+
+  it("counts a fast speed zone as top speed", () => {
+    expect(atTopSpeed([], false, false, true)).toBe(true);
+  });
+
+  it("lists each side hallway of a junction up to the reach, never forward or back", () => {
+    const branches = sonicBoomBranches(["passiveSonicBoomPlus"], player(C, R, 1, 0), CROSS);
+    expect(branches.map((b) => [b.dc, b.dr, b.cells.length]).sort()).toEqual([
+      [0, -1, 4],
+      [0, 1, 4],
+    ]);
+    expect(sonicBoomBranches(["passiveSonicBoom"], player(C, R, 1, 0), CROSS)).toEqual([]);
+    expect(sonicBoomBranches(["passiveSonicBoomPlus"], player(C + 2, R, 1, 0), CROSS)).toEqual([]);
   });
 });

@@ -76,6 +76,7 @@ import { LearnSim } from "../sim/learnSim";
 import type { SimEvent } from "../sim/simEvents";
 import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
+import { playSonicBoomEcho } from "./sonicBoomEcho";
 import { playStreakPop } from "./streakPop";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
 import { drawUpgradeDrain, pulseUpgradeMarks, type UpgradeMark } from "./upgradeTimerFx";
@@ -329,6 +330,8 @@ export class LearnScene extends Phaser.Scene {
         pulseUpgradeMarks(this, this.upgradeMarks(), event.ids);
       } else if (event.type === "chaffBurst") {
         playChaffBurst(this, event);
+      } else if (event.type === "sonicBoomEcho") {
+        playSonicBoomEcho(this, event);
       } else if (event.type === "peelCrack") {
         this.playRender.queuePeelCrack(event.x, event.y);
       } else if (event.type === "turnSparks") {

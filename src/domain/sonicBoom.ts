@@ -1,5 +1,5 @@
 import {
-  TILE_SIZE_PX,
+  TILE_SIZE,
   cellCenterX,
   cellCenterY,
   isWalkable,
@@ -15,7 +15,7 @@ import {
   type UpgradeId,
 } from "./upgrades";
 
-type SonicBoomPlayer = { x: number; y: number; heading: { dc: number; dr: number } };
+export type SonicBoomPlayer = { x: number; y: number; heading: { dc: number; dr: number } };
 export type SonicBoomGhost = { eid: number; x: number; y: number };
 
 const STEPS: readonly { dc: number; dr: number }[] = [
@@ -29,8 +29,9 @@ export function atTopSpeed(
   owned: readonly UpgradeId[],
   trailActive: boolean,
   onClearedTile: boolean,
+  inFastZone: boolean,
 ): boolean {
-  return trailActive || (hasUpgrade(owned, "passiveAfterburner") && onClearedTile);
+  return trailActive || inFastZone || (hasUpgrade(owned, "passiveAfterburner") && onClearedTile);
 }
 
 export function sonicBoomStunMs(owned: readonly UpgradeId[]): number {
@@ -53,6 +54,39 @@ function sonicBoomHallwayTiles(owned: readonly UpgradeId[]): number {
   return 0;
 }
 
+export type SonicBoomBranch = { dc: number; dr: number; cells: { col: number; row: number }[] };
+
+export function sonicBoomBranches(
+  owned: readonly UpgradeId[],
+  player: SonicBoomPlayer,
+  solids?: SolidGrid,
+): SonicBoomBranch[] {
+  const reach = sonicBoomHallwayTiles(owned);
+  const col = worldToCol(player.x);
+  const row = worldToRow(player.y);
+  if (reach <= 0 || !isWalkable(col, row, solids)) {
+    return [];
+  }
+  const open = STEPS.filter((s) => isWalkable(col + s.dc, row + s.dr, solids));
+  if (open.length < 3) {
+    return [];
+  }
+  const { dc, dr } = player.heading;
+  return open
+    .filter((s) => !(s.dc === dc && s.dr === dr) && !(s.dc === -dc && s.dr === -dr))
+    .map((step) => {
+      const cells: SonicBoomBranch["cells"] = [];
+      for (
+        let n = 1;
+        n <= reach && isWalkable(col + step.dc * n, row + step.dr * n, solids);
+        n += 1
+      ) {
+        cells.push({ col: col + step.dc * n, row: row + step.dr * n });
+      }
+      return { dc: step.dc, dr: step.dr, cells };
+    });
+}
+
 export function sonicBoomTargets(
   owned: readonly UpgradeId[],
   player: SonicBoomPlayer,
@@ -62,38 +96,21 @@ export function sonicBoomTargets(
   if (!hasUpgrade(owned, "passiveSonicBoom")) {
     return [];
   }
-  const radius = SONIC_BOOM_RADIUS_TILES * TILE_SIZE_PX;
+  const radius = SONIC_BOOM_RADIUS_TILES * TILE_SIZE;
   const hit = new Set<number>();
   for (const ghost of ghosts) {
     if (Math.hypot(ghost.x - player.x, ghost.y - player.y) <= radius) {
       hit.add(ghost.eid);
     }
   }
-  const reach = sonicBoomHallwayTiles(owned);
-  const col = worldToCol(player.x);
-  const row = worldToRow(player.y);
-  if (reach > 0 && isWalkable(col, row, solids)) {
-    const open = STEPS.filter((s) => isWalkable(col + s.dc, row + s.dr, solids));
-    if (open.length >= 3) {
-      const { dc, dr } = player.heading;
-      for (const step of open) {
-        if ((step.dc === dc && step.dr === dr) || (step.dc === -dc && step.dr === -dr)) {
-          continue;
-        }
-        for (let n = 1; n <= reach; n += 1) {
-          const c = col + step.dc * n;
-          const r = row + step.dr * n;
-          if (!isWalkable(c, r, solids)) {
-            break;
-          }
-          for (const ghost of ghosts) {
-            if (
-              Math.abs(ghost.x - cellCenterX(c)) <= TILE_SIZE_PX / 2 &&
-              Math.abs(ghost.y - cellCenterY(r)) <= TILE_SIZE_PX / 2
-            ) {
-              hit.add(ghost.eid);
-            }
-          }
+  for (const { cells } of sonicBoomBranches(owned, player, solids)) {
+    for (const { col, row } of cells) {
+      for (const ghost of ghosts) {
+        if (
+          Math.abs(ghost.x - cellCenterX(col)) <= TILE_SIZE / 2 &&
+          Math.abs(ghost.y - cellCenterY(row)) <= TILE_SIZE / 2
+        ) {
+          hit.add(ghost.eid);
         }
       }
     }

@@ -287,7 +287,11 @@ import {
   sonicStunSpriteOffsets,
   tickSonicStuns,
 } from "../../domain/sonicBoom";
-import { movingOverClearedTile, sonicBoomWorldTargets } from "../systems/sonicBoom";
+import {
+  SonicBoomEchoes,
+  movingOverClearedTile,
+  sonicBoomWorldTargets,
+} from "../systems/sonicBoom";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
@@ -363,6 +367,7 @@ export class LearnSim {
   readonly random: RunRandom;
   private events: SimEvent[] = [];
   private readonly ghostTraction = new GhostTractionState();
+  private readonly sonicEchoes = new SonicBoomEchoes();
   private hyperspeedDirection: Direction | null = null;
   private turnCatchGraceMs = 0;
   private hyperspeedPellets: PlayerPelletFrame = emptyPlayerPelletFrame();
@@ -720,17 +725,21 @@ export class LearnSim {
             delta,
           )
         : [];
-    if (
-      atTopSpeed(
-        this.learnUpgrades.owned,
-        this.speedTrailActive(),
-        movingOverClearedTile(this.world),
-      )
-    ) {
+    const owned = this.learnUpgrades.owned;
+    const atSpeed = atTopSpeed(
+      owned,
+      this.speedTrailActive(),
+      movingOverClearedTile(this.world),
+      false,
+    );
+    for (const echo of this.sonicEchoes.step(this.world, owned, atSpeed)) {
+      this.events.push({ type: "sonicBoomEcho", ...echo });
+    }
+    if (atSpeed) {
       this.learnUpgrades = applySonicStuns(
         this.learnUpgrades,
-        sonicBoomWorldTargets(this.world, this.learnUpgrades.owned),
-        sonicBoomStunMs(this.learnUpgrades.owned),
+        sonicBoomWorldTargets(this.world, owned),
+        sonicBoomStunMs(owned),
       );
     }
 
