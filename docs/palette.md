@@ -42,6 +42,10 @@ New aesthetics (art, UI, effects, backgrounds, tints) default to this Game Boy C
 - `#008486`
 - `#ffde00`
 
+## Always allowed
+
+Ghost colours (`GHOST_COLOR_BY_KIND` in `src/domain/learnOverlay.ts`) and school colours (`SCHOOL_COLORS` in `src/game/scenes/upgradeChoiceModal.ts`) are part of the look even where they are not in the list above. Use them as they are for ghosts and schools; they are not divergences. A new ghost or school colour still follows the list unless you check in.
+
 ## How strictly
 
 Hold it loosely. The goal is a cohesive GBC look, not exact-match enforcement.
