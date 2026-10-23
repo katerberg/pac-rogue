@@ -1353,8 +1353,15 @@ describe("LearnSim upgrade demos", () => {
       }
       expect(posOf(player)).toEqual(stoppedAt);
       press(sim, dir);
-      expect(queueDirs(press(sim, dir))).toEqual([dir, dir, null, null, null]);
+      const events = press(sim, dir);
+      expect(queueDirs(events)).toEqual([dir, dir, null, null, null]);
       expect(posOf(player)).toEqual(stoppedAt);
+      const draw = events.find((event) => event.type === "draw")!;
+      const path = draw.type === "draw" ? draw.options.programmerPath : null;
+      expect(path?.[0]?.dir).toBe(dir);
+      expect(path?.[0]?.y).toBe(stoppedAt.y);
+      expect(path?.[0]?.x).not.toBe(stoppedAt.x);
+      expect(path?.at(-1)?.latest).toBe(true);
     });
 
     it("runs the program at 10x speed, then hands control back", () => {

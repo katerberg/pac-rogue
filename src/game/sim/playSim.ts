@@ -567,6 +567,7 @@ import { programmerQueueSlots } from "../../domain/programmer";
 import {
   followProgrammer,
   holdPlayerForProgramming,
+  programmerPath,
   recordProgrammerKeys,
 } from "../systems/programmer";
 import {
@@ -1234,6 +1235,10 @@ export class PlaySim {
       shields: this.runUpgrades.shieldsBanked,
       peels: bananaPeelSprites(this.peelBeads()),
       programmerQueue: this.programmerQueue(),
+      programmerPath:
+        this.death === null
+          ? programmerPath(this.world, this.runUpgrades.programmer, this.playerSolids())
+          : [],
       mirror: this.death === null ? this.twinRenderBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
     };

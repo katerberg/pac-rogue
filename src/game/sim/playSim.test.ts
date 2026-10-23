@@ -8031,6 +8031,30 @@ describe("Programmer", () => {
     expect(runningSpeed).toBeGreaterThan(Speed.px[playerEid(plain)]! * 9);
   });
 
+  it("marks where each recorded press leaves you in the hallway, until the run starts", () => {
+    const sim = start(["powerPelletProgrammer"]);
+    chompPowerPellet(sim);
+    const from = cell(sim);
+    const { program, turnCells } = plannedRun(from);
+    const pathCells = () =>
+      (sim.renderOptions().programmerPath ?? []).map((mark) => ({
+        col: worldToCol(mark.x),
+        row: worldToRow(mark.y),
+        dir: mark.dir,
+        latest: mark.latest,
+      }));
+    expect(pathCells()).toEqual([]);
+    for (const dir of program.slice(0, 4)) {
+      press(sim, dir);
+    }
+    expect(pathCells()).toEqual(
+      turnCells.map((at, index) => ({ ...at, dir: program[index], latest: index === 3 })),
+    );
+    press(sim, program[4]!);
+    expect(sim.snapshot().timers.programmer?.phase).toBe("running");
+    expect(pathCells()).toEqual([]);
+  });
+
   it("skips a blocked press and takes the next one at the same intersection", () => {
     const sim = start(["powerPelletProgrammer"]);
     chompPowerPellet(sim);
