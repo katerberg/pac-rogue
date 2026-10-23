@@ -202,7 +202,13 @@ import { dropWallOnReversal, playerSolidsWithWall, trackWallOccupancy } from "..
 import {
   adoptTunnelBoringFacing,
   applyBoredCellsToActiveLayout,
+  beginTunnelBore,
+  NO_TUNNEL_BORE,
+  openBoredCells,
+  stepTunnelBore,
   tryTunnelBoring,
+  tunnelBoringSpeedMul,
+  type TunnelBore,
 } from "../systems/tunnelBoring";
 import {
   followProgrammer,
@@ -362,6 +368,7 @@ export class LearnSim {
   private eatenHoldRemainingMs = 0;
   private tunnelBoringCharges = 0;
   private tunnelBoredCells: MazeTile[] = [];
+  private tunnelBore: TunnelBore = NO_TUNNEL_BORE;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private warpGlide: WarpGlide | null = null;
@@ -622,7 +629,9 @@ export class LearnSim {
               trinketPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
     applyPlayerSpeed(
       this.world,
-      rawPlayerSpeedMul * titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned),
+      rawPlayerSpeedMul *
+        titheSpeedMultiplier(this.learnUpgrades, this.learnUpgrades.owned) *
+        tunnelBoringSpeedMul(this.world, this.tunnelBore),
     );
     this.ghostTraction.tick(this.world, this.learnUpgrades.owned, delta);
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
@@ -636,7 +645,7 @@ export class LearnSim {
       frightenedGhostEids: frightenedGhostEids(this.learnUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.learnUpgrades.owned),
     });
-    this.tryBoreTunnel(prevKeys, keys);
+    this.stepTunnelBoring(prevKeys, keys, delta);
     const facingBeforeMove = playerFacing(this.world);
     const positionBeforeMove = this.playerPosition();
     const playerSolids = this.playerSolids();
@@ -828,6 +837,7 @@ export class LearnSim {
           : undefined,
         ghostWarpGlides: ghostWarpGlideSprites(this.ghostCornerWarps),
         spriteOffsets: shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
+        boreJunk: this.tunnelBore.junk,
         hauntedGhost: hauntedGhost(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
@@ -1012,6 +1022,15 @@ export class LearnSim {
     } else if (scheduled && lifetimeRatio > 1) {
       this.fruitPresence = extendFruitLifetime(this.fruitPresence, lifetimeRatio);
     }
+  }
+
+  tunnelBoringDebug(): { charges: number; openCells: number; junkCells: number; slowed: boolean } {
+    return {
+      charges: this.tunnelBoringCharges,
+      openCells: openBoredCells(this.tunnelBoredCells, this.tunnelBore).length,
+      junkCells: this.tunnelBore.junk.length,
+      slowed: tunnelBoringSpeedMul(this.world, this.tunnelBore) < 1,
+    };
   }
 
   playerWorldPosition(): { x: number; y: number } | null {
@@ -1215,7 +1234,16 @@ export class LearnSim {
     }
   }
 
-  private tryBoreTunnel(prevKeys: HeldKeys, keys: HeldKeys): void {
+  private openBoredSteps(opened: readonly MazeTile[]): void {
+    if (opened.length > 0) {
+      applyBoredCellsToActiveLayout(openBoredCells(this.tunnelBoredCells, this.tunnelBore));
+    }
+  }
+
+  private stepTunnelBoring(prevKeys: HeldKeys, keys: HeldKeys, delta: number): void {
+    const stepped = stepTunnelBore(this.world, this.tunnelBore, delta, () => false);
+    this.tunnelBore = stepped.bore;
+    this.openBoredSteps(stepped.opened);
     if (!hasUpgrade(this.learnUpgrades.owned, "passiveTunnelBoring")) {
       return;
     }
@@ -1225,9 +1253,10 @@ export class LearnSim {
     }
     this.tunnelBoredCells = mergeBoredCells(this.tunnelBoredCells, attempt.cells);
     this.tunnelBoringCharges = attempt.charges;
-    applyBoredCellsToActiveLayout(this.tunnelBoredCells);
+    const begun = beginTunnelBore(this.tunnelBore, attempt, () => false);
+    this.tunnelBore = begun.bore;
+    this.openBoredSteps(begun.opened);
     adoptTunnelBoringFacing(this.world, attempt.direction);
-    this.events.push({ type: "resetBoard" });
   }
 
   private stepStreakEngine(cells: readonly Cell[], delta: number): void {

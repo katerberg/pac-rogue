@@ -35,7 +35,12 @@ import {
   worldToRow,
   type MazeTile,
 } from "../../domain/maze";
-import { tunnelBoringCells } from "../../domain/tunnelBoring";
+import {
+  boreSteps,
+  TUNNEL_BORE_STEP_MS,
+  TUNNEL_BORING_SPEED_MUL,
+  tunnelBoringCells,
+} from "../../domain/tunnelBoring";
 import { ghostBaseSpeedRatio, speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
@@ -8883,6 +8888,111 @@ describe("collapsed tunnels", () => {
     expect(after.arts.map((art) => art.fresh)).toEqual(before.arts.map((art) => art.fresh));
   });
 
+  it("bores through rubble tile by tile, clearing its art as each tile opens and leaving a bigger pile", () => {
+    const sim = startSim(
+      { level: 5, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const rubble = new Set(
+      sim
+        .snapshot()
+        .collapse.chains.flat()
+        .map((cell) => `${cell.col},${cell.row}`),
+    );
+    const isRubble = (cell: MazeTile): boolean => rubble.has(`${cell.col},${cell.row}`);
+    const layout = getActiveLayout();
+    const dirs = [
+      { dx: 1, dy: 0, dir: "right" as const },
+      { dx: -1, dy: 0, dir: "left" as const },
+      { dx: 0, dy: 1, dir: "down" as const },
+      { dx: 0, dy: -1, dir: "up" as const },
+    ];
+    let spot: {
+      col: number;
+      row: number;
+      dir: (typeof dirs)[number]["dir"];
+      cells: MazeTile[];
+    } | null = null;
+    for (let row = 0; row < layout.rows && spot === null; row += 1) {
+      for (let col = 0; col < layout.cols && spot === null; col += 1) {
+        for (const step of dirs) {
+          const cells = isWalkable(col, row) ? tunnelBoringCells(col, row, step.dx, step.dy) : null;
+          if (cells !== null && cells.some(isRubble) && !cells.every(isRubble)) {
+            spot = { col, row, dir: step.dir, cells };
+            break;
+          }
+        }
+      }
+    }
+    expect(spot).not.toBeNull();
+    const { cells } = spot!;
+    const artPixels = (): number =>
+      sim.renderOptions().collapse!.arts.reduce((sum, art) => sum + art.pixels.length, 0);
+    const before = artPixels();
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot!.col), cellCenterY(spot!.row));
+    Facing.direction[eid] = DIRECTION.none;
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    const keys = new Set<string>();
+    for (
+      let frame = 0;
+      frame < 300 && sim.snapshot().tunnelBoring.openCells < cells.length;
+      frame += 1
+    ) {
+      runFrames(sim, 1, { keys: held(spot!.dir) });
+      keys.add(sim.renderOptions().collapse!.key);
+    }
+    expect(sim.snapshot().tunnelBoring.openCells).toBe(cells.length);
+    expect(keys.size).toBeGreaterThan(1);
+    expect(keys.size).toBeLessThanOrEqual(boreSteps(cells).length + 1);
+    expect(artPixels()).toBeLessThan(before);
+    const chips = sim.renderOptions().boreJunk!.map((pile) => pile.chips.length);
+    const rubbleChips = cells.map((cell, i) => (isRubble(cell) ? chips[i]! : 0)).filter(Boolean);
+    const wallChips = cells.map((cell, i) => (isRubble(cell) ? 0 : chips[i]!)).filter(Boolean);
+    expect(Math.min(...rubbleChips)).toBeGreaterThan(Math.max(...wallChips));
+  });
+
+  it("leaves the rubble art alone when a bore opens tiles nowhere near rubble", () => {
+    const sim = startSim(
+      { level: 5, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const chains = sim.snapshot().collapse.chains.flat();
+    const near = (cell: MazeTile): boolean =>
+      chains.some(
+        (link) => Math.abs(link.col - cell.col) <= 2 && Math.abs(link.row - cell.row) <= 2,
+      );
+    const layout = getActiveLayout();
+    let spot: { col: number; row: number; dir: "left" | "right" | "up" | "down" } | null = null;
+    for (let row = 0; row < layout.rows && spot === null; row += 1) {
+      for (let col = 0; col < layout.cols && spot === null; col += 1) {
+        for (const [dx, dy, dir] of [
+          [1, 0, "right"],
+          [-1, 0, "left"],
+          [0, 1, "down"],
+          [0, -1, "up"],
+        ] as const) {
+          const cells = isWalkable(col, row) ? tunnelBoringCells(col, row, dx, dy) : null;
+          if (cells !== null && !cells.some(near)) {
+            spot = { col, row, dir };
+            break;
+          }
+        }
+      }
+    }
+    expect(spot).not.toBeNull();
+    const before = sim.renderOptions().collapse!.key;
+    const eid = playerEid(sim);
+    teleportPlayer(sim, cellCenterX(spot!.col), cellCenterY(spot!.row));
+    Facing.direction[eid] = DIRECTION.none;
+    Velocity.x[eid] = 0;
+    Velocity.y[eid] = 0;
+    runFrames(sim, 60, { keys: held(spot!.dir) });
+    expect(sim.snapshot().tunnelBoring.openCells).toBeGreaterThan(0);
+    expect(sim.renderOptions().collapse!.key).toBe(before);
+  });
+
   it("is a level modifier that ?levelModifiers=0 turns off, and the boss board has none", () => {
     expect(chainsAt(7, { levelModifiers: false }).chains).toEqual([]);
     expect(startSim({ level: 7, levelModifiers: false }, SEED).renderOptions().collapse).toBeNull();
@@ -9774,7 +9884,7 @@ describe("Tunnel Boring", () => {
     return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
   }
 
-  function boreSpot(): {
+  function boreSpot(minSteps = 1): {
     col: number;
     row: number;
     dx: number;
@@ -9810,7 +9920,8 @@ describe("Tunnel Boring", () => {
                 layout.house[target.row + dy!]?.[target.col + dx!] ||
                 layout.door[target.row + dy!]?.[target.col + dx!],
             );
-            if (!nearHouse && tunnelBoringCells(col, row, step.dx, step.dy) !== null) {
+            const cells = nearHouse ? null : tunnelBoringCells(col, row, step.dx, step.dy);
+            if (cells !== null && boreSteps(cells).length >= minSteps) {
               return { col, row, ...step };
             }
           }
@@ -9820,8 +9931,7 @@ describe("Tunnel Boring", () => {
     throw new Error("no bore spot");
   }
 
-  function pressBore(sim: PlaySim): MazeTile[] {
-    const spot = boreSpot();
+  function pressBore(sim: PlaySim, spot = boreSpot()): MazeTile[] {
     const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
     const eid = playerEid(sim);
     teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
@@ -9898,20 +10008,98 @@ describe("Tunnel Boring", () => {
     Facing.direction[eid] = DIRECTION.none;
     runFrames(sim, 1, { keys: held(spot.dir) });
     expect(isWalkable(spot.col + spot.dx, spot.row + spot.dy)).toBe(false);
-    expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells: [] });
+    expect(sim.snapshot().tunnelBoring).toEqual({
+      charges: 0,
+      cells: [],
+      openCells: 0,
+      junkCells: 0,
+      slowed: false,
+    });
   });
 
-  it("while stopped, pressing into a wall punches through and spends the charge", () => {
+  it("a press spends the charge and opens only the first tile; the rest digs open tile by tile", () => {
     const sim = start();
     expect(sim.snapshot().tunnelBoring.charges).toBe(1);
-    const cells = pressBore(sim);
-    expect(cells.length).toBeGreaterThan(0);
-    expect(sim.snapshot().tunnelBoring).toEqual({ charges: 0, cells });
+    const spot = boreSpot(3);
+    const cells = pressBore(sim, spot);
+    const steps = boreSteps(cells);
+    expect(sim.snapshot().tunnelBoring).toMatchObject({
+      charges: 0,
+      cells,
+      openCells: steps[0]!.length,
+      junkCells: steps[0]!.length,
+    });
+    expect(steps[0]!.every((cell) => isWalkable(cell.col, cell.row))).toBe(true);
+    expect(
+      steps
+        .slice(1)
+        .flat()
+        .some((cell) => isWalkable(cell.col, cell.row)),
+    ).toBe(false);
+    const seen = new Set<number>();
+    for (
+      let frame = 0;
+      frame < 240 && sim.snapshot().tunnelBoring.openCells < cells.length;
+      frame += 1
+    ) {
+      runFrames(sim, 1, { keys: held(spot.dir) });
+      seen.add(sim.snapshot().tunnelBoring.openCells);
+    }
+    const boundaries = steps.map((_, i) => steps.slice(0, i + 1).flat().length);
+    expect([...seen].sort((a, b) => a - b)).toEqual(boundaries);
     for (const cell of cells) {
       expect(isWalkable(cell.col, cell.row)).toBe(true);
     }
+    expect(sim.snapshot().tunnelBoring.junkCells).toBe(cells.length);
     pressBore(sim);
     expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+  });
+
+  it("slows Dot-Man 25% while he is inside the bore, and not after he leaves it", () => {
+    const sim = start();
+    const spot = boreSpot(3);
+    const cells = pressBore(sim, spot);
+    const eid = playerEid(sim);
+    const inBore = (): boolean =>
+      cells.some(
+        (cell) =>
+          cell.col === worldToCol(Position.x[eid]!) && cell.row === worldToRow(Position.y[eid]!),
+      );
+    const frames: { inside: boolean; speed: number; slowed: boolean }[] = [];
+    for (let frame = 0; frame < 300; frame += 1) {
+      const inside = inBore();
+      runFrames(sim, 1, { keys: held(spot.dir) });
+      frames.push({ inside, speed: Speed.px[eid]!, slowed: sim.snapshot().tunnelBoring.slowed });
+      if (frames.some((f) => f.inside) && !inside) {
+        break;
+      }
+    }
+    const full = PLAYER_SPEED * speedLevelMultiplier(sim["levelIndex"]);
+    const exit = frames.length - 1;
+    expect(frames[exit - 1]!.inside).toBe(true);
+    expect(Math.max(...frames.filter((f) => f.inside).map((f) => f.speed))).toBeCloseTo(
+      full * TUNNEL_BORING_SPEED_MUL,
+      6,
+    );
+    expect(frames[0]!.speed).toBeGreaterThan(full * TUNNEL_BORING_SPEED_MUL);
+    expect(frames[exit]!.slowed).toBe(false);
+    expect(sim["tunnelBore"].progress).toBeNull();
+  });
+
+  it("keeps digging on its timer when Dot-Man backs away, and never slows him outside it", () => {
+    const sim = start();
+    const spot = boreSpot(3);
+    const cells = pressBore(sim, spot);
+    const back = ({ left: "right", right: "left", up: "down", down: "up" } as const)[spot.dir];
+    runFrames(sim, 1, { keys: NO_KEYS_HELD });
+    const steps = boreSteps(cells).length;
+    runFrames(sim, Math.ceil((steps * TUNNEL_BORE_STEP_MS) / FRAME_MS), { keys: held(back) });
+    expect(sim.snapshot().tunnelBoring).toMatchObject({
+      openCells: cells.length,
+      junkCells: cells.length,
+      slowed: false,
+    });
+    expect(sim["tunnelBore"].progress).toBeNull();
   });
 
   it("press-through adopts facing into the opened cell", () => {
@@ -9952,7 +10140,7 @@ describe("Tunnel Boring", () => {
     expect(sim.snapshot().tunnelBoring.charges).toBe(0);
   });
 
-  it("keeps bored cells on the next pool board with the same map", () => {
+  it("keeps the whole bore, even mid-dig, on the next board with the same map, but not its junk", () => {
     const sim = startSim(
       {
         level: 2,
@@ -9963,17 +10151,23 @@ describe("Tunnel Boring", () => {
       "tunnelPersist",
     );
     expect(sim.snapshot().layout.startsWith("pool-")).toBe(true);
-    const cells = pressBore(sim);
+    const cells = pressBore(sim, boreSpot(2));
     expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+    expect(sim.snapshot().tunnelBoring.openCells).toBeLessThan(cells.length);
     const mapKey = sim.snapshot().layout;
     sim["levelIndex"] = 3;
     sim["startBoard"](null);
     expect(sim.snapshot().layout).toBe(mapKey);
-    expect(sim.snapshot().tunnelBoring.cells).toEqual(cells);
+    expect(sim.snapshot().tunnelBoring).toMatchObject({
+      cells,
+      openCells: cells.length,
+      junkCells: 0,
+      charges: 1,
+    });
+    expect(sim.renderOptions().boreJunk).toEqual([]);
     for (const cell of cells) {
       expect(isWalkable(cell.col, cell.row)).toBe(true);
     }
-    expect(sim.snapshot().tunnelBoring.charges).toBe(1);
   });
 });
 

@@ -235,3 +235,69 @@ export function openBoredCellsOnLayout(layout: MazeLayout, cells: readonly MazeT
   }
   return layout;
 }
+
+export const TUNNEL_BORING_SPEED_MUL = 0.75;
+export const TUNNEL_BORE_STEP_MS = 360;
+
+export type BoreProgress = {
+  steps: readonly (readonly MazeTile[])[];
+  opened: number;
+  elapsedMs: number;
+  dx: number;
+  dy: number;
+};
+
+function adjacent(a: MazeTile, b: MazeTile): boolean {
+  return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+}
+
+export function boreSteps(cells: readonly MazeTile[]): MazeTile[][] {
+  const steps: MazeTile[][] = [];
+  cells.forEach((cell, index) => {
+    const prev = cells[index - 1];
+    const last = steps[steps.length - 1];
+    if (prev !== undefined && last !== undefined && !adjacent(prev, cell)) {
+      last.push(cell);
+    } else {
+      steps.push([cell]);
+    }
+  });
+  return steps;
+}
+
+export function startBore(cells: readonly MazeTile[], dx: number, dy: number): BoreProgress {
+  return { steps: boreSteps(cells), opened: 1, elapsedMs: 0, dx, dy };
+}
+
+function boreStepAt(progress: BoreProgress, at: MazeTile | null): number {
+  if (at === null) {
+    return -1;
+  }
+  return progress.steps.findIndex((step) =>
+    step.some((cell) => cell.col === at.col && cell.row === at.row),
+  );
+}
+
+export function advanceBore(
+  progress: BoreProgress,
+  deltaMs: number,
+  at: MazeTile | null,
+): BoreProgress {
+  const elapsedMs = progress.elapsedMs + deltaMs;
+  const timed = 1 + Math.floor(elapsedMs / TUNNEL_BORE_STEP_MS);
+  const reached = boreStepAt(progress, at) + 2;
+  const opened = Math.min(progress.steps.length, Math.max(progress.opened, timed, reached));
+  return { ...progress, elapsedMs, opened };
+}
+
+export function boreCellsOpened(progress: BoreProgress, fromStep = 0): MazeTile[] {
+  return progress.steps.slice(fromStep, progress.opened).flat();
+}
+
+export function boreSettled(progress: BoreProgress, at: MazeTile | null): boolean {
+  return progress.opened === progress.steps.length && boreStepAt(progress, at) < 0;
+}
+
+export function boringSpeedMultiplier(progress: BoreProgress | null, at: MazeTile | null): number {
+  return progress !== null && boreStepAt(progress, at) >= 0 ? TUNNEL_BORING_SPEED_MUL : 1;
+}
