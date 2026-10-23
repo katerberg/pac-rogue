@@ -59,6 +59,10 @@ function wouldCreateAdjacentHorizontalTunnel(row: number, layout: MazeLayout): b
   return false;
 }
 
+function isSinkholeCell(col: number, row: number, layout: MazeLayout): boolean {
+  return layout.ghostActiveSolids[row]?.[col] === false;
+}
+
 function punchSolidRun(
   startCol: number,
   startRow: number,
@@ -73,7 +77,7 @@ function punchSolidRun(
     if (isWalkable(col, row, layout.playerSolids)) {
       return { cells, hitCorridor: true, exitedMap: false };
     }
-    if (blocksGhostHouse({ col, row }, layout)) {
+    if (blocksGhostHouse({ col, row }, layout) || isSinkholeCell(col, row, layout)) {
       return null;
     }
     cells.push({ col, row });

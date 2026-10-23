@@ -9159,6 +9159,34 @@ describe("sinkhole", () => {
     }
   });
 
+  it("is never dug out by Tunnel Boring", () => {
+    const sim = startSim(
+      { level: 6, godMode: true, enableUpgrades: ["passiveTunnelBoring"] },
+      SEED,
+    );
+    const inChain = new Set(sim.snapshot().sinkhole.cells!.map(cellKey));
+    const layout = getActiveLayout();
+    let nextToHole = 0;
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const) {
+          if (!isWalkable(col, row, layout.playerSolids)) {
+            continue;
+          }
+          nextToHole += inChain.has(cellKey({ col: col + dx, row: row + dy })) ? 1 : 0;
+          const run = tunnelBoringCells(col, row, dx, dy, layout) ?? [];
+          expect(run.some((cell) => inChain.has(cellKey(cell)))).toBe(false);
+        }
+      }
+    }
+    expect(nextToHole).toBeGreaterThan(0);
+  });
+
   it("flags only the level-6 sinkhole as fresh and runs its opening clock to full length", () => {
     expect(sinkholeAt(6).fresh).toBe(true);
     expect(sinkholeAt(7).fresh).toBe(false);
