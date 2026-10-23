@@ -17,6 +17,7 @@ import { TUNING_KNOBS, type RangeKnob } from "./tuningKnobs";
 
 const TUNING = DEFAULT_SINKHOLE_TUNING;
 const TILE = TUNING.sinkholeArtTile;
+const MID = Math.floor(TILE / 2);
 const SINKHOLE_INTRO_MS = TUNING.sinkholeIntroMs;
 
 const found = MAZE_POOL.flatMap((map) => {
@@ -137,7 +138,7 @@ describe("buildSinkholeArt", () => {
     const height = sample.ascii.split("\n").length * TILE;
     const { grid } = paint(art, OPEN, width, height);
     for (const { col, row } of sample.chain) {
-      const centre = (row * TILE + TILE / 2) * width + col * TILE + TILE / 2;
+      const centre = (row * TILE + MID) * width + col * TILE + MID;
       expect(isVoid(grid.get(centre)), `cell ${col},${row}`).toBe(true);
     }
   });
@@ -170,7 +171,7 @@ describe("buildSinkholeArt", () => {
     const width = bent!.ascii.split("\n")[0]!.length * TILE;
     const { grid } = paint(built, OPEN, width, 0);
     for (const { col, row } of bent!.chain) {
-      expect(isVoid(grid.get((row * TILE + TILE / 2) * width + col * TILE + TILE / 2))).toBe(true);
+      expect(isVoid(grid.get((row * TILE + MID) * width + col * TILE + MID))).toBe(true);
     }
   });
 });
