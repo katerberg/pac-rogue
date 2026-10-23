@@ -31,6 +31,7 @@ import {
   clipSegmentToRect,
   easeToward,
   inkyReticleGoalPx,
+  playerAnchoredReticleGoalPx,
   targetDerivation,
   type PixelPoint,
   type PixelRect,
@@ -849,7 +850,7 @@ export class LearnScene extends Phaser.Scene {
     const reticleGoal =
       derivation.kind === "inky" && model.blinkyPx !== null
         ? inkyReticleGoalPx(model.blinkyPx, nearPlayer(derivation.pivot), tileGoal)
-        : tileGoal;
+        : playerAnchoredReticleGoalPx(kind, target, model.playerTile, playerPx, tileGoal);
     this.reticlePx = easeToward(this.reticlePx, reticleGoal, deltaMs);
     const reticle = {
       x: Math.min(cellCenterX(layout.cols - 1), Math.max(cellCenterX(0), this.reticlePx.x)),

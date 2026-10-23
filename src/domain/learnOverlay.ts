@@ -175,6 +175,30 @@ export function inkyReticleGoalPx(
   return Math.hypot(goal.x - tileGoal.x, goal.y - tileGoal.y) <= maxDrift ? goal : tileGoal;
 }
 
+export function playerAnchoredReticleGoalPx(
+  kind: GhostKindId,
+  target: GhostTarget,
+  player: GhostTarget & { facing: GhostDir },
+  playerPx: PixelPoint,
+  tileGoal: PixelPoint,
+): PixelPoint {
+  const dCol = target.col - player.col;
+  const dRow = target.row - player.row;
+  const onPlayer = dCol === 0 && dRow === 0;
+  const ahead = lookAheadTile(
+    player.col,
+    player.row,
+    player.facing,
+    Math.abs(dCol) + Math.abs(dRow),
+  );
+  const aheadOfPlayer =
+    kind === GHOST_KIND.pinky && ahead.col === target.col && ahead.row === target.row;
+  if (!onPlayer && !aheadOfPlayer) {
+    return tileGoal;
+  }
+  return { x: playerPx.x + dCol * TILE_SIZE, y: playerPx.y + dRow * TILE_SIZE };
+}
+
 export function easeToward(
   current: PixelPoint | null,
   goal: PixelPoint,

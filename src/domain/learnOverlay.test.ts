@@ -7,6 +7,7 @@ import {
   easeToward,
   inkyReticleGoalPx,
   LEARN_PATH_MAX_STEPS,
+  playerAnchoredReticleGoalPx,
   predictGhostPath,
   targetDerivation,
 } from "./learnOverlay";
@@ -195,6 +196,45 @@ describe("inkyReticleGoalPx", () => {
 
   it("falls back to the tile goal when the reflection strays far from it", () => {
     const goal = inkyReticleGoalPx({ x: 0, y: 0 }, { x: TILE_SIZE * 20, y: 0 }, tileGoal);
+    expect(goal).toEqual(tileGoal);
+  });
+});
+
+describe("playerAnchoredReticleGoalPx", () => {
+  const player = { col: 5, row: 5, facing: GHOST_DIR.right };
+  const playerPx = { x: 90.5, y: 88 };
+  const tileGoal = { x: 1, y: 2 };
+
+  it("follows the player's pixel position when the target is the player's tile", () => {
+    const goal = playerAnchoredReticleGoalPx(
+      GHOST_KIND.blinky,
+      { col: 5, row: 5 },
+      player,
+      playerPx,
+      tileGoal,
+    );
+    expect(goal).toEqual(playerPx);
+  });
+
+  it("keeps Pinky's look-ahead offset from the player's pixel position", () => {
+    const goal = playerAnchoredReticleGoalPx(
+      GHOST_KIND.pinky,
+      { col: 9, row: 5 },
+      player,
+      playerPx,
+      tileGoal,
+    );
+    expect(goal).toEqual({ x: playerPx.x + 4 * TILE_SIZE, y: playerPx.y });
+  });
+
+  it("leaves a fixed corner target on its tile", () => {
+    const goal = playerAnchoredReticleGoalPx(
+      GHOST_KIND.clyde,
+      { col: 0, row: 12 },
+      player,
+      playerPx,
+      tileGoal,
+    );
     expect(goal).toEqual(tileGoal);
   });
 });
