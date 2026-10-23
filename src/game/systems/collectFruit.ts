@@ -4,6 +4,7 @@ import type { FruitKind } from "../../domain/fruit";
 import { Drawable } from "../components/Drawable";
 import { Fruit } from "../components/Fruit";
 import { Player } from "../components/Player";
+import { worldToCol, worldToRow } from "../../domain/maze";
 import { Position } from "../components/Position";
 
 export function collectFruit(world: World, at?: { x: number; y: number }): number[] {
@@ -54,4 +55,12 @@ export function fruitPositions(world: World): { x: number; y: number }[] {
 
 export function fruitKindsOnBoard(world: World): FruitKind[] {
   return [...query(world, [Fruit])].map((eid) => Fruit.kind[eid] as FruitKind);
+}
+
+export function fruitTiles(world: World): { eid: number; col: number; row: number }[] {
+  return [...query(world, [Fruit, Position])].map((eid) => ({
+    eid,
+    col: worldToCol(Position.x[eid] ?? 0),
+    row: worldToRow(Position.y[eid] ?? 0),
+  }));
 }

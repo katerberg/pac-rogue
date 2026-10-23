@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SCARECROW_LINGER_MS, SCARECROW_RADIUS_TILES } from "./scarecrow";
 import { randomFromSeed } from "./mazeTiling";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
 import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
@@ -126,6 +127,7 @@ import {
   createRunUpgrades,
   eligibleUpgrades,
   fruitLifetimeMultiplier,
+  scarecrowEffects,
   fruitQuartersPerFruit,
   moneyTalksCost,
   type BaseUpgradeId,
@@ -271,6 +273,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveMartyr",
   "passivePossession",
   "passiveFloating",
+  "passiveScarecrow",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
@@ -1496,6 +1499,20 @@ describe("starting shield", () => {
   it("clamps the bank when revoked", () => {
     const plus = grantStartingShields(createRunUpgrades(["passiveStartingShieldPlus"]));
     expect(revokeUpgrade(plus, "passiveStartingShieldPlus").shieldsBanked).toBe(0);
+  });
+});
+
+describe("scarecrowEffects", () => {
+  it("is off by default, radius-only for base, and lingers for Plus", () => {
+    expect(scarecrowEffects([])).toEqual({ radiusTiles: null, lingerMs: null });
+    expect(scarecrowEffects(["passiveScarecrow"])).toEqual({
+      radiusTiles: SCARECROW_RADIUS_TILES,
+      lingerMs: null,
+    });
+    expect(scarecrowEffects(["passiveScarecrowPlus"])).toEqual({
+      radiusTiles: SCARECROW_RADIUS_TILES,
+      lingerMs: SCARECROW_LINGER_MS,
+    });
   });
 });
 

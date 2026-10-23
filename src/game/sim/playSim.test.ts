@@ -153,6 +153,10 @@ import { IDLE_INPUT, type SimInput } from "./simInput";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
+import { openGhostDirsAt } from "../../domain/ghostPath";
+import { clearUpgradeTimers } from "../../domain/upgrades";
+import { scentAwareCanEnter } from "../systems/ghostAi";
+import { scentFieldFor } from "../systems/scarecrow";
 
 const BOSS_STAGE_WAIT_FRAMES = Math.ceil(BOSS_STAGE_TOTAL_MS / FRAME_MS) + 30;
 
@@ -10453,5 +10457,86 @@ describe("Floating", () => {
 
   it("keeps the fast side boost when enhanced", () => {
     expect(laneRun(["passiveFloatingPlus"], "fast").effect).toBe("fast");
+  });
+});
+
+describe("Scarecrow", () => {
+  function start(enableUpgrades: UpgradeId[]): PlaySim {
+    return startSim({ level: 2, maze: "maze1", godMode: true, enableUpgrades });
+  }
+
+  function placeFruit(sim: PlaySim): number {
+    sim["spawnFruitEntity"](false);
+    return query(sim.world, [Fruit, Position])[0]!;
+  }
+
+  function eatFruit(sim: PlaySim, fruit: number): void {
+    teleportPlayer(sim, Position.x[fruit]!, Position.y[fruit]!);
+    runFrames(sim, 1);
+  }
+
+  it("draws no scent without the upgrade", () => {
+    const sim = start([]);
+    placeFruit(sim);
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("marks each fruit as a scent zone and drops it when the fruit is eaten", () => {
+    const sim = start(["passiveScarecrow"]);
+    const fruit = placeFruit(sim);
+    expect(sim.renderOptions().scent).toHaveLength(1);
+    eatFruit(sim, fruit);
+    expect(sim.renderOptions().scent).toEqual([]);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
+  });
+
+  it("keeps ghosts out of the radius by steering around it", () => {
+    const sim = start(["passiveScarecrow"]);
+    placeFruit(sim);
+    const field = scentFieldFor(sim["effectiveUpgrades"](), sim.world, []);
+    expect(field?.zones).toHaveLength(1);
+    const layout = getActiveLayout();
+    const zone = field!.zones[0]!;
+    const rules = ghostMovementRules(GHOST_PHASE.active);
+    const cells: { col: number; row: number }[] = [];
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        const dist = Math.hypot(col - zone.col, row - zone.row);
+        if (dist > 4 && dist <= 5) {
+          cells.push({ col, row });
+        }
+      }
+    }
+    const blockedSomewhere = cells.some(({ col, row }) => {
+      const x = cellCenterX(col);
+      const y = cellCenterY(row);
+      const plain = openGhostDirsAt(x, y, rules.solids, rules.canEnter);
+      const aware = scentAwareCanEnter(x, y, rules, field!);
+      const open = openGhostDirsAt(x, y, rules.solids, aware);
+      return open.length > 0 && open.length < plain.length;
+    });
+    expect(blockedSomewhere).toBe(true);
+  });
+
+  it("base Scarecrow leaves no scent after pickup", () => {
+    const sim = start(["passiveScarecrow"]);
+    eatFruit(sim, placeFruit(sim));
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("enhanced scent lingers 5s after pickup, then fades", () => {
+    const sim = start(["passiveScarecrowPlus"]);
+    eatFruit(sim, placeFruit(sim));
+    expect(sim.renderOptions().scent).toHaveLength(1);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBeGreaterThan(5000 - 2 * FRAME_MS);
+    runUntil(sim, () => sim.snapshot().timers.scarecrowScentMs === 0, 400);
+    expect(sim.renderOptions().scent).toEqual([]);
+  });
+
+  it("clears the lingering scent on life loss or level advance", () => {
+    const sim = start(["passiveScarecrowPlus"]);
+    eatFruit(sim, placeFruit(sim));
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
   });
 });

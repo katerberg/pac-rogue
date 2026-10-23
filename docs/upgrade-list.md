@@ -70,6 +70,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveMartyr` | Martyr (rare) | death | Dying fires every power-pellet effect you own. | Dying — or a Defy Death / Money Talks save — fires every power-pellet effect you own. |
 | `passivePossession` | Possession (rare) | death | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. | Dying: possess the ghost that caught you for 5s. Other ghosts turn blue with fear. Eat pellets and blue ghosts. That ghost is haunted for 5s after. |
 | `passiveFloating` | Floating | speed | Pass over lava and sinkholes unharmed. | Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely. |
+| `passiveScarecrow` | Scarecrow | harvest | Ghosts won't path within 4 tiles of fruit. | Ghosts won't path within 4 tiles of fruit, and the scent lingers 5 seconds after pickup. |
 | `lowSpeed` | Speed | neutral | +6% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +16% Dot-Man speed inside tunnels. Stacks. |  |
 | `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 16% slower inside tunnels. Stacks. |  |

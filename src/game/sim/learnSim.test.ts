@@ -531,6 +531,22 @@ describe("LearnSim upgrade demos", () => {
     expect(query(sim.world, [PowerPellet]).length).toBe(total);
   });
 
+  it("Scarecrow marks fruit as a scent zone and the Plus scent lingers after pickup", () => {
+    const scent = (events: SimEvent[]) => lastDrawOptions(events).scent;
+    const { sim, player } = setup("passiveScarecrow");
+    expect(scent(sim.step(NO_KEYS_HELD, FRAME_MS))).toHaveLength(1);
+    moveTo(player, posOf(query(sim.world, [Fruit, Position])[0]!));
+    expect(scent(sim.step(NO_KEYS_HELD, FRAME_MS))).toEqual([]);
+
+    const plus = setup("passiveScarecrow");
+    plus.sim.toggleEnhanced("passiveScarecrow");
+    moveTo(plus.player, posOf(query(plus.sim.world, [Fruit, Position])[0]!));
+    expect(scent(plus.sim.step(NO_KEYS_HELD, FRAME_MS))).toHaveLength(1);
+    moveTo(plus.player, { x: 0, y: 0 });
+    runMs(plus.sim, 5_500);
+    expect(plus.sim["learnUpgrades"].scentLingers).toEqual([]);
+  });
+
   it("Defy Death tints Maze-Man while armed by a power pellet", () => {
     const { sim, player } = setup("passiveDefyDeath");
     moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));

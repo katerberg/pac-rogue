@@ -484,7 +484,13 @@ import {
 } from "../systems/collectBodies";
 import { applyRemoteTransference } from "../systems/remoteTransference";
 import { wallPassSolids } from "../systems/wallPassSolids";
-import { fruitKindsOnBoard, fruitPositions, removeAllFruit } from "../systems/collectFruit";
+import {
+  fruitKindsOnBoard,
+  fruitPositions,
+  fruitTiles,
+  removeAllFruit,
+} from "../systems/collectFruit";
+import { leaveScent, scentFieldFor, scentSprites, tickScarecrow } from "../systems/scarecrow";
 import {
   countPellets,
   noRequiredPelletsLeft,
@@ -1189,6 +1195,7 @@ export class PlaySim {
       speedZones: this.speedZones,
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
+      scent: scentSprites(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
       pupilTarget: this.blinkyPupilTarget(),
       shields: this.runUpgrades.shieldsBanked,
       peels: bananaPeelSprites(this.peelTail),
@@ -1301,6 +1308,7 @@ export class PlaySim {
         titheMs: upgrades.titheRemainingMs,
         defyDeathMs: upgrades.defyDeathRemainingMs,
         chaffMs: upgrades.chaff?.remainingMs ?? 0,
+        scarecrowScentMs: Math.max(0, ...upgrades.scentLingers.map((linger) => linger.remainingMs)),
         hauntMs: Number.isFinite(upgrades.hauntRemainingMs) ? upgrades.hauntRemainingMs : -1,
         possessionMs: upgrades.possessionRemainingMs,
         wallDropMs:
@@ -1921,6 +1929,7 @@ export class PlaySim {
         this.runUpgrades.droppedWall,
         this.twinBody(),
         this.runUpgrades.chaff?.decoys,
+        scentFieldFor(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
       );
       frightenedGhostAi(
         this.world,
@@ -1950,6 +1959,7 @@ export class PlaySim {
       this.warpPlayer();
     }
 
+    this.runUpgrades = tickScarecrow(this.runUpgrades, this.effectiveUpgrades(), delta);
     const stacksFruit = fruitStacksSideBySide(this.effectiveUpgrades());
     this.msSinceFruitSpawn += Math.max(0, delta);
     this.flushPendingCornucopia();
@@ -1973,10 +1983,17 @@ export class PlaySim {
       this.spawnFruitEntity(stacksFruit);
     }
 
+    const fruitTilesBefore = fruitTiles(this.world);
     const removedFruitEids = collectFruitForBodies(this.world, this.twinPosition());
     for (const eid of removedFruitEids) {
       this.releaseDrawable(eid);
     }
+    this.runUpgrades = leaveScent(
+      this.runUpgrades,
+      this.effectiveUpgrades(),
+      removedFruitEids,
+      fruitTilesBefore,
+    );
     this.noteFruitRemoved(removedFruitEids);
     this.collectSlotPickupEntities();
     const fruitEaten = removedFruitEids.length + this.hyperspeedFruitEaten;

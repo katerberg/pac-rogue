@@ -29,6 +29,7 @@ import {
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
+import { scentBlocksStep, type ScentZone } from "../../domain/scarecrow";
 import { decoyFacing, decoyTile, nearestDecoy, type ChaffDecoy } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import { BossGhost } from "../components/BossGhost";
@@ -196,6 +197,32 @@ export function bossAwareCanEnter(
   return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
 }
 
+export type ScentField = { zones: readonly ScentZone[]; radiusTiles: number };
+
+export function scentAwareCanEnter(
+  x: number,
+  y: number,
+  rules: ReturnType<typeof ghostMovementRules>,
+  field: ScentField,
+): GhostCanEnter {
+  const from = { col: worldToCol(x), row: worldToRow(y) };
+  const blocked = (dx: number, dy: number) =>
+    scentBlocksStep(
+      field.zones,
+      from,
+      { col: from.col + dx, row: from.row + dy },
+      field.radiusTiles,
+    );
+  const anyFree = openGhostDirsAt(x, y, rules.solids, rules.canEnter).some((dir) => {
+    const { dx, dy } = ghostDirStep(dir);
+    return !blocked(dx, dy);
+  });
+  if (!anyFree) {
+    return rules.canEnter;
+  }
+  return (px, py, dx, dy) => rules.canEnter(px, py, dx, dy) && !blocked(dx, dy);
+}
+
 export function ghostAi(
   world: World,
   mode: GhostAiMode,
@@ -207,6 +234,7 @@ export function ghostAi(
   droppedWall: DroppedWall | null = null,
   twin: BodyTile | null = null,
   decoys: readonly ChaffDecoy[] = [],
+  scent: ScentField | null = null,
 ): void {
   const ctx = ghostAiContext(world, tuning, decoys);
 
@@ -250,10 +278,14 @@ export function ghostAi(
     const storedFacing = facingNow;
     const intent = (Input.direction[eid] ?? DIRECTION.none) as GhostDir;
     const facing = storedFacing !== DIRECTION.none ? storedFacing : intent;
-    const canEnter =
+    const bossCanEnter =
       isBossGhost && phase === GHOST_PHASE.active
         ? bossAwareCanEnter(world, eid, x, y, rules)
         : rules.canEnter;
+    const canEnter =
+      scent !== null && scent.zones.length > 0 && phase === GHOST_PHASE.active
+        ? scentAwareCanEnter(x, y, { ...rules, canEnter: bossCanEnter }, scent)
+        : bossCanEnter;
     const next = pickGhostDirection({
       x,
       y,

@@ -1,3 +1,11 @@
+import {
+  SCARECROW_COLOR,
+  SCARECROW_RING_COUNT,
+  scentLingerAlphaMul,
+  scentRingAlpha,
+  scentWavePoints,
+} from "../../domain/scarecrow";
+import type { ScentSprite } from "./scarecrow";
 import { hasComponent, query, type World } from "bitecs";
 import Phaser from "phaser";
 import {
@@ -690,6 +698,7 @@ export type RenderOptions = {
   speedZones?: readonly SpeedZone[];
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
+  scent?: ScentSprite[];
   pupilTarget?: { eids: number[]; x: number; y: number } | null;
   shields?: number;
   peels?: { x: number; y: number }[];
@@ -892,6 +901,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const sinkholeGraphics = scene.add.graphics();
   const boreJunkGraphics = scene.add.graphics();
   const chainGraphics = scene.add.graphics();
+  const scentGraphics = scene.add.graphics();
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
   const mirrorDustGraphics = scene.add.graphics();
@@ -1807,6 +1817,18 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             lightningPoints(chain, scene.time.now, amplitude, stroke.strand),
           );
         }
+      }
+    }
+
+    scentGraphics.clear();
+    for (const scent of opts?.scent ?? []) {
+      const blink = scentLingerAlphaMul(scent.remainingMs ?? Infinity, scene.time.now);
+      for (let ring = 0; ring < SCARECROW_RING_COUNT; ring += 1) {
+        scentGraphics.lineStyle(2, SCARECROW_COLOR, scentRingAlpha(ring) * blink);
+        strokePolyline(
+          scentGraphics,
+          scentWavePoints(scent.x, scent.y, scent.radiusPx, ring, scene.time.now),
+        );
       }
     }
 
