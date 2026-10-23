@@ -306,9 +306,9 @@ export const TITHE_ENHANCED_MS = 8000;
 export const DEFY_DEATH_ENHANCED_MS = 8000;
 export const WARP_TOP_INVULN_MS = 2000;
 export const AFTERBURNER_ENHANCED_MUL = 1.5;
-export const SONIC_BOOM_RADIUS_TILES = 1;
+export const SONIC_BOOM_RADIUS_TILES = 2;
 export const SONIC_BOOM_STUN_MS = 1000;
-export const SONIC_BOOM_HALLWAY_TILES = 3;
+export const SONIC_BOOM_HALLWAY_TILES = 4;
 export const MOLE_ENHANCED_PELLET_MUL = 1.3;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
@@ -1148,13 +1148,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveSonicBoom",
     label: "Sonic Boom",
     school: "speed",
-    description: "At top speed, passing within a tile of a ghost stuns it briefly.",
+    description: "At top speed, passing within 2 tiles of a ghost stuns it briefly.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote:
-        "Sonic Boom also stuns ghosts up to 3 tiles down side hallways at T and X junctions.",
+        "Sonic Boom also stuns ghosts up to 4 tiles down side hallways at T and X junctions.",
       description:
-        "At top speed, passing within a tile of a ghost stuns it briefly. Booms also ripple 3 tiles down side hallways at T and X junctions.",
+        "At top speed, passing within 2 tiles of a ghost stuns it briefly. Booms also ripple 4 tiles down side hallways at T and X junctions.",
       sonicBoomHallwayTiles: SONIC_BOOM_HALLWAY_TILES,
     },
     sonicBoomStunMs: SONIC_BOOM_STUN_MS,

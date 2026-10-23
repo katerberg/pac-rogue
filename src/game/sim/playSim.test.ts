@@ -9818,7 +9818,7 @@ describe("Sonic Boom", () => {
   }
 
   it.each(["passiveSonicBoom", "passiveSonicBoomPlus"] as const)(
-    "%s stuns a ghost passed within a tile at top speed",
+    "%s stuns a ghost passed within 2 tiles at top speed",
     (id) => {
       const { sim, ghost } = boomSim([id]);
       sim["runUpgrades"] = { ...sim["runUpgrades"], speedBurstRemainingMs: 3000 };
@@ -9902,7 +9902,12 @@ describe("Sonic Boom", () => {
           [0, -1],
           [0, 1],
         ] as const) {
-          if (open(col + sc, row + sr) && open(col + sc * 2, row + sr * 2)) {
+          if (
+            open(col + sc, row + sr) &&
+            open(col + sc * 2, row + sr * 2) &&
+            open(col + sc * 3, row + sr * 3) &&
+            open(col + sc * 4, row + sr * 4)
+          ) {
             spots.push({ col, row, sc, sr });
           }
         }
@@ -9915,7 +9920,7 @@ describe("Sonic Boom", () => {
       const player = playerEid(sim);
       teleportPlayer(sim, cellCenterX(spot.col), cellCenterY(spot.row));
       Facing.direction[player] = DIRECTION.right;
-      placeGhost(ghost, cellCenterX(spot.col + spot.sc * 2), cellCenterY(spot.row + spot.sr * 2));
+      placeGhost(ghost, cellCenterX(spot.col + spot.sc * 4), cellCenterY(spot.row + spot.sr * 4));
       sim["sonicBoom"]();
       return sim["runUpgrades"].sonicStuns.length;
     };

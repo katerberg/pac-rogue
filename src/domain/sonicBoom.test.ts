@@ -45,9 +45,9 @@ const player = (col: number, row: number, dc: number, dr: number) => ({
 const ghost = (eid: number, col: number, row: number) => ({ eid, ...at(col, row) });
 
 describe("Sonic Boom", () => {
-  it("stuns a ghost within a tile and not beyond it", () => {
-    const near = { eid: 1, x: at(C, R).x + TILE_SIZE_PX, y: at(C, R).y };
-    const far = { eid: 2, x: at(C, R).x + TILE_SIZE_PX * 1.5, y: at(C, R).y };
+  it("stuns a ghost within 2 tiles and not beyond it", () => {
+    const near = { eid: 1, x: at(C, R).x + TILE_SIZE_PX * 2, y: at(C, R).y };
+    const far = { eid: 2, x: at(C, R).x + TILE_SIZE_PX * 2.5, y: at(C, R).y };
     expect(sonicBoomTargets(["passiveSonicBoom"], player(C, R, 1, 0), [near, far], CROSS)).toEqual([
       1,
     ]);
@@ -63,11 +63,11 @@ describe("Sonic Boom", () => {
     ).toEqual([]);
   });
 
-  it("Plus reaches 3 tiles down both side hallways of an X", () => {
+  it("Plus reaches 4 tiles down both side hallways of an X", () => {
     const hits = sonicBoomTargets(
       ["passiveSonicBoomPlus"],
       player(C, R, 1, 0),
-      [ghost(1, C, R - 3), ghost(2, C, R + 3), ghost(3, C, R - 4)],
+      [ghost(1, C, R - 4), ghost(2, C, R + 4), ghost(3, C, R - 5)],
       CROSS,
     );
     expect(hits.sort()).toEqual([1, 2]);
@@ -77,7 +77,7 @@ describe("Sonic Boom", () => {
     const hits = sonicBoomTargets(
       ["passiveSonicBoomPlus"],
       player(C, R, 1, 0),
-      [ghost(1, C + 3, R), ghost(2, C - 3, R)],
+      [ghost(1, C + 4, R), ghost(2, C - 4, R)],
       CROSS,
     );
     expect(hits).toEqual([]);
@@ -87,7 +87,7 @@ describe("Sonic Boom", () => {
     const hits = sonicBoomTargets(
       ["passiveSonicBoomPlus"],
       player(C, R, 1, 0),
-      [ghost(1, C, R + 2), ghost(2, C, R - 2)],
+      [ghost(1, C, R + 4), ghost(2, C, R - 4)],
       T_JUNCTION,
     );
     expect(hits).toEqual([1]);
