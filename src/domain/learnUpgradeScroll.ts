@@ -108,5 +108,5 @@ export function learnUpgradeRowVisible(
   rowHalf: number = LEARN_UPGRADE_ROW_GAP / 2,
 ): boolean {
   const worldY = localY - scrollOffset;
-  return worldY + rowHalf > clipTop && worldY - rowHalf < clipBottom;
+  return worldY + rowHalf > clipTop && worldY + rowHalf <= clipBottom;
 }

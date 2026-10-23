@@ -460,7 +460,7 @@ export class LearnScene extends Phaser.Scene {
     const up = addPixelText(
       this,
       x,
-      LEARN_UPGRADE_CLIP_TOP - 8,
+      LEARN_UPGRADE_CLIP_TOP - 12,
       UPGRADE_SLOT_HINT_GLYPH,
       UPGRADES_HUD_FONT_SIZE,
       TEXT_COLOR_YELLOW,

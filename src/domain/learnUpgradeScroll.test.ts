@@ -131,6 +131,12 @@ describe("learnUpgradeRowVisible", () => {
     expect(learnUpgradeRowVisible(localY, 40)).toBe(true);
   });
 
+  it("hides a row straddling the clip bottom so the down chevron sits below the text", () => {
+    const half = LEARN_UPGRADE_ROW_GAP / 2;
+    expect(learnUpgradeRowVisible(LEARN_UPGRADE_CLIP_BOTTOM - half, 0)).toBe(true);
+    expect(learnUpgradeRowVisible(LEARN_UPGRADE_CLIP_BOTTOM - half + 1, 0)).toBe(false);
+  });
+
   it("keeps the first header in view at scroll 0", () => {
     expect(firstHeaderY).toBe(70);
     expect(learnUpgradeRowVisible(firstHeaderY, 0)).toBe(true);
