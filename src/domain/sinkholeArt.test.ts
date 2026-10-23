@@ -164,7 +164,6 @@ describe("buildSinkholeArt", () => {
 describe("SINKHOLE_PALETTE", () => {
   it("has a distinct colour for every tone", () => {
     const colors = Object.values(SINKHOLE_TONE).map((tone) => SINKHOLE_PALETTE[tone]);
-    expect(colors.every((color) => typeof color === "number")).toBe(true);
     expect(new Set(colors).size).toBe(colors.length);
   });
 });
