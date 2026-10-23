@@ -10173,6 +10173,22 @@ describe("Tunnel Boring", () => {
     }
   });
 
+  it("keeps a floating Dot-Man able to cross the sinkhole after a bore", () => {
+    const sim = startSim({
+      level: 6,
+      godMode: true,
+      enableUpgrades: ["passiveTunnelBoring", "passiveFloating"],
+    });
+    const bored = pressBore(sim);
+    runFrames(sim, 120);
+    const layout = getActiveLayout();
+    for (const cell of [...bored, ...sim.snapshot().sinkhole.cells!]) {
+      expect(isWalkable(cell.col, cell.row, layout.playerSolids), `${cell.col},${cell.row}`).toBe(
+        true,
+      );
+    }
+  });
+
   it("needs a fresh press at rest: a held key never bores until released and re-pressed", () => {
     const sim = start();
     const spot = boreSpot();
