@@ -174,7 +174,7 @@ import {
 } from "../../domain/collapse";
 import {
   buildSinkholeArt,
-  SINKHOLE_INTRO_MS,
+  type SinkholeBoard,
   type SinkholeArt,
   type SinkholeRenderState,
 } from "../../domain/sinkholeArt";
@@ -278,6 +278,7 @@ import {
 import { playerExitedHorizontalTunnel, playerExitedTunnel } from "../../domain/tunnelExit";
 import { ELROY_TIER, elroyTier } from "../../domain/ghostSpeed";
 import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
+import { sameSinkholeTuning } from "../../domain/sinkholeTuning";
 import { storeExitCellAt, storeRouteStep } from "../../domain/storeRoute";
 import { createRunRandom, type RunRandom } from "../../domain/runRandom";
 import {
@@ -667,6 +668,13 @@ export type PlayHud = {
   shields: number;
 };
 
+type SinkholeSource = {
+  board: SinkholeBoard;
+  chain: CollapseChain;
+  seed: number;
+  tuning: Tuning;
+};
+
 export class PlaySim {
   world: World = createWorld();
   readonly random: RunRandom;
@@ -756,6 +764,7 @@ export class PlaySim {
   private sinkholeChain: CollapseChain | null = null;
   private sinkholeLayouts: { open: MazeLayout; blocked: MazeLayout } | null = null;
   private sinkholeArt: SinkholeArt | null = null;
+  private sinkholeSource: SinkholeSource | null = null;
   private sinkholeBoardCount = 0;
   private sinkholeIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
@@ -829,6 +838,9 @@ export class PlaySim {
 
   setTuning(tuning: Tuning): void {
     this.currentTuning = tuning;
+    if (this.sinkholeSource !== null && !sameSinkholeTuning(this.sinkholeSource.tuning, tuning)) {
+      this.buildSinkhole({ ...this.sinkholeSource, tuning });
+    }
   }
 
   start(): SimEvent[] {
@@ -1609,7 +1621,10 @@ export class PlaySim {
     this.tickTimedTunnel(delta);
     this.tickSpeedZoneShift(delta);
     this.collapseIntroMs = Math.min(RUBBLE_INTRO_MS, this.collapseIntroMs + delta);
-    this.sinkholeIntroMs = Math.min(SINKHOLE_INTRO_MS, this.sinkholeIntroMs + delta);
+    this.sinkholeIntroMs = Math.min(
+      this.currentTuning.sinkholeIntroMs,
+      this.sinkholeIntroMs + delta,
+    );
     this.syncSinkholeFloat();
     this.recorder.lives(this.lives);
     const diagonalAllowed = wallPassActive(this.runUpgrades);
@@ -3221,6 +3236,7 @@ export class PlaySim {
     this.sinkholeChain = null;
     this.sinkholeLayouts = null;
     this.sinkholeArt = null;
+    this.sinkholeSource = null;
     this.sinkholeIntroMs = 0;
   }
 
@@ -3242,18 +3258,26 @@ export class PlaySim {
     );
     if (sinkhole !== null) {
       this.sinkholeChain = sinkhole;
-      this.sinkholeBoardCount += 1;
-      this.sinkholeArt = buildSinkholeArt(
-        { ascii: layout.ascii, tileSize: layout.tileSize },
-        sinkhole,
-        held.plan.artSeed + 404,
-      );
+      this.buildSinkhole({
+        board: { ascii: layout.ascii, tileSize: layout.tileSize },
+        chain: sinkhole,
+        seed: held.plan.artSeed + 404,
+        tuning: this.currentTuning,
+      });
     }
     if (chains.length === 0) {
       return;
     }
     this.collapseChains = [...chains];
     this.buildCollapseArts(held.plan.artSeed, bored);
+  }
+
+  private buildSinkhole(source: SinkholeSource): void {
+    const { board, chain, seed, tuning } = source;
+    this.sinkholeBoardCount += 1;
+    this.sinkholeSource = source;
+    this.sinkholeArt = buildSinkholeArt(board, chain, seed, tuning);
+    this.sinkholeIntroMs = Math.min(tuning.sinkholeIntroMs, this.sinkholeIntroMs);
   }
 
   private buildCollapseArts(artSeed: number, bored: readonly MazeTile[]): void {
@@ -3318,6 +3342,7 @@ export class PlaySim {
           art: this.sinkholeArt,
           elapsedMs: this.sinkholeIntroMs,
           fresh: isFreshSinkhole(this.levelIndex),
+          tuning: this.currentTuning,
         };
   }
 

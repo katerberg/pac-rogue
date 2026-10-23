@@ -22,7 +22,7 @@ const FILL_MIX = 0.35;
 const FILL_LIGHT_MIX = 0.58;
 const LIGHT_MIX = 0.23;
 
-function mixColor(from: number, to: number, amount: number): number {
+export function mixColor(from: number, to: number, amount: number): number {
   const channel = (shift: number): number => {
     const a = (from >> shift) & 0xff;
     const b = (to >> shift) & 0xff;

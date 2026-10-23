@@ -35,7 +35,6 @@ import {
   type CollapseRenderState,
 } from "../../domain/collapseRubble";
 import {
-  SINKHOLE_ART_TILE,
   sinkholeOpening,
   sinkholePalette,
   sinkholePixelVisible,
@@ -1027,7 +1026,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
       return;
     }
-    const key = `${sinkhole.key}:${style.background}`;
+    const key = `${sinkhole.key}:${style.color}`;
     const settled = sinkholeSettled(sinkhole);
     const step = settled ? -2 : Math.floor(sinkhole.elapsedMs / SINKHOLE_FRAME_MS);
     if (key === drawnSinkhole && step === drawnSinkholeStep) {
@@ -1035,14 +1034,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
     drawnSinkhole = key;
     drawnSinkholeStep = step;
-    const palette = sinkholePalette(style.background);
-    const opening = sinkholeOpening(sinkhole.elapsedMs, sinkhole.fresh);
+    const palette = sinkholePalette(style.color, sinkhole.tuning);
+    const opening = sinkholeOpening(sinkhole);
     const origin = { x: cellOriginX(0), y: cellOriginY(0) };
-    const artPx = getActiveLayout().tileSize / SINKHOLE_ART_TILE;
+    const artPx = getActiveLayout().tileSize / sinkhole.art.tile;
     sinkholeGraphics.clear();
     for (const pixel of sinkhole.art.pixels) {
       if (sinkholePixelVisible(pixel, opening)) {
-        sinkholeGraphics.fillStyle(palette[pixel.tone]!, 1);
+        sinkholeGraphics.fillStyle(palette[pixel.tone], 1);
         sinkholeGraphics.fillRect(
           origin.x + pixel.x * artPx,
           origin.y + pixel.y * artPx,
