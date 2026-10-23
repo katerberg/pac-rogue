@@ -514,19 +514,13 @@ import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import {
-  applySonicStuns,
   atTopSpeed,
-  sonicBoomStunMs,
   sonicStunnedEids,
   sonicStunSpriteOffsets,
   sonicStunRemainingMs,
   tickSonicStuns,
 } from "../../domain/sonicBoom";
-import {
-  SonicBoomEchoes,
-  movingOverClearedTile,
-  sonicBoomWorldTargets,
-} from "../systems/sonicBoom";
+import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import { programmerQueueSlots } from "../../domain/programmer";
@@ -4271,17 +4265,11 @@ export class PlaySim {
         movingOverClearedTile(this.world),
         floatingZoneEffect(owned, this.playerSpeedZone()) === "fast",
       );
-    for (const echo of this.sonicEchoes.step(this.world, owned, atSpeed)) {
+    const boom = stepSonicBoom(this.world, this.sonicEchoes, this.runUpgrades, owned, atSpeed);
+    this.runUpgrades = boom.state;
+    for (const echo of boom.echoes) {
       this.emit({ type: "sonicBoomEcho", ...echo });
     }
-    if (!atSpeed) {
-      return;
-    }
-    this.runUpgrades = applySonicStuns(
-      this.runUpgrades,
-      sonicBoomWorldTargets(this.world, owned),
-      sonicBoomStunMs(owned),
-    );
   }
 
   private tickSpeedTrail(delta: number): void {

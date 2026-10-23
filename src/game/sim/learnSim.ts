@@ -280,18 +280,12 @@ import { movement } from "../systems/movement";
 import { applyPelletToPowerConvert } from "../systems/pelletToPower";
 import { enteringEmptyCell } from "../systems/enteringEmptyCell";
 import {
-  applySonicStuns,
   atTopSpeed,
-  sonicBoomStunMs,
   sonicStunnedEids,
   sonicStunSpriteOffsets,
   tickSonicStuns,
 } from "../../domain/sonicBoom";
-import {
-  SonicBoomEchoes,
-  movingOverClearedTile,
-  sonicBoomWorldTargets,
-} from "../systems/sonicBoom";
+import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
@@ -732,15 +726,10 @@ export class LearnSim {
       movingOverClearedTile(this.world),
       false,
     );
-    for (const echo of this.sonicEchoes.step(this.world, owned, atSpeed)) {
+    const boom = stepSonicBoom(this.world, this.sonicEchoes, this.learnUpgrades, owned, atSpeed);
+    this.learnUpgrades = boom.state;
+    for (const echo of boom.echoes) {
       this.events.push({ type: "sonicBoomEcho", ...echo });
-    }
-    if (atSpeed) {
-      this.learnUpgrades = applySonicStuns(
-        this.learnUpgrades,
-        sonicBoomWorldTargets(this.world, owned),
-        sonicBoomStunMs(owned),
-      );
     }
 
     this.tickMirror(delta);

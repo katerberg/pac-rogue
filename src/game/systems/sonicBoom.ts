@@ -2,12 +2,14 @@ import { query, type World } from "bitecs";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { cellCenterX, cellCenterY, worldToCol, worldToRow } from "../../domain/maze";
 import {
+  applySonicStuns,
   sonicBoomBranches,
+  sonicBoomStunMs,
   sonicBoomTargets,
   type SonicBoomGhost,
   type SonicBoomPlayer,
 } from "../../domain/sonicBoom";
-import type { UpgradeId } from "../../domain/upgrades";
+import type { RunUpgrades, UpgradeId } from "../../domain/upgrades";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction } from "../components/Input";
@@ -92,4 +94,21 @@ export class SonicBoomEchoes {
         tiles: b.cells.length,
       }));
   }
+}
+
+export function stepSonicBoom(
+  world: World,
+  echoes: SonicBoomEchoes,
+  state: RunUpgrades,
+  owned: readonly UpgradeId[],
+  atSpeed: boolean,
+): { state: RunUpgrades; echoes: SonicBoomEcho[] } {
+  const fired = echoes.step(world, owned, atSpeed);
+  if (!atSpeed) {
+    return { state, echoes: fired };
+  }
+  return {
+    state: applySonicStuns(state, sonicBoomWorldTargets(world, owned), sonicBoomStunMs(owned)),
+    echoes: fired,
+  };
 }
