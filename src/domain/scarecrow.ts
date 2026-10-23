@@ -36,6 +36,64 @@ export function scentBlocksStep(
   });
 }
 
+export function inScentZone(
+  zones: readonly ScentZone[],
+  col: number,
+  row: number,
+  radiusTiles: number,
+): boolean {
+  const limit = radiusTiles * radiusTiles;
+  return zones.some((zone) => distSq(zone, col, row) <= limit);
+}
+
+export function scentRouteStep(args: {
+  from: ScentZone;
+  target: ScentZone;
+  cols: number;
+  rows: number;
+  passable: (col: number, row: number, dx: number, dy: number) => boolean;
+  blocked: (col: number, row: number) => boolean;
+}): { dx: number; dy: number } | null {
+  const { from, target, cols, rows } = args;
+  const index = (col: number, row: number) => row * cols + col;
+  const firstStep = new Map<number, { dx: number; dy: number }>();
+  const seen = new Set<number>([index(from.col, from.row)]);
+  const queue: ScentZone[] = [from];
+  let best: ScentZone = from;
+  let bestDist = distSq(target, from.col, from.row);
+  for (let head = 0; head < queue.length; head += 1) {
+    const cell = queue[head]!;
+    const here = distSq(target, cell.col, cell.row);
+    if (here < bestDist) {
+      best = cell;
+      bestDist = here;
+    }
+    if (here === 0) {
+      break;
+    }
+    for (const [dx, dy] of [
+      [0, -1],
+      [-1, 0],
+      [0, 1],
+      [1, 0],
+    ] as const) {
+      if (!args.passable(cell.col, cell.row, dx, dy)) {
+        continue;
+      }
+      const col = (cell.col + dx + cols) % cols;
+      const row = (cell.row + dy + rows) % rows;
+      const key = index(col, row);
+      if (seen.has(key) || args.blocked(col, row)) {
+        continue;
+      }
+      seen.add(key);
+      firstStep.set(key, firstStep.get(index(cell.col, cell.row)) ?? { dx, dy });
+      queue.push({ col, row });
+    }
+  }
+  return firstStep.get(index(best.col, best.row)) ?? null;
+}
+
 export function addScentLingers(
   lingers: readonly ScentLinger[],
   picked: readonly ScentZone[],

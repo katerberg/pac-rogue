@@ -7,7 +7,9 @@ import {
   addScentLingers,
   scentBlocksStep,
   scentLingerAlphaMul,
+  inScentZone,
   scentCells,
+  scentRouteStep,
   scentPixels,
   tickScentLingers,
 } from "./scarecrow";
@@ -78,5 +80,55 @@ describe("scent corridors", () => {
     const near = a.find((px) => px.x > 10 * 16 && px.x < 11 * 16)!;
     const far = a.find((px) => px.x < 7 * 16)!;
     expect(far.alpha).toBeLessThan(near.alpha);
+  });
+});
+
+describe("scentRouteStep", () => {
+  const open = () => true;
+  const route = (target: { col: number; row: number }, wall: (c: number, r: number) => boolean) =>
+    scentRouteStep({
+      from: { col: 2, row: 2 },
+      target,
+      cols: 20,
+      rows: 8,
+      passable: open,
+      blocked: wall,
+    });
+
+  it("steps straight toward the target when nothing blocks", () => {
+    expect(route({ col: 6, row: 2 }, () => false)).toEqual({ dx: 1, dy: 0 });
+  });
+
+  it("detours around blocked cells instead of pushing into them", () => {
+    const wall = (c: number, r: number) => c === 4 && r <= 3;
+    expect(route({ col: 6, row: 2 }, wall)).toEqual({ dx: 0, dy: 1 });
+  });
+
+  it("heads for the reachable cell nearest an unreachable target", () => {
+    const wall = (c: number) => c >= 4;
+    expect(route({ col: 6, row: 2 }, wall)).toEqual({ dx: 1, dy: 0 });
+  });
+
+  it("stays put when it is already the nearest reachable cell", () => {
+    const wall = (c: number, r: number) => (c === 3 && r === 2) || (c === 2 && r !== 2) || c < 2;
+    expect(route({ col: 6, row: 2 }, wall)).toBeNull();
+  });
+
+  it("routes through a wrapped tunnel edge", () => {
+    expect(
+      scentRouteStep({
+        from: { col: 0, row: 2 },
+        target: { col: 7, row: 2 },
+        cols: 8,
+        rows: 8,
+        passable: () => true,
+        blocked: (c) => c >= 2 && c <= 5,
+      }),
+    ).toEqual({ dx: -1, dy: 0 });
+  });
+
+  it("flags cells inside a zone", () => {
+    expect(inScentZone([{ col: 5, row: 5 }], 5, 8, 4)).toBe(true);
+    expect(inScentZone([{ col: 5, row: 5 }], 5, 10, 4)).toBe(false);
   });
 });

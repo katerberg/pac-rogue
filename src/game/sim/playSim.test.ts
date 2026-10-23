@@ -10555,6 +10555,77 @@ describe("Scarecrow", () => {
     expect(closest(["passiveScarecrow"])).toBeGreaterThanOrEqual(3.5);
   });
 
+  it("routes a chasing ghost around the zone to a target on the far side without bumping back", () => {
+    const sim = start(["passiveScarecrow"]);
+    const ghost = activeGhostFor(sim);
+    const fruit = placeFruit(sim);
+    const fx = Position.x[fruit]!;
+    const fy = Position.y[fruit]!;
+    const layout = getActiveLayout();
+    const cells = [...Array(layout.rows * layout.cols).keys()]
+      .map((i) => ({ col: i % layout.cols, row: Math.floor(i / layout.cols) }))
+      .filter(({ col, row }) => isWalkable(col, row))
+      .filter(
+        ({ col, row }) =>
+          Math.hypot(col - layout.ghostHouseSpawn.col, row - layout.ghostHouseSpawn.row) > 6,
+      );
+    const fruitDist = ({ col, row }: { col: number; row: number }) =>
+      Math.hypot(col - worldToCol(fx), row - worldToRow(fy));
+    const fruitCell = { col: worldToCol(fx), row: worldToRow(fy) };
+    const from = cells.find(
+      (cell) =>
+        cell.col < fruitCell.col && fruitDist(cell) > 5 && Math.abs(cell.row - fruitCell.row) <= 2,
+    )!;
+    const goal = cells
+      .filter(
+        (cell) =>
+          cell.col > fruitCell.col &&
+          fruitDist(cell) > 5 &&
+          Math.abs(cell.row - fruitCell.row) <= 2,
+      )
+      .sort((a, b) => b.col - a.col)[0]!;
+    Position.x[ghost] = cellCenterX(from.col);
+    Position.y[ghost] = cellCenterY(from.row);
+    sim["ghostModeClock"] = { ...sim["ghostModeClock"], active: false, mode: GHOST_AI_MODE.chase };
+    sim["previousEffectiveGhostMode"] = GHOST_AI_MODE.chase;
+    let reversals = 0;
+    let previous = Input.direction[ghost]!;
+    let closest = Infinity;
+    for (let frame = 0; frame < 1800; frame += 1) {
+      teleportPlayer(sim, cellCenterX(goal.col), cellCenterY(goal.row));
+      runFrames(sim, 1, { keys: held("left") });
+      const dir = Input.direction[ghost]!;
+      if (
+        closest >= 2 * layout.tileSize &&
+        dir !== DIRECTION.none &&
+        previous !== DIRECTION.none &&
+        dir !== previous
+      ) {
+        const opposite =
+          (previous === DIRECTION.left && dir === DIRECTION.right) ||
+          (previous === DIRECTION.right && dir === DIRECTION.left) ||
+          (previous === DIRECTION.up && dir === DIRECTION.down) ||
+          (previous === DIRECTION.down && dir === DIRECTION.up);
+        reversals += opposite ? 1 : 0;
+      }
+      if (dir !== DIRECTION.none) {
+        previous = dir;
+      }
+      expect(Math.hypot(Position.x[ghost]! - fx, Position.y[ghost]! - fy)).toBeGreaterThan(
+        3.5 * layout.tileSize,
+      );
+      closest = Math.min(
+        closest,
+        Math.hypot(
+          Position.x[ghost]! - cellCenterX(goal.col),
+          Position.y[ghost]! - cellCenterY(goal.row),
+        ),
+      );
+    }
+    expect(closest).toBeLessThan(2 * layout.tileSize);
+    expect(reversals).toBeLessThanOrEqual(2);
+  });
+
   it("base Scarecrow leaves no scent after pickup", () => {
     const sim = start(["passiveScarecrow"]);
     eatFruit(sim, placeFruit(sim));

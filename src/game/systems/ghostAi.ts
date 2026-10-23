@@ -2,6 +2,7 @@ import { DEFAULT_TUNING, type Tuning } from "../../domain/tuning";
 import { hasComponent, query, type World } from "bitecs";
 import { corridorOccupied } from "../../domain/bossGhostBlocking";
 import {
+  GHOST_DIR,
   ghostDirStep,
   openGhostDirsAt,
   pickGhostDirection,
@@ -24,12 +25,19 @@ import {
 } from "../../domain/ghostTarget";
 import {
   TURN_ALIGN_EPS,
+  cellCenterX,
+  cellCenterY,
   getActiveLayout,
   isAlignedForTurn,
   worldToCol,
   worldToRow,
 } from "../../domain/maze";
-import { scentBlocksStep, type ScentZone } from "../../domain/scarecrow";
+import {
+  inScentZone,
+  scentBlocksStep,
+  scentRouteStep,
+  type ScentZone,
+} from "../../domain/scarecrow";
 import { decoyFacing, decoyTile, nearestDecoy, type ChaffDecoy } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import { BossGhost } from "../components/BossGhost";
@@ -225,6 +233,37 @@ export function scentAwareCanEnter(
   );
 }
 
+export function scentRouteDir(
+  x: number,
+  y: number,
+  target: GhostTarget,
+  rules: ReturnType<typeof ghostMovementRules>,
+  field: ScentField,
+): Direction | null {
+  const col = worldToCol(x);
+  const row = worldToRow(y);
+  const blocked = (c: number, r: number) => inScentZone(field.zones, c, r, field.radiusTiles);
+  if (blocked(col, row)) {
+    return null;
+  }
+  const layout = getActiveLayout();
+  const step = scentRouteStep({
+    from: { col, row },
+    target,
+    cols: layout.cols,
+    rows: layout.rows,
+    passable: (c, r, dx, dy) => rules.canEnter(cellCenterX(c), cellCenterY(r), dx, dy),
+    blocked,
+  });
+  if (step === null) {
+    return null;
+  }
+  const dir = ([GHOST_DIR.up, GHOST_DIR.left, GHOST_DIR.down, GHOST_DIR.right] as const).find(
+    (d) => ghostDirStep(d).dx === step.dx && ghostDirStep(d).dy === step.dy,
+  );
+  return (dir ?? null) as Direction | null;
+}
+
 export function ghostAi(
   world: World,
   mode: GhostAiMode,
@@ -288,15 +327,21 @@ export function ghostAi(
       scent !== null && scent.zones.length > 0 && phase === GHOST_PHASE.active
         ? scentAwareCanEnter(x, y, { ...rules, canEnter: bossCanEnter }, scent)
         : bossCanEnter;
-    const next = pickGhostDirection({
-      x,
-      y,
-      facing,
-      targetCol: target.col,
-      targetRow: target.row,
-      solids: rules.solids,
-      canEnter,
-    }) as Direction;
+    const routed =
+      scent !== null && scent.zones.length > 0 && phase === GHOST_PHASE.active
+        ? scentRouteDir(x, y, target, { ...rules, canEnter: bossCanEnter }, scent)
+        : null;
+    const next =
+      routed ??
+      (pickGhostDirection({
+        x,
+        y,
+        facing,
+        targetCol: target.col,
+        targetRow: target.row,
+        solids: rules.solids,
+        canEnter,
+      }) as Direction);
 
     if (next !== DIRECTION.none) {
       Input.direction[eid] = next;
