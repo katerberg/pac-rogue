@@ -3210,6 +3210,12 @@ export class PlaySim {
     );
   }
 
+  private setSinkholeLayouts(sinkhole: CollapseChain): void {
+    const open = getActiveLayout();
+    this.sinkholeLayouts = { open, blocked: withSinkholes(open, sinkhole) };
+    this.syncSinkholeFloat();
+  }
+
   private syncSinkholeFloat(): void {
     if (this.sinkholeLayouts === null) {
       return;
@@ -3269,9 +3275,7 @@ export class PlaySim {
       activateAsciiLayout(bored);
       openBoredCellsOnLayout(getActiveLayout(), boredCells);
       if (sinkhole !== null) {
-        const open = getActiveLayout();
-        this.sinkholeLayouts = { open, blocked: withSinkholes(open, sinkhole) };
-        this.syncSinkholeFloat();
+        this.setSinkholeLayouts(sinkhole);
       }
       if (chains !== null) {
         this.setUpCollapse(chains, boredCells, sinkhole);
@@ -3311,12 +3315,7 @@ export class PlaySim {
     const open = openBoredCells(this.tunnelBored.cells, this.tunnelBore);
     applyBoredCellsToActiveLayout(open);
     if (this.sinkholeLayouts !== null) {
-      const bored = getActiveLayout();
-      this.sinkholeLayouts = {
-        open: bored,
-        blocked: withSinkholes(bored, this.sinkholeChain ?? []),
-      };
-      this.syncSinkholeFloat();
+      this.setSinkholeLayouts(this.sinkholeChain ?? []);
     }
     const touchesRubble = opened.some((cell) =>
       this.collapseChains.some((chain) =>
