@@ -612,7 +612,7 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     storePrice: STORE_UPGRADE_PRICE,
     fruitFeastThresholds: BASE_FEAST_FRUIT_SPAWN_THRESHOLDS,
     enhanced: {
-      enhanceNote: "Fruit Feast spawns 4 fruit per level instead of 3.",
+      enhanceNote: "Fruit Feast sprouts 4 fruit per level instead of 3.",
       description: "Fruit appears four times per level, each after the last is gone.",
       fruitFeastThresholds: FRUIT_FEAST_ENHANCED_THRESHOLDS,
     },
@@ -940,11 +940,11 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "powerPelletCornucopia",
     label: "Cornucopia",
     school: "harvest",
-    description: "Power pellet: spawns a fruit, if none is out.",
+    description: "Power pellet: sprouts a fruit, if none is out.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
-      enhanceNote: "Cornucopia spawns a fruit on every power pellet, even if a fruit is out.",
-      description: "Power pellet: spawns an extra fruit even if there are others.",
+      enhanceNote: "Cornucopia sprouts a fruit on every power pellet, even if a fruit is out.",
+      description: "Power pellet: sprouts an extra fruit even if there are others.",
       onPowerPellet: { cornucopiaFruit: true, cornucopiaAlongside: true },
     },
     onPowerPellet: { cornucopiaFruit: true },

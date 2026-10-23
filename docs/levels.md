@@ -49,4 +49,4 @@ Runs start at `START_LIVES`. Natural regen is the free life in the centre of eac
 
 ## Fruit
 
-Spawns at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a Quarter of pennies rather than giving an upgrade. The pool is every 16×16 PNG in [`src/art/fruit/`](../src/art/fruit); drop a file in and it joins the seeded per-level order ([`src/game/fruitArt.ts`](../src/game/fruitArt.ts) globs the folder, same pattern as [upgrade art](./upgrades.md#upgrade-art)). Concurrent fruit prefer distinct kinds and a level keeps its spawn order across retries.
+Sprouts at layout-scaled board-pellet thresholds under the ghost house (`fruit.ts`), lasts a fixed real-time window, and adds half a Quarter of pennies rather than giving an upgrade. The pool is every 16×16 PNG in [`src/art/fruit/`](../src/art/fruit); drop a file in and it joins the seeded per-level order ([`src/game/fruitArt.ts`](../src/game/fruitArt.ts) globs the folder, same pattern as [upgrade art](./upgrades.md#upgrade-art)). Concurrent fruit prefer distinct kinds and a level keeps its sprout order across retries.
