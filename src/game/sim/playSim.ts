@@ -654,6 +654,13 @@ export type PlayHud = {
   shields: number;
 };
 
+type SinkholeSource = {
+  board: SinkholeBoard;
+  chain: CollapseChain;
+  seed: number;
+  tuning: Tuning;
+};
+
 export class PlaySim {
   world: World = createWorld();
   readonly random: RunRandom;
@@ -742,7 +749,7 @@ export class PlaySim {
   private sinkholeChain: CollapseChain | null = null;
   private sinkholeLayouts: { open: MazeLayout; blocked: MazeLayout } | null = null;
   private sinkholeArt: SinkholeArt | null = null;
-  private sinkholeSource: { board: SinkholeBoard; seed: number; tuning: Tuning } | null = null;
+  private sinkholeSource: SinkholeSource | null = null;
   private sinkholeBoardCount = 0;
   private sinkholeIntroMs = 0;
   private warpGlide: WarpGlide | null = null;
@@ -817,7 +824,7 @@ export class PlaySim {
   setTuning(tuning: Tuning): void {
     this.currentTuning = tuning;
     if (this.sinkholeSource !== null && !sameSinkholeTuning(this.sinkholeSource.tuning, tuning)) {
-      this.buildSinkhole(this.sinkholeSource.board, this.sinkholeSource.seed);
+      this.buildSinkhole({ ...this.sinkholeSource, tuning });
     }
   }
 
@@ -3215,10 +3222,12 @@ export class PlaySim {
     );
     if (sinkhole !== null) {
       this.sinkholeChain = sinkhole;
-      this.buildSinkhole(
-        { ascii: layout.ascii, tileSize: layout.tileSize },
-        held.plan.artSeed + 404,
-      );
+      this.buildSinkhole({
+        board: { ascii: layout.ascii, tileSize: layout.tileSize },
+        chain: sinkhole,
+        seed: held.plan.artSeed + 404,
+        tuning: this.currentTuning,
+      });
     }
     if (chains.length === 0) {
       return;
@@ -3227,14 +3236,11 @@ export class PlaySim {
     this.buildCollapseArts(held.plan.artSeed, bored);
   }
 
-  private buildSinkhole(board: SinkholeBoard, seed: number): void {
-    if (this.sinkholeChain === null) {
-      return;
-    }
-    const tuning = this.currentTuning;
+  private buildSinkhole(source: SinkholeSource): void {
+    const { board, chain, seed, tuning } = source;
     this.sinkholeBoardCount += 1;
-    this.sinkholeSource = { board, seed, tuning };
-    this.sinkholeArt = buildSinkholeArt(board, this.sinkholeChain, seed, tuning);
+    this.sinkholeSource = source;
+    this.sinkholeArt = buildSinkholeArt(board, chain, seed, tuning);
     this.sinkholeIntroMs = Math.min(tuning.sinkholeIntroMs, this.sinkholeIntroMs);
   }
 
