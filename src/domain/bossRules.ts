@@ -23,12 +23,14 @@ export function chainPairForKind(kind: GhostKindId): ChainPairId | null {
   return null;
 }
 
-export type SlimeScope = "none" | "blinky" | "all";
+export type SlimeScope = "blinky" | "all";
+
+export type StageSlime = { scope: SlimeScope; tiles: number };
 
 export type BossStageDef = {
   spawnPellets: number;
   chainPairs: readonly ChainPairId[];
-  slime: SlimeScope;
+  slime: StageSlime | null;
 };
 
 export type BossDef = {
@@ -49,8 +51,8 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     ghostKinds: [GHOST_KIND.blinky],
     startGhosts: 2,
     stages: [
-      { spawnPellets: 3, chainPairs: [], slime: "none" },
-      { spawnPellets: 3, chainPairs: [], slime: "none" },
+      { spawnPellets: 3, chainPairs: [], slime: null },
+      { spawnPellets: 3, chainPairs: [], slime: null },
     ],
     maxHouseGhosts: 4,
     tunnelCount: 3,
@@ -63,11 +65,11 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
     startGhosts: 4,
     stages: [
-      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde], slime: "none" },
+      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde], slime: null },
       {
         spawnPellets: 0,
         chainPairs: [CHAIN_PAIR.blinkyClyde, CHAIN_PAIR.pinkyInky],
-        slime: "none",
+        slime: null,
       },
     ],
     maxHouseGhosts: 4,
@@ -81,8 +83,8 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     ghostKinds: [GHOST_KIND.blinky],
     startGhosts: 1,
     stages: [
-      { spawnPellets: 0, chainPairs: [], slime: "blinky" },
-      { spawnPellets: 0, chainPairs: [], slime: "all" },
+      { spawnPellets: 0, chainPairs: [], slime: { scope: "blinky", tiles: 10 } },
+      { spawnPellets: 0, chainPairs: [], slime: { scope: "all", tiles: 6 } },
     ],
     maxHouseGhosts: 4,
     tunnelCount: null,

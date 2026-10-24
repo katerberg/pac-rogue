@@ -4,7 +4,6 @@ import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { cellCenterX, cellCenterY, type MazeTile } from "./maze";
 import { ghostRadius } from "./playfield";
 
-export const SLIME_TRAIL_MAX_LEN = 10;
 export const SLIME_STYLE = { color: 0x51ff00, alpha: 0.55 } as const;
 
 export type SlimeTrails = ReadonlyMap<number, readonly MazeTile[]>;
@@ -13,12 +12,16 @@ export function slimesInScope(scope: SlimeScope, kind: GhostKindId): boolean {
   return scope === "all" || (scope === "blinky" && kind === GHOST_KIND.blinky);
 }
 
-export function pushSlimeTile(trail: readonly MazeTile[], tile: MazeTile): readonly MazeTile[] {
+export function pushSlimeTile(
+  trail: readonly MazeTile[],
+  tile: MazeTile,
+  maxLen: number,
+): readonly MazeTile[] {
   const last = trail[trail.length - 1];
   if (last?.col === tile.col && last.row === tile.row) {
     return trail;
   }
-  return [...trail, tile].slice(-SLIME_TRAIL_MAX_LEN);
+  return [...trail, tile].slice(-maxLen);
 }
 
 export function slimeOwnerTouching(

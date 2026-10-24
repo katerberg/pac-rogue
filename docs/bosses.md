@@ -30,7 +30,7 @@ Flags (also on `parsePlayOptions`; all disable high scores): `level=9` rolls a b
 
 - Board: the run's level 2-8 pool map as level 8 had it (`poolBoard` in `BossDef`, `POOL_BOSS_BOARD_LEVEL`): every collapse, the sinkhole, bored tunnels, level 8's speed lanes (no drift on entry), lava and timed tunnel, all replayed from the same seed streams. `?levelModifiers=0` turns the modifiers off here as on level 8.
 - Ghosts: the run's level-8 roster (`withBossRoster`), released from the house with the boss stagger; each keeps its own targeting.
-- Slime (`src/domain/slimeTrail.ts`, `game/systems/slimeTrail.ts`): in stage 1 Blinky lays a trail of its last few tiles (`SLIME_TRAIL_MAX_LEN`); in stage 2 every ghost does (`BossStageDef.slime`). Only active ghosts that are neither frightened nor mid corner glide add tiles; slime already laid stays until its ghost moves on, and a parked ghost's trail never fades.
+- Slime (`src/domain/slimeTrail.ts`, `game/systems/slimeTrail.ts`): in stage 1 Blinky lays a trail of its last few tiles; in stage 2 every ghost, Blinky included, lays a shorter one (lengths in `BossStageDef.slime`, `bossRules.ts`). Only active ghosts that are neither frightened nor mid corner glide add tiles; slime already laid stays until its ghost moves on, and a parked ghost's trail never fades.
 - Touching slime kills Dot-Man like lava (shields, Mirror and Defy Death apply), recorded against the ghost that laid it. Floating, invulnerability and `godMode` ignore it; ghosts cross it freely. Trails clear on a life loss and at the stage transition.
 
 ## Code map

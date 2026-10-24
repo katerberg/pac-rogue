@@ -1,5 +1,5 @@
 import { query, type World } from "bitecs";
-import type { SlimeScope } from "../../domain/bossRules";
+import type { StageSlime } from "../../domain/bossRules";
 import type { GhostKindId } from "../../domain/ghostKind";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { worldToCol, worldToRow, type MazeTile } from "../../domain/maze";
@@ -12,10 +12,10 @@ import { Position } from "../components/Position";
 export function tickSlimeTrails(
   world: World,
   trails: SlimeTrails,
-  scope: SlimeScope,
+  slime: StageSlime | null,
   skipEids: ReadonlySet<number>,
 ): SlimeTrails {
-  if (scope === "none") {
+  if (slime === null) {
     return trails;
   }
   let next: Map<number, readonly MazeTile[]> | null = null;
@@ -23,15 +23,16 @@ export function tickSlimeTrails(
     if (
       GhostPhase.value[eid] !== GHOST_PHASE.active ||
       skipEids.has(eid) ||
-      !slimesInScope(scope, GhostKind.kind[eid] as GhostKindId)
+      !slimesInScope(slime.scope, GhostKind.kind[eid] as GhostKindId)
     ) {
       continue;
     }
     const before = trails.get(eid) ?? [];
-    const after = pushSlimeTile(before, {
-      col: worldToCol(Position.x[eid] ?? 0),
-      row: worldToRow(Position.y[eid] ?? 0),
-    });
+    const after = pushSlimeTile(
+      before,
+      { col: worldToCol(Position.x[eid] ?? 0), row: worldToRow(Position.y[eid] ?? 0) },
+      slime.tiles,
+    );
     if (after !== before) {
       next ??= new Map(trails);
       next.set(eid, after);

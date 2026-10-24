@@ -12,7 +12,6 @@ import { ghostTeleportCell, scatterTargetForKind } from "../../domain/ghostCorne
 import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
 import { GHOST_ROSTERS, rosterIdForSeed } from "../../domain/ghostRoster";
 import { CHAIN_PAIR } from "../../domain/bossRules";
-import { SLIME_TRAIL_MAX_LEN } from "../../domain/slimeTrail";
 import { DOTMAN_DEATH_FRAME_COUNT } from "../../domain/dotManDeath";
 import {
   BOSS_STAGE_BLACK_HOLD_MS,
@@ -2702,12 +2701,26 @@ describe("PlaySim", () => {
       expect(trails(sim).size).toBe(query(sim.world, [Ghost]).length);
     });
 
-    it("caps each trail at 10 tiles", () => {
+    it("caps Blinky's stage-1 trail at 10 tiles", () => {
       const sim = startSlime({ godMode: true });
       allOut(sim);
       runFrames(sim, 300, { keys: held("left") });
       const blinky = ghostOf(sim, GHOST_KIND.blinky);
-      expect(trails(sim).get(blinky)!.length).toBe(SLIME_TRAIL_MAX_LEN);
+      expect(trails(sim).get(blinky)!.length).toBe(10);
+    });
+
+    it("caps every ghost's stage-2 trail at 6 tiles, Blinky included", () => {
+      const sim = startSlime({ godMode: true, bossStageAdvance: true });
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+      allOut(sim);
+      runFrames(sim, 300, { keys: held("left") });
+      const lengths = [...query(sim.world, [Ghost])].map((eid) => trails(sim).get(eid)?.length);
+      expect(lengths).toEqual(lengths.map(() => 6));
+      expect(trails(sim).get(ghostOf(sim, GHOST_KIND.blinky))!.length).toBe(6);
     });
 
     it("stops a frightened ghost laying slime but keeps what it left", () => {

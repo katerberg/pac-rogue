@@ -71,8 +71,8 @@ describe("Blinky Swarm", () => {
     expect(bossGhostKind(def, 7)).toBe(GHOST_KIND.blinky);
     expect(def.startGhosts).toBe(2);
     expect(bossStageCount(def)).toBe(2);
-    expect(bossStage(def, 0)).toEqual({ spawnPellets: 3, chainPairs: [], slime: "none" });
-    expect(bossStage(def, 1)).toEqual({ spawnPellets: 3, chainPairs: [], slime: "none" });
+    expect(bossStage(def, 0)).toEqual({ spawnPellets: 3, chainPairs: [], slime: null });
+    expect(bossStage(def, 1)).toEqual({ spawnPellets: 3, chainPairs: [], slime: null });
     expect(totalBossSpawnPellets(def)).toBe(6);
     expect(maxBossGhosts(def)).toBe(8);
   });
@@ -180,10 +180,10 @@ describe("recordBossPelletsEaten", () => {
 describe("Slime Trail", () => {
   const slime = BOSS_DEFS.slimeTrail;
 
-  it("slimes Blinky in stage 1 and every ghost in stage 2 on the pool board", () => {
+  it("slimes Blinky for 10 tiles in stage 1 and every ghost for 6 in stage 2", () => {
     expect(slime.poolBoard).toBe(true);
-    expect(bossStage(slime, 0).slime).toBe("blinky");
-    expect(bossStage(slime, 1).slime).toBe("all");
+    expect(bossStage(slime, 0).slime).toEqual({ scope: "blinky", tiles: 10 });
+    expect(bossStage(slime, 1).slime).toEqual({ scope: "all", tiles: 6 });
     expect(totalBossSpawnPellets(slime)).toBe(0);
   });
 
