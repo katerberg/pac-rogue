@@ -1912,7 +1912,6 @@ export class LearnSim {
     this.popup(lines.join("\n"));
   }
 
-  /** LEARN's level clear is a refill: like Play, clearing the board while possessing bursts out. */
   private burstOutOfPossession(): void {
     const ghostEid = possessedGhostEid(this.learnUpgrades);
     if (ghostEid === null) {

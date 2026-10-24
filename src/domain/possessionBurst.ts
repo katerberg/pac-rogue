@@ -34,10 +34,7 @@ export function possessionBurstRender(burst: PossessionBurst | null): Possession
       };
 }
 
-/**
- * The ghost shell swells and wobbles, then shatters as Dot-Man pops out oversized and settles.
- * Scales are large on purpose: sprites snap to whole art pixels, so small overshoots vanish or jump.
- */
+/** Scales are large on purpose: sprites snap to whole art pixels, so small overshoots vanish or jump. */
 export function possessionBurstLook(progress: number): {
   shellScale: number;
   shellAlpha: number;

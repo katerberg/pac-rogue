@@ -5,7 +5,6 @@ import { Position } from "../components/Position";
 import { Velocity } from "../components/Velocity";
 import type { PossessionBurst } from "../../domain/possessionBurst";
 
-/** Moves Dot-Man, stopped, to the possessed ghost so it can burst out of the body. */
 export function burstOutOfGhost(world: World, ghostEid: number): PossessionBurst {
   const x = Position.x[ghostEid] ?? 0;
   const y = Position.y[ghostEid] ?? 0;
