@@ -119,7 +119,7 @@ export type SimEvent =
   | { type: "timePennies"; active: boolean }
   | { type: "upgrades" }
   | { type: "salvage"; gained: UpgradeId | null; quarters: number }
-  | { type: "upgradePulse"; ids: BaseUpgradeId[] }
+  | { type: "upgradePulse"; ids: BaseUpgradeId[]; cause?: BaseUpgradeId }
   | { type: "timer" }
   | { type: "timerVisible"; visible: boolean }
   | { type: "startingUpgrade"; id: UpgradeId }

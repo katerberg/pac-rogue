@@ -703,8 +703,10 @@ export class PlaySim {
   private lastStreakPop: number | null = null;
   private upgradeTimers: UpgradeTimers = {};
   private firedUpgrades: BaseUpgradeId[] = [];
+  private pulseCause: BaseUpgradeId | undefined;
   private upgradePulseCount = 0;
   private lastUpgradePulse: BaseUpgradeId[] = [];
+  private lastUpgradePulseCause: BaseUpgradeId | null = null;
   private quarters = 0;
   private pennies: PennyPurse;
   private slotPickupProgress = 0;
@@ -946,10 +948,13 @@ export class PlaySim {
     );
     this.upgradeTimers = timers;
     this.firedUpgrades = [];
-    if (pulses.length > 0) {
+    const cause = this.pulseCause;
+    this.pulseCause = undefined;
+    if (pulses.length > 0 || cause !== undefined) {
       this.upgradePulseCount += 1;
       this.lastUpgradePulse = pulses;
-      this.emit({ type: "upgradePulse", ids: pulses });
+      this.lastUpgradePulseCause = cause ?? null;
+      this.emit({ type: "upgradePulse", ids: pulses, cause });
     }
   }
 
@@ -1335,7 +1340,11 @@ export class PlaySim {
       ghostsEatenThisFright: upgrades.ghostsEatenThisFright,
       streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
       crumbs: this.crumbCount,
-      upgradePulses: { count: this.upgradePulseCount, last: this.lastUpgradePulse },
+      upgradePulses: {
+        count: this.upgradePulseCount,
+        last: this.lastUpgradePulse,
+        cause: this.lastUpgradePulseCause,
+      },
       upgradeTimers: upgradeTimerFractions(this.upgradeTimers),
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
@@ -2193,6 +2202,7 @@ export class PlaySim {
         })
       ) {
         this.recorder.activation("martyr");
+        this.pulseCause = "passiveMartyr";
         const cleared = this.firePowerPelletEffects(1);
         this.emitDraw();
         if (cleared) {

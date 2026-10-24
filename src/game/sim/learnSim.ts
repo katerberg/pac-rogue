@@ -394,6 +394,7 @@ export class LearnSim {
   private learnUpgrades: RunUpgrades = createRunUpgrades();
   private upgradeTimers: UpgradeTimers = {};
   private firedUpgrades: BaseUpgradeId[] = [];
+  private pulseCause: BaseUpgradeId | undefined;
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
   private tunnelBoringCharges = 0;
@@ -916,8 +917,10 @@ export class LearnSim {
     );
     this.upgradeTimers = timers;
     this.firedUpgrades = [];
-    if (pulses.length > 0) {
-      this.events.push({ type: "upgradePulse", ids: pulses });
+    const cause = this.pulseCause;
+    this.pulseCause = undefined;
+    if (pulses.length > 0 || cause !== undefined) {
+      this.events.push({ type: "upgradePulse", ids: pulses, cause });
     }
     return this.takeEvents();
   }
@@ -1854,6 +1857,7 @@ export class LearnSim {
         saved,
       })
     ) {
+      this.pulseCause = "passiveMartyr";
       this.firePowerPelletEffects(1);
       lines.push("MARTYR");
     }

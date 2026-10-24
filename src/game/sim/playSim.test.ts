@@ -10095,6 +10095,29 @@ describe("Martyr", () => {
     expect(sim.snapshot().timers.invulnMs).toBeGreaterThan(0);
   });
 
+  it("pulses Martyr as the cause of the effects it fires", () => {
+    const sim = startSim({
+      level: 2,
+      maze: "maze1",
+      enableUpgrades: ["passiveMartyr", "powerPelletInvuln"],
+    });
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    const pulses = runFrames(sim, 1).filter((event) => event.type === "upgradePulse");
+    expect(pulses).toEqual([
+      { type: "upgradePulse", ids: ["powerPelletInvuln"], cause: "passiveMartyr" },
+    ]);
+    expect(sim.snapshot().upgradePulses.cause).toBe("passiveMartyr");
+  });
+
+  it("pulses Martyr alone when it owns no power-pellet effects", () => {
+    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["passiveMartyr"] });
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    const pulses = runFrames(sim, 1).filter((event) => event.type === "upgradePulse");
+    expect(pulses).toEqual([{ type: "upgradePulse", ids: [], cause: "passiveMartyr" }]);
+  });
+
   it("base skips Defy Death saves; Plus fires on them", () => {
     const base = startSim({
       level: 2,
