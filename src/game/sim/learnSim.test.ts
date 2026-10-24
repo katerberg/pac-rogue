@@ -2553,7 +2553,7 @@ describe("Martyr and Possession (LEARN)", () => {
     expect(posOf(ghost)).toEqual(ghostHouseSpawnCenter());
     expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
     let options = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS));
-    for (let t = 0; t < 1000 && options.possessionBurst !== null; t += FRAME_MS) {
+    for (let t = 0; t < 2000 && options.possessionBurst !== null; t += FRAME_MS) {
       options = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS));
     }
     expect(options.possessionBurst).toBeNull();

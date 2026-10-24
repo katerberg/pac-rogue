@@ -1,8 +1,10 @@
-export const POSSESSION_BURST_MS = 700;
-const BURST_SWELL_SHARE = 0.4;
-const BURST_SWELL_SCALE = 0.6;
-const BURST_SWELL_WOBBLE = 0.1;
-const BURST_SWELL_WOBBLES = 3;
+const BURST_SWELL_MS = 840;
+const BURST_POP_MS = 420;
+export const POSSESSION_BURST_MS = BURST_SWELL_MS + BURST_POP_MS;
+const BURST_SWELL_SHARE = BURST_SWELL_MS / POSSESSION_BURST_MS;
+const BURST_PULSE_PEAK = { at: 0.35, scale: 1.9 };
+const BURST_PULSE_DIP = { at: 0.55, scale: 1.55 };
+const BURST_EXPLODE_SCALE = 3;
 const BURST_POP_PEAK_SCALE = 1.5;
 const BURST_POP_GROW_SHARE = 0.35;
 const BURST_SHARD_COUNT = 8;
@@ -34,6 +36,20 @@ export function possessionBurstRender(burst: PossessionBurst | null): Possession
       };
 }
 
+function shellPulseScale(s: number): number {
+  const ease = (from: number, to: number, k: number): number => from + (to - from) * k;
+  const smooth = (k: number): number => k * k * (3 - 2 * k);
+  if (s < BURST_PULSE_PEAK.at) {
+    return ease(1, BURST_PULSE_PEAK.scale, smooth(s / BURST_PULSE_PEAK.at));
+  }
+  if (s < BURST_PULSE_DIP.at) {
+    const k = (s - BURST_PULSE_PEAK.at) / (BURST_PULSE_DIP.at - BURST_PULSE_PEAK.at);
+    return ease(BURST_PULSE_PEAK.scale, BURST_PULSE_DIP.scale, smooth(k));
+  }
+  const k = (s - BURST_PULSE_DIP.at) / (1 - BURST_PULSE_DIP.at);
+  return ease(BURST_PULSE_DIP.scale, BURST_EXPLODE_SCALE, k * k);
+}
+
 /** Scales are large on purpose: sprites snap to whole art pixels, so small overshoots vanish or jump. */
 export function possessionBurstLook(progress: number): {
   shellScale: number;
@@ -43,12 +59,8 @@ export function possessionBurstLook(progress: number): {
 } {
   const t = Math.min(1, Math.max(0, progress));
   if (t < BURST_SWELL_SHARE) {
-    const s = t / BURST_SWELL_SHARE;
     return {
-      shellScale:
-        1 +
-        BURST_SWELL_SCALE * s * s +
-        BURST_SWELL_WOBBLE * Math.sin(s * Math.PI * 2 * BURST_SWELL_WOBBLES),
+      shellScale: shellPulseScale(t / BURST_SWELL_SHARE),
       shellAlpha: 1,
       playerScale: 0,
       shardProgress: 0,
