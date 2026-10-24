@@ -9,7 +9,6 @@ import {
   speedZoneWaterCanvas,
   speedZoneWaterMask,
   stepWakeDroplets,
-  waterCellOpen,
   wakePixels,
   type WakeRider,
 } from "./speedZoneWater";
@@ -122,20 +121,23 @@ describe("paintSpeedZoneWater", () => {
   });
 });
 
-describe("waterCellOpen", () => {
-  it("lets water onto corridors only", () => {
-    const board = {
-      walls: [[true, false, false, false]],
-      house: [[false, false, true, false]],
-      door: [[false, false, false, true]],
-    };
-    expect([0, 1, 2, 3].map((col) => waterCellOpen(board, col, 0))).toEqual([
+describe("speedZoneWaterMask", () => {
+  it("lets water onto corridor cells only, not walls, the ghost house or its door", () => {
+    const mask = speedZoneWaterMask(
+      {
+        walls: [[true, false, false, false]],
+        house: [[false, false, true, false]],
+        door: [[false, false, false, true]],
+      },
+      0,
+    );
+    expect([0, 1, 2, 3, 9].map((col) => mask.isOpen(col * ART + 8, 8))).toEqual([
       false,
       true,
       false,
       false,
+      false,
     ]);
-    expect(waterCellOpen(board, 9, 0)).toBe(false);
   });
 
   it("lets the water mask reach into wall tiles up to the wall line, but not round corners", () => {

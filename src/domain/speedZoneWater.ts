@@ -48,7 +48,7 @@ export type WaterCanvas = {
   rgba: Uint8ClampedArray<ArrayBuffer>;
 };
 
-export function waterCellOpen(
+function waterCellOpen(
   board: Pick<MazeLayout, "walls" | "house" | "door">,
   col: number,
   row: number,
