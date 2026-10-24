@@ -16,7 +16,7 @@ Blinky is always selectable; every other ghost shows as a grey, locked slot name
 - Hovering a label shows the level-clear picker card flush with the playfield bottom (overlapping BACK; `learnHoverPreviewCenter`). A `+` mark on a selected row toggles its enhanced form (`LearnSim.toggleEnhanced`).
 - Selecting an upgrade with no observable effect here (`LEARN_NO_EFFECT_UPGRADE_IDS` in `src/domain/upgrades.ts`) shows a "no visible effect" banner.
 - The overlay is drawn each frame from `resolveGhostTarget` (the same function `ghostAi` uses) and the pure helpers in `src/domain/learnOverlay.ts`: a target reticle, the ghost's predicted greedy path, and gray derivation lines per ghost (Pinky look-ahead, Inky pivot, Clyde shy circle, Spunky aggro circle, Wardy rim line). Targeting math stays tile-based.
-- Controls: arrows/WASD, `1`-`6` or click to pick a ghost, click to toggle an upgrade, wheel over a side list to scroll when it overflows, Esc or BACK to leave.
+- Controls: arrows/WASD, `1`-`6` or click to pick an unlocked ghost (locked slots ignore both), click to toggle an upgrade, wheel over a side list to scroll when it overflows, Esc or BACK to leave.
 
 ## Differences from play
 
