@@ -1,9 +1,11 @@
 import { query, type World } from "bitecs";
-import { snapToCellCenter, type SolidGrid } from "../../domain/maze";
+import { cellCenterX, cellCenterY, type SolidGrid } from "../../domain/maze";
 import {
   programmerEnterCell,
   programmerPathMarks,
+  programmerStartCells,
   recordProgrammerPress,
+  type ProgramCell,
   type ProgramDir,
   type ProgrammerPathMark,
   type ProgrammerState,
@@ -39,13 +41,17 @@ function stopPlayer(world: World): void {
 
 export function holdPlayerForProgramming(world: World): void {
   stopPlayer(world);
-  for (const eid of query(world, [Player, Position, Facing, Input])) {
-    const center = snapToCellCenter(Position.x[eid] ?? 0, Position.y[eid] ?? 0);
-    Position.x[eid] = center.x;
-    Position.y[eid] = center.y;
+  for (const eid of query(world, [Player, Facing, Input])) {
     Facing.direction[eid] = DIRECTION.none;
     Input.direction[eid] = DIRECTION.none;
   }
+}
+
+function startCells(world: World, solids: SolidGrid): ProgramCell[] | null {
+  const eid = query(world, [Player, Position])[0];
+  return eid === undefined
+    ? null
+    : programmerStartCells(Position.x[eid] ?? 0, Position.y[eid] ?? 0, solids);
 }
 
 function applyProgrammerStep(world: World, step: ProgrammerStep): ProgrammerState | null {
@@ -77,13 +83,19 @@ export function recordProgrammerKeys(
   let recorded = 0;
   let launched = false;
   for (const dir of freshPressesInOrder(prev, keys)) {
-    const cell = playerCell(world);
-    if (next?.phase !== "recording" || cell === null) {
+    const starts = startCells(world, solids);
+    if (next?.phase !== "recording" || starts === null) {
       break;
     }
     recorded += 1;
-    const step = recordProgrammerPress(next, dir, solids, cell.col, cell.row);
-    launched ||= step.state?.phase === "running";
+    const step = recordProgrammerPress(next, dir, solids, starts);
+    if (step.state?.phase === "running") {
+      launched = true;
+      for (const eid of query(world, [Player, Position])) {
+        Position.x[eid] = cellCenterX(step.state.col);
+        Position.y[eid] = cellCenterY(step.state.row);
+      }
+    }
     next = applyProgrammerStep(world, step);
   }
   return { state: next, recorded, launched };
@@ -106,8 +118,8 @@ export function programmerPath(
   state: ProgrammerState | null,
   solids: SolidGrid,
 ): ProgrammerPathMark[] {
-  const cell = playerCell(world);
-  return state?.phase === "recording" && cell !== null
-    ? programmerPathMarks(state.presses, solids, cell.col, cell.row)
+  const starts = startCells(world, solids);
+  return state?.phase === "recording" && starts !== null
+    ? programmerPathMarks(state.presses, solids, starts)
     : [];
 }

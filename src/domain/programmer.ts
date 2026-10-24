@@ -1,4 +1,11 @@
-import { canEnterDirection, cellCenterX, cellCenterY, type SolidGrid } from "./maze";
+import {
+  canEnterDirection,
+  cellCenterX,
+  cellCenterY,
+  worldToCol,
+  worldToRow,
+  type SolidGrid,
+} from "./maze";
 
 export type ProgramDir = "up" | "down" | "left" | "right";
 
@@ -50,27 +57,54 @@ export function isIntersection(
 
 export type ProgrammerStep = { state: ProgrammerState | null; heading: ProgramDir | null };
 
+export type ProgramCell = { col: number; row: number };
+
+function stepCell(solids: SolidGrid, cell: ProgramCell, dir: ProgramDir): ProgramCell {
+  const rows = solids.length;
+  const cols = solids[0]?.length ?? 0;
+  return {
+    col: (cell.col + STEP[dir].dx + cols) % cols,
+    row: (cell.row + STEP[dir].dy + rows) % rows,
+  };
+}
+
+export function programmerStartCells(x: number, y: number, solids: SolidGrid): ProgramCell[] {
+  const held = { col: worldToCol(x), row: worldToRow(y) };
+  const leanX = x - cellCenterX(held.col);
+  const leanY = y - cellCenterY(held.row);
+  const lean: ProgramDir | null =
+    leanX !== 0 ? (leanX < 0 ? "left" : "right") : leanY !== 0 ? (leanY < 0 ? "up" : "down") : null;
+  return lean !== null && openAt(solids, held.col, held.row, lean)
+    ? [held, stepCell(solids, held, lean)]
+    : [held];
+}
+
 function takeFirstOpen(
   program: readonly ProgramDir[],
   solids: SolidGrid,
-  col: number,
-  row: number,
-): { dir: ProgramDir; rest: ProgramDir[] } | null {
-  const index = program.findIndex((dir) => openAt(solids, col, row, dir));
-  return index < 0 ? null : { dir: program[index]!, rest: program.slice(index + 1) };
+  starts: readonly ProgramCell[],
+): { dir: ProgramDir; rest: ProgramDir[]; cell: ProgramCell } | null {
+  for (let index = 0; index < program.length; index += 1) {
+    const dir = program[index]!;
+    const cell = starts.find((at) => openAt(solids, at.col, at.row, dir));
+    if (cell !== undefined) {
+      return { dir, rest: program.slice(index + 1), cell };
+    }
+  }
+  return null;
 }
 
 function launch(
   program: ProgramDir[],
   setsLeft: number,
   solids: SolidGrid,
-  col: number,
-  row: number,
+  starts: readonly ProgramCell[],
 ): ProgrammerStep {
-  const taken = takeFirstOpen(program, solids, col, row);
+  const taken = takeFirstOpen(program, solids, starts);
   if (taken === null) {
     return finishRun(setsLeft, null);
   }
+  const { col, row } = taken.cell;
   return {
     state: { phase: "running", program: taken.rest, heading: taken.dir, setsLeft, col, row },
     heading: taken.dir,
@@ -85,15 +119,14 @@ export function recordProgrammerPress(
   state: ProgrammerRecording,
   dir: ProgramDir,
   solids: SolidGrid,
-  col: number,
-  row: number,
+  starts: readonly ProgramCell[],
   presses: number = PROGRAMMER_PRESSES,
 ): ProgrammerStep {
   const recorded = [...state.presses, dir];
   if (recorded.length < presses) {
     return { state: { ...state, presses: recorded }, heading: null };
   }
-  return launch(recorded, state.setsLeft, solids, col, row);
+  return launch(recorded, state.setsLeft, solids, starts);
 }
 
 export function programmerEnterCell(
@@ -111,7 +144,7 @@ export function programmerEnterCell(
   if (!isIntersection(solids, col, row, heading)) {
     return straight ? { state: moved, heading } : finishRun(state.setsLeft, null);
   }
-  const taken = takeFirstOpen(state.program, solids, col, row);
+  const taken = takeFirstOpen(state.program, solids, [{ col, row }]);
   if (taken === null) {
     return finishRun(state.setsLeft, straight ? heading : null);
   }
@@ -141,15 +174,14 @@ export function programmerQueueSlots(
 
 export type ProgrammerPathMark = { x: number; y: number; dir: ProgramDir; latest: boolean };
 
-type Cell = { col: number; row: number };
-
-function legEnd(solids: SolidGrid, from: Cell, heading: ProgramDir): { cell: Cell; turn: boolean } {
-  const rows = solids.length;
-  const cols = solids[0]?.length ?? 0;
-  const { dx, dy } = STEP[heading];
+function legEnd(
+  solids: SolidGrid,
+  from: ProgramCell,
+  heading: ProgramDir,
+): { cell: ProgramCell; turn: boolean } {
   let cell = from;
-  for (let steps = 0; steps < rows * cols; steps += 1) {
-    cell = { col: (cell.col + dx + cols) % cols, row: (cell.row + dy + rows) % rows };
+  for (let steps = 0; steps < solids.length * (solids[0]?.length ?? 0); steps += 1) {
+    cell = stepCell(solids, cell, heading);
     if (isIntersection(solids, cell.col, cell.row, heading)) {
       return { cell, turn: true };
     }
@@ -163,15 +195,13 @@ function legEnd(solids: SolidGrid, from: Cell, heading: ProgramDir): { cell: Cel
 export function programmerPathMarks(
   presses: readonly ProgramDir[],
   solids: SolidGrid,
-  col: number,
-  row: number,
+  starts: readonly ProgramCell[],
 ): ProgrammerPathMark[] {
   const marks: ProgrammerPathMark[] = [];
-  let taken = takeFirstOpen(presses, solids, col, row);
-  let at: Cell = { col, row };
+  let taken = takeFirstOpen(presses, solids, starts);
   while (taken !== null) {
     const latest = taken.rest.length === 0;
-    const end = legEnd(solids, at, taken.dir);
+    const end = legEnd(solids, taken.cell, taken.dir);
     marks.push({
       x: cellCenterX(end.cell.col),
       y: cellCenterY(end.cell.row),
@@ -181,8 +211,7 @@ export function programmerPathMarks(
     if (latest || !end.turn) {
       break;
     }
-    at = end.cell;
-    taken = takeFirstOpen(taken.rest, solids, at.col, at.row);
+    taken = takeFirstOpen(taken.rest, solids, [end.cell]);
   }
   return marks;
 }
