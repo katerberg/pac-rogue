@@ -1,14 +1,11 @@
 import {
   applyPowerPelletEffects,
   createRunUpgrades,
-  hyperspeedMultiplier,
   powerPelletPickupFires,
   shieldPelletsCap,
   speedBurstMultiplier,
   type UpgradeId,
 } from "../../../domain/upgrades";
-
-export const HYPERSPEED_PLANNING_MUL = 1;
 
 export type PowerPelletAffordance = {
   frightSteps: number;
@@ -49,17 +46,12 @@ export function powerPelletAffordance(
   }
   const result = applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
   const after = result.state;
-  const hyperspeed = after.hyperspeedRemainingMs > 0;
   return {
     frightSteps: result.frightenGhosts ? steps(after.frightenedRemainingMs) : 0,
     invulnSteps: steps(after.invulnRemainingMs),
     freezeSteps: result.freezeClosestMs === null ? 0 : steps(result.freezeClosestMs),
-    speedMul: hyperspeed
-      ? Math.min(hyperspeedMultiplier(owned), HYPERSPEED_PLANNING_MUL)
-      : after.speedBurstRemainingMs > 0
-        ? speedBurstMultiplier(owned)
-        : 1,
-    speedSteps: steps(hyperspeed ? after.hyperspeedRemainingMs : after.speedBurstRemainingMs),
+    speedMul: after.speedBurstRemainingMs > 0 ? speedBurstMultiplier(owned) : 1,
+    speedSteps: steps(after.speedBurstRemainingMs),
     warp: result.warpPlayerFarthest,
     recall: result.recallGhostCount,
     cornerTeleport: result.cornerTeleportHoldMs !== null,

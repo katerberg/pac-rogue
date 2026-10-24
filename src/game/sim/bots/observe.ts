@@ -31,14 +31,13 @@ import { speedLevelMultiplier } from "../../../domain/tuning";
 import {
   ghostSpeedMultiplier,
   ghostTunnelSpeedRatio,
-  hyperspeedMultiplier,
   playerSpeedMultiplier,
   speedBurstMultiplier,
 } from "../../../domain/upgrades";
 import { Speed } from "../../components/Speed";
 import { nameOf } from "../../systems/worldSnapshot";
 import type { PlaySim } from "../playSim";
-import { HYPERSPEED_PLANNING_MUL, powerPelletAffordance } from "./affordances";
+import { powerPelletAffordance } from "./affordances";
 import type { PlannerGhost, PlannerState } from "./planner";
 import type { SkillTier } from "./profiles";
 import {
@@ -173,7 +172,6 @@ export class Observer {
         trinketGhostSpeedMul(owned, ghost.kind)) /
       playerSpeed;
     const timers = snapshot.timers;
-    const hyperspeed = timers.hyperspeedMs > 0;
     const flip = sim.ghostModeFlip();
     return {
       grid,
@@ -214,7 +212,7 @@ export class Observer {
           return {
             ...base,
             delaySteps: leaving ? tilesToExit / speedOf(base, snapshot.pelletsRemaining) : 0,
-            speed: speedOf({ ...base, leaving: false }, snapshot.pelletsRemaining),
+            speed: speedOf(base, snapshot.pelletsRemaining),
           };
         }),
       mode: GHOST_AI_MODE[snapshot.ghostMode as keyof typeof GHOST_AI_MODE] ?? GHOST_AI_MODE.chase,
@@ -226,12 +224,8 @@ export class Observer {
       tuning,
       invulnSteps: Math.max(timers.invulnMs, timers.defyDeathMs) / stepMs,
       shields: sim.hud().shields + (timers.hyperspeedShieldMs > 0 ? 1 : 0),
-      speedMul: hyperspeed
-        ? Math.min(hyperspeedMultiplier(owned), HYPERSPEED_PLANNING_MUL)
-        : timers.speedBurstMs > 0
-          ? speedBurstMultiplier(owned)
-          : 1,
-      speedSteps: (hyperspeed ? timers.hyperspeedMs : timers.speedBurstMs) / stepMs,
+      speedMul: timers.speedBurstMs > 0 ? speedBurstMultiplier(owned) : 1,
+      speedSteps: timers.speedBurstMs / stepMs,
       speedOf,
       affordance: powerPelletAffordance(owned, level, stepMs),
       pellets: mark(pellets),
