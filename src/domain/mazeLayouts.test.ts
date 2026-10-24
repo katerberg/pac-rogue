@@ -138,6 +138,7 @@ describe("maze selection", () => {
     expect(parseMazeParam(new URLSearchParams("maze=maze1"))).toBe("maze1");
     expect(parseMazeParam(new URLSearchParams("maze=maze2"))).toBe("maze2");
     expect(parseMazeParam(new URLSearchParams("maze=mazeSmall"))).toBe("mazeSmall");
+    expect(parseMazeParam(new URLSearchParams("maze=mazeLearn"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams("maze=classic"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams("maze=nope"))).toBeNull();
     expect(parseMazeParam(new URLSearchParams())).toBeNull();
