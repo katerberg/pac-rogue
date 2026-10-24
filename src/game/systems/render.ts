@@ -26,6 +26,7 @@ import {
   worldToRow,
   wrappedTwinPosition,
   type MazeLayout,
+  type MazeTile,
   type WallPathCommand,
 } from "../../domain/maze";
 import {
@@ -44,6 +45,7 @@ import {
   type SinkholeRenderState,
 } from "../../domain/sinkholeArt";
 import { BORE_JUNK_SETTLE_MS, type BoreJunk } from "../../domain/boreJunk";
+import { SLIME_STYLE } from "../../domain/slimeTrail";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import {
@@ -710,6 +712,7 @@ export type RenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
+  slimeTiles?: readonly MazeTile[];
   collapse?: CollapseRenderState | null;
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
@@ -759,6 +762,7 @@ const PROGRAMMER_PATH_ARROW_SCALE = 0.45;
 const PROGRAMMER_PATH_FADED_ALPHA = 0.4;
 const SPEED_TRAIL_DEPTH = -1;
 const LAVA_DEPTH = -1.25;
+const SLIME_DEPTH = -1.2;
 const SINKHOLE_FRAME_MS = 50;
 const LAVA_PX = 2;
 const LAVA_FLICKER_MS = 90;
@@ -928,6 +932,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
+  const slimeGraphics = scene.add.graphics();
+  slimeGraphics.setDepth(SLIME_DEPTH);
   const programmerGraphics = scene.add.graphics();
   programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
   const programmerPathGraphics = scene.add.graphics();
@@ -1923,6 +1929,20 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     lavaGraphics.clear();
     if (opts?.lava) {
       drawLava(lavaGraphics, opts.lava, scene.time.now);
+    }
+
+    slimeGraphics.clear();
+    if (opts?.slimeTiles && opts.slimeTiles.length > 0) {
+      const tile = getActiveLayout().tileSize;
+      slimeGraphics.fillStyle(SLIME_STYLE.color, SLIME_STYLE.alpha * (opts.entityAlpha ?? 1));
+      for (const cell of opts.slimeTiles) {
+        slimeGraphics.fillRect(
+          cellCenterX(cell.col) - tile / 2,
+          cellCenterY(cell.row) - tile / 2,
+          tile,
+          tile,
+        );
+      }
     }
 
     droppedWallGraphics.clear();

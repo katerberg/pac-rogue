@@ -1,7 +1,7 @@
 import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { DEFAULT_TUNING, type Tuning } from "./tuning";
 
-export const BOSS_IDS = ["blinkySwarm", "chainedGhosts"] as const;
+export const BOSS_IDS = ["blinkySwarm", "chainedGhosts", "slimeTrail"] as const;
 
 export type BossId = (typeof BOSS_IDS)[number];
 
@@ -23,9 +23,13 @@ export function chainPairForKind(kind: GhostKindId): ChainPairId | null {
   return null;
 }
 
+/** Which ghosts lay slime in a stage: none, Blinky only, or every ghost. */
+export type SlimeScope = "none" | "blinky" | "all";
+
 export type BossStageDef = {
   spawnPellets: number;
   chainPairs: readonly ChainPairId[];
+  slime: SlimeScope;
 };
 
 export type BossDef = {
@@ -37,6 +41,8 @@ export type BossDef = {
   tunnelCount: number | null;
   houseReleaseStaggerMs: number;
   chained: boolean;
+  /** Fought on the run's level 2-8 pool map with level 8's modifiers and roster. */
+  poolBoard: boolean;
 };
 
 export const BOSS_DEFS: Record<BossId, BossDef> = {
@@ -45,30 +51,60 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
     ghostKinds: [GHOST_KIND.blinky],
     startGhosts: 2,
     stages: [
-      { spawnPellets: 3, chainPairs: [] },
-      { spawnPellets: 3, chainPairs: [] },
+      { spawnPellets: 3, chainPairs: [], slime: "none" },
+      { spawnPellets: 3, chainPairs: [], slime: "none" },
     ],
     maxHouseGhosts: 4,
     tunnelCount: 3,
     houseReleaseStaggerMs: 600,
     chained: false,
+    poolBoard: false,
   },
   chainedGhosts: {
     id: "chainedGhosts",
     ghostKinds: [GHOST_KIND.blinky, GHOST_KIND.pinky, GHOST_KIND.inky, GHOST_KIND.clyde],
     startGhosts: 4,
     stages: [
-      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde] },
-      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde, CHAIN_PAIR.pinkyInky] },
+      { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde], slime: "none" },
+      {
+        spawnPellets: 0,
+        chainPairs: [CHAIN_PAIR.blinkyClyde, CHAIN_PAIR.pinkyInky],
+        slime: "none",
+      },
     ],
     maxHouseGhosts: 4,
     tunnelCount: null,
     houseReleaseStaggerMs: 1500,
     chained: true,
+    poolBoard: false,
+  },
+  slimeTrail: {
+    id: "slimeTrail",
+    ghostKinds: [GHOST_KIND.blinky],
+    startGhosts: 1,
+    stages: [
+      { spawnPellets: 0, chainPairs: [], slime: "blinky" },
+      { spawnPellets: 0, chainPairs: [], slime: "all" },
+    ],
+    maxHouseGhosts: 4,
+    tunnelCount: null,
+    houseReleaseStaggerMs: 1500,
+    chained: false,
+    poolBoard: true,
   },
 };
 
+/** Pool-board bosses fight the run's own roster in place of `def.ghostKinds`. */
+export function withBossRoster(def: BossDef, roster: readonly GhostKindId[]): BossDef {
+  return def.poolBoard && roster.length > 0
+    ? { ...def, ghostKinds: roster, startGhosts: roster.length }
+    : def;
+}
+
 export const BOSS_LEVEL = 9;
+
+/** The level whose board and modifiers a pool-board boss replays. */
+export const POOL_BOSS_BOARD_LEVEL = BOSS_LEVEL - 1;
 
 export function isBossLevel(levelIndex: number): boolean {
   return levelIndex === BOSS_LEVEL;

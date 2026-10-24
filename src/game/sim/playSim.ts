@@ -44,11 +44,14 @@ import {
   isBossLevel,
   isFinalBossStage,
   pickBoss,
+  POOL_BOSS_BOARD_LEVEL,
   recordBossPelletsEaten,
   splitBossGhosts,
+  withBossRoster,
   type BossDef,
   type BossState,
 } from "../../domain/bossRules";
+import { slimeOwnerTouching, slimeTiles, type SlimeTrails } from "../../domain/slimeTrail";
 import {
   createBossStageTransition,
   tickBossStageTransition,
@@ -466,6 +469,7 @@ import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
 import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
+import { tickSlimeTrails } from "../systems/slimeTrail";
 import {
   catchPlayer,
   edibleGhostsTouchingEid,
@@ -753,6 +757,9 @@ export class PlaySim {
   private readonly ghostTraction = new GhostTractionState();
   private readonly sonicEchoes = new SonicBoomEchoes();
   private lavaZone: LavaZone | null = null;
+  private slimeTrails: SlimeTrails = new Map();
+  /** Level whose board and modifiers are in play (a pool-board boss replays level 8). */
+  private boardLevel = 1;
   private lavaElapsedMs = 0;
   private lavaStarted = false;
   private speedZones: SpeedZone[] = [];
@@ -1237,6 +1244,7 @@ export class PlaySim {
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
+      slimeTiles: slimeTiles(this.slimeTrails),
       collapse: this.collapseRenderState(),
       sinkhole: this.sinkholeRenderState(),
       boreJunk: this.tunnelBore.junk,
@@ -1399,7 +1407,7 @@ export class PlaySim {
       },
       sinkhole: {
         cells: this.sinkholeChain,
-        fresh: this.sinkholeChain !== null && isFreshSinkhole(this.levelIndex),
+        fresh: this.sinkholeChain !== null && isFreshSinkhole(this.boardLevel),
         introMs: this.sinkholeIntroMs,
       },
       mirror: {
@@ -1487,6 +1495,7 @@ export class PlaySim {
               stage: this.bossState.stageIndex + 1,
               chainPairs: [...bossStage(this.bossState.def, this.bossState.stageIndex).chainPairs],
               mazeColorInverted: this.bossState.mazeColorInverted,
+              slimeTiles: [...this.slimeTrails.values()].map((tiles) => tiles.length),
             },
       runLog: {
         id: this.recorder.record.id,
@@ -2092,6 +2101,7 @@ export class PlaySim {
     }
 
     this.tickBoss();
+    this.tickSlime();
     this.eatFrightenedGhosts();
 
     const catchOptions = this.catchOptions();
@@ -2103,8 +2113,12 @@ export class PlaySim {
     const playerCaughtBy =
       catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
     const playerLava = playerCaughtBy === null && this.touchesLava(catchOptions);
-    const twinCatch = playerCaughtBy === null && !playerLava ? this.twinCatch(catchOptions) : null;
-    const caughtBy = playerCaughtBy ?? twinCatch?.eid ?? null;
+    const slimedBy = playerCaughtBy === null && !playerLava ? this.slimeCatch(catchOptions) : null;
+    const twinCatch =
+      playerCaughtBy === null && !playerLava && slimedBy === null
+        ? this.twinCatch(catchOptions)
+        : null;
+    const caughtBy = playerCaughtBy ?? slimedBy ?? twinCatch?.eid ?? null;
     const lavaKill = playerLava || twinCatch?.lava === true;
     this.emitDraw();
 
@@ -2294,7 +2308,10 @@ export class PlaySim {
       return null;
     }
     const at = { ...options, at: position };
-    const eid = catchPlayer(this.world, at) ?? chainCatch(this.world, at);
+    const eid =
+      catchPlayer(this.world, at) ??
+      chainCatch(this.world, at) ??
+      this.slimeCatch(options, position);
     const lava = eid === null && this.touchesLava(options, position);
     return eid === null && !lava ? null : { eid, lava, position };
   }
@@ -2457,13 +2474,13 @@ export class PlaySim {
 
   private resetTimedTunnel(): void {
     this.timedTunnelElapsedMs = 0;
-    if (!isTimedTunnelLevel(this.levelIndex)) {
+    if (!isTimedTunnelLevel(this.boardLevel)) {
       this.timedTunnelGatedRow = null;
       return;
     }
     this.timedTunnelGatedRow = pickTimedTunnelRow(
       horizontalTunnelRows(),
-      this.random.stream("timedTunnel", this.levelIndex),
+      this.random.stream("timedTunnel", this.boardLevel),
     );
   }
 
@@ -2471,7 +2488,7 @@ export class PlaySim {
     this.lavaElapsedMs = 0;
     this.lavaStarted = false;
     this.lavaZone =
-      this.options.levelModifiers && isLavaZoneLevel(this.levelIndex)
+      this.options.levelModifiers && isLavaZoneLevel(this.boardLevel)
         ? pickLavaZone(
             getActiveLayout(),
             {
@@ -2481,7 +2498,7 @@ export class PlaySim {
                 : this.speedZones
               ).flatMap(speedZoneCells),
             },
-            this.random.stream("lavaZone", this.levelIndex),
+            this.random.stream("lavaZone", this.boardLevel),
           )
         : null;
   }
@@ -2526,6 +2543,39 @@ export class PlaySim {
     );
   }
 
+  private tickSlime(): void {
+    if (this.bossState === null) {
+      return;
+    }
+    this.slimeTrails = tickSlimeTrails(
+      this.world,
+      this.slimeTrails,
+      bossStage(this.bossState.def, this.bossState.stageIndex).slime,
+      new Set([
+        ...frightenedGhostEids(this.runUpgrades),
+        ...glidingGhostEids(this.ghostCornerWarps),
+      ]),
+    );
+  }
+
+  private slimeCatch(catchOptions: CatchOptions, at?: Point): number | null {
+    const eid = query(this.world, [Player, Position, Drawable])[0];
+    if (
+      this.slimeTrails.size === 0 ||
+      eid === undefined ||
+      catchOptions.playerInvulnerable === true ||
+      floatsOverHazards(this.effectiveUpgrades())
+    ) {
+      return null;
+    }
+    return slimeOwnerTouching(
+      this.slimeTrails,
+      at?.x ?? Position.x[eid] ?? 0,
+      at?.y ?? Position.y[eid] ?? 0,
+      Drawable.radius[eid] ?? 0,
+    );
+  }
+
   private resetSpeedZones(): void {
     this.speedZoneShiftMs = 0;
     if (!this.options.levelModifiers) {
@@ -2535,10 +2585,11 @@ export class PlaySim {
     }
     const layout = getActiveLayout();
     const base = this.collapseSpeedBoard ?? layout;
-    const [previous, current] = speedZonesByLevel(base, this.levelIndex, (level) =>
+    const [previous, current] = speedZonesByLevel(base, this.boardLevel, (level) =>
       this.random.stream("speedZones", level),
     ).slice(-2);
-    const shift = speedZoneShift(previous!, current!);
+    const replayed = this.boardLevel !== this.levelIndex;
+    const shift = speedZoneShift(replayed ? current! : previous!, current!);
     this.speedZoneShift = speedZoneShiftSteps(shift) > 0 ? shift : null;
     this.speedZones = speedZoneShiftFrame(shift, 0);
   }
@@ -3123,10 +3174,12 @@ export class PlaySim {
     this.peelTail = [];
     this.peelHeading = 0;
     this.topUpStartingShields();
-    const boss = isBossLevel(this.levelIndex)
+    const picked = isBossLevel(this.levelIndex)
       ? pickBoss(this.options.boss, this.random.stream("bossPick", this.levelIndex))
       : null;
-    const selection = resolveBoardSelection(this.levelIndex, layoutOverride, this.random.seed);
+    this.boardLevel = picked?.poolBoard === true ? POOL_BOSS_BOARD_LEVEL : this.levelIndex;
+    this.slimeTrails = new Map();
+    const selection = resolveBoardSelection(this.boardLevel, layoutOverride, this.random.seed);
     this.clearCollapse();
     let layoutLabel = "maze2";
     if (selection.kind === "static") {
@@ -3151,7 +3204,7 @@ export class PlaySim {
         activateLayout("maze2");
       }
     } else {
-      const generated = this.generateBoard(selection.seed, boss);
+      const generated = this.generateBoard(selection.seed, picked);
       if (generated) {
         layoutLabel = this.activateRunAscii(generated.ascii, `gen:${generated.seedUsed}`);
       } else {
@@ -3169,6 +3222,13 @@ export class PlaySim {
     spawnBoardPellets(this.world);
     spawnPlayer(this.world);
     this.bossState = null;
+    const boss =
+      picked === null
+        ? null
+        : withBossRoster(
+            picked,
+            ghostKindsForLevel(this.boardLevel, this.rosterId).slice(0, houseSeatCount()),
+          );
     if (boss !== null) {
       this.startBoss(boss);
       this.recordSeen([...boss.ghostKinds]);
@@ -3257,7 +3317,7 @@ export class PlaySim {
         plan: pickCollapsePlan(baseAscii, this.random.stream("collapse")),
       };
     }
-    return collapsedChainsFor(this.collapsePlan.plan, this.levelIndex);
+    return collapsedChainsFor(this.collapsePlan.plan, this.boardLevel);
   }
 
   private clearCollapse(): void {
@@ -3332,7 +3392,7 @@ export class PlaySim {
         chain.filter((cell) => !boredKeys.has(`${cell.col},${cell.row}`)),
         artSeed + index * 101,
       ),
-      fresh: isFreshCollapse(index, this.levelIndex),
+      fresh: isFreshCollapse(index, this.boardLevel),
     }));
   }
 
@@ -3373,14 +3433,14 @@ export class PlaySim {
           key: `board-${this.sinkholeBoardCount}`,
           art: this.sinkholeArt,
           elapsedMs: this.sinkholeIntroMs,
-          fresh: isFreshSinkhole(this.levelIndex),
+          fresh: isFreshSinkhole(this.boardLevel),
           tuning: this.currentTuning,
         };
   }
 
   private sinkholeChainFor(): CollapseChain | null {
     return this.options.levelModifiers && this.collapsePlan !== null
-      ? sinkholeFor(this.collapsePlan.plan, this.levelIndex)
+      ? sinkholeFor(this.collapsePlan.plan, this.boardLevel)
       : null;
   }
 
@@ -3720,6 +3780,7 @@ export class PlaySim {
       this.releaseDrawable(eid);
     }
     this.runUpgrades = clearUpgradeTimers(this.runUpgrades);
+    this.slimeTrails = new Map();
     this.bossState = advanceBossStage(this.bossState);
     spawnBoardPellets(this.world);
     this.tagBossPellets(this.bossState);
@@ -4167,7 +4228,10 @@ export class PlaySim {
         if (this.tryBreakPeel(catchOptions)) {
           return false;
         }
-        const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
+        const hit =
+          catchPlayer(this.world, catchOptions) ??
+          chainCatch(this.world, catchOptions) ??
+          this.slimeCatch(catchOptions);
         const twin = hit === null ? this.twinCatch(catchOptions) : null;
         const caughtBy = hit ?? twin?.eid ?? null;
         const touched = caughtBy !== null || this.touchesLava(catchOptions) || twin !== null;
@@ -4859,6 +4923,7 @@ export class PlaySim {
           ? hauntFromHaunting
           : Math.max(hauntFromHaunting, hauntFromPossession);
     let hauntEid = hauntMs !== null ? this.caughtByEid : null;
+    this.slimeTrails = new Map();
     if (this.bossState !== null && !save) {
       const caughtKind = hauntEid !== null ? (GhostKind.kind[hauntEid] as GhostKindId) : null;
       for (const eid of [...query(this.world, [Ghost])]) {

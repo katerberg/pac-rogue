@@ -48,7 +48,7 @@ Parsing and defaults: `parsePlayOptions` in `src/domain/playOptions.ts`. The tab
 | `forceUpgrade` | upgrade id or label lowerCamel | Guarantee that (base) id in every level-clear offer while eligible. |
 | `ghosts` | ghost names (comma-separated) | Replace every level's roster (`blinky` \| `pinky` \| `inky` \| `clyde` \| `spunky` \| `wardy`). |
 | `roster` | `0` … `5` | Force one curated roster for the run. [levels.md](./docs/levels.md#ghost-roster). |
-| `boss` | `blinkySwarm` \| `chainedGhosts` | Force that boss; without `level`, start in the fight. [bosses.md](./docs/bosses.md). |
+| `boss` | `blinkySwarm` \| `chainedGhosts` \| `slimeTrail` | Force that boss; without `level`, start in the fight. [bosses.md](./docs/bosses.md). |
 | `bossStageAdvance` | `1` | Start the stage-1→2 transition as soon as the boss board is ready (wins over `store`). |
 | `learnAll` | `1` \| `0` | Boot into LEARN (without `play=1`). `1` lists every upgrade; `0` lists none. Read-only. [learn.md](./docs/learn.md). |
 | `runLogFill` | integer 0..600 | Agent ports only: seed that many synthetic `debug` runs at boot. [RUN_LOG.md](./docs/RUN_LOG.md). |
