@@ -130,6 +130,11 @@ import { fruitDrawableId, fruitFlickerAlpha, isFruitDrawableId } from "../../dom
 import { GHOST_PHASE } from "../../domain/ghostPhase";
 import { reviveSplashLook } from "../../domain/reviveSplash";
 import {
+  possessionBurstLook,
+  possessionBurstShards,
+  type PossessionBurstRender,
+} from "../../domain/possessionBurst";
+import {
   HAUNT_GHOST_COLOR,
   HAUNT_LOCK_KEY,
   HAUNT_LOCK_PATH,
@@ -734,6 +739,7 @@ export type RenderOptions = {
   programmerPath?: ProgrammerPathMark[];
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
+  possessionBurst?: PossessionBurstRender | null;
 };
 
 const CHARM_DEPTH = -0.5;
@@ -911,6 +917,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
   const mirrorDustGraphics = scene.add.graphics();
+  const burstShardGraphics = scene.add.graphics();
   let mirrorAngle = 0;
   const hauntLock = scene.add
     .image(0, 0, HAUNT_LOCK_KEY)
@@ -1187,6 +1194,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     const playerAlphaOpt = opts?.playerAlpha;
     const playerAlpha = (playerAlphaOpt ?? 1) * entityAlpha;
     const reviveProgress = opts?.playerReviveProgress;
+    const burst = opts?.possessionBurst ?? null;
+    const burstLook = burst === null ? null : possessionBurstLook(burst.progress);
     const warpGlide = opts?.playerWarpGlide;
     const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
@@ -1478,9 +1487,11 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             : undefined;
       const glideHead = glide?.[0];
       const offset = opts?.spriteOffsets?.[eid];
-      const x = (glideHead?.x ?? Position.x[eid] ?? 0) + (offset?.x ?? 0);
-      const y = (glideHead?.y ?? Position.y[eid] ?? 0) + (offset?.y ?? 0);
-      const size = displaySizeForDrawable(id);
+      const burstShell =
+        burst !== null && burstLook !== null && burstLook.shellAlpha > 0 && eid === burst.eid;
+      const x = burstShell ? burst.x : (glideHead?.x ?? Position.x[eid] ?? 0) + (offset?.x ?? 0);
+      const y = burstShell ? burst.y : (glideHead?.y ?? Position.y[eid] ?? 0) + (offset?.y ?? 0);
+      const size = displaySizeForDrawable(id) * (burstShell ? burstLook.shellScale : 1);
       const radius = Drawable.radius[eid] ?? size / 2;
       const ghostTint =
         ghostTexture !== undefined &&
@@ -1490,7 +1501,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           ? GHOST_FROZEN_TINT
           : null;
       const ghostAlpha = dimGhostEid !== null && eid === dimGhostEid ? DIM_GHOST_ALPHA : 1;
-      const possessedLook = ghostTexture !== undefined && eid === possessedEid;
+      const possessedLook = ghostTexture !== undefined && (eid === possessedEid || burstShell);
       const hauntedLook = ghostTexture !== undefined && eid === hauntedEid;
       const flatLook = possessedLook || hauntedLook;
       const flatColor = hauntedLook ? HAUNT_GHOST_COLOR : GHOST_POSSESSED_COLOR;
@@ -1713,6 +1724,9 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
             const look = reviveSplashLook(reviveProgress, size);
             go.setDisplaySize(look.size, look.size);
             go.setAlpha(look.alpha);
+          } else if (burstLook !== null) {
+            const burstSize = size * burstLook.playerScale;
+            go.setDisplaySize(burstSize, burstSize);
           }
           drawVisor(primaryKey, pose, visorLift);
         }
@@ -1757,6 +1771,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           glide === undefined &&
           playerAlphaOpt === undefined &&
           reviveProgress === undefined &&
+          burstLook === null &&
           deathFrame === undefined &&
           hasComponent(world, eid, Player)
         ) {
@@ -1828,6 +1843,22 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           mirrorPop.y + mote.dy - mote.size / 2,
           mote.size,
           mote.size,
+        );
+      }
+    }
+
+    burstShardGraphics.clear();
+    if (burst !== null && burstLook !== null) {
+      for (const shard of possessionBurstShards(
+        burstLook.shardProgress,
+        getActiveLayout().tileSize,
+      )) {
+        burstShardGraphics.fillStyle(GHOST_POSSESSED_COLOR, shard.alpha * entityAlpha);
+        burstShardGraphics.fillRect(
+          burst.x + shard.dx - shard.size / 2,
+          burst.y + shard.dy - shard.size / 2,
+          shard.size,
+          shard.size,
         );
       }
     }

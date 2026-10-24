@@ -57,6 +57,11 @@ import {
   worldToRow,
   type MazeTile,
 } from "../../domain/maze";
+import {
+  GRAVE_FRUIT_KIND,
+  GRAVE_LILIES_CHARGES_PER_LEVEL,
+  takeGraveLiliesCharge,
+} from "../../domain/graveLilies";
 import { mergeBoredCells, TUNNEL_BORING_CHARGES_PER_LEVEL } from "../../domain/tunnelBoring";
 import { bananaPeelSprites } from "../../domain/bananaPeel";
 import type { TailBead } from "../../domain/charmTail";
@@ -238,6 +243,12 @@ import {
 } from "../systems/collectBodies";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import { harvestPelletsByGhost } from "../systems/possessionHarvest";
+import { burstOutOfGhost } from "../systems/possessionBurst";
+import {
+  possessionBurstRender,
+  tickPossessionBurst,
+  type PossessionBurst,
+} from "../../domain/possessionBurst";
 import {
   ghostAi,
   ghostAiContext,
@@ -376,6 +387,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveBananaShield",
   "passiveMartyr",
   "passivePossession",
+  "passiveGraveLilies",
 ];
 
 export class LearnSim {
@@ -398,6 +410,8 @@ export class LearnSim {
   private eatenHoldGhostEids: number[] = [];
   private eatenHoldRemainingMs = 0;
   private tunnelBoringCharges = 0;
+  private graveLiliesCharges = 0;
+  private graveFruit = new Set<number>();
   private tunnelBoredCells: MazeTile[] = [];
   private tunnelBore: TunnelBore = NO_TUNNEL_BORE;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
@@ -420,6 +434,7 @@ export class LearnSim {
   private pendingPowerRespawns: PendingPowerPelletRespawn[] = [];
   private readonly runState = new LearnRunState();
   private mirrorPop: MirrorPop | null = null;
+  private possessionBurst: PossessionBurst | null = null;
   private readonly houseHold = new LearnHouseHold();
   private readonly recalled = new LearnRecall();
   private houseHoldEaten = 0;
@@ -526,6 +541,7 @@ export class LearnSim {
 
   step(keys: HeldKeys, delta: number): SimEvent[] {
     this.events = [];
+    this.possessionBurst = tickPossessionBurst(this.possessionBurst, delta);
     this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
       this.events.push(event),
     );
@@ -563,7 +579,7 @@ export class LearnSim {
           this.playerSolids(),
         ).state,
       };
-    } else if (!warping && !bouncing) {
+    } else if (!warping && !bouncing && this.possessionBurst === null) {
       turnTap = applyHeldKeys(this.world, maskStaleKeys(keys, this.bounceStaleKeys), {
         diagonalAllowed,
         turnTuning: turnTuningOpts,
@@ -811,6 +827,7 @@ export class LearnSim {
     this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
       this.spawnPellets();
+      this.burstOutOfPossession();
       this.onBoardRefill();
     } else {
       this.regenPowerPellets();
@@ -908,6 +925,7 @@ export class LearnSim {
         ),
         mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
+        possessionBurst: possessionBurstRender(this.possessionBurst),
       },
     });
     const { timers, pulses } = advanceUpgradeTimers(
@@ -952,6 +970,7 @@ export class LearnSim {
     }
     this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
     this.mirrorPop = null;
+    this.possessionBurst = null;
     this.hyperspeedDirection = null;
     this.turnCatchGraceMs = 0;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
@@ -981,6 +1000,9 @@ export class LearnSim {
     }
     if (!turningOn && baseIdOf(id) === "passiveTunnelBoring") {
       this.tunnelBoringCharges = 0;
+    }
+    if (baseIdOf(id) === "passiveGraveLilies") {
+      this.graveLiliesCharges = turningOn ? GRAVE_LILIES_CHARGES_PER_LEVEL : 0;
     }
     if (baseIdOf(id) === "passiveLazyLooper") {
       this.tagOptionalPellets();
@@ -1308,6 +1330,9 @@ export class LearnSim {
     }
     if (powerEffects.tunnelBoringRecharge) {
       this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+    if (powerEffects.graveLiliesRecharge) {
+      this.graveLiliesCharges = GRAVE_LILIES_CHARGES_PER_LEVEL;
     }
   }
 
@@ -1847,6 +1872,10 @@ export class LearnSim {
     const outcome = this.runState.caught(owned, defied);
     const saved = outcome.kind === "saved";
     const lifeLost = outcome.kind === "lost" || outcome.kind === "reset";
+    const fellAt = twinAt ?? this.playerPosition();
+    if (!saved && fellAt !== null) {
+      this.dropGraveFruit(fellAt);
+    }
     lines.push(
       outcome.kind === "saved" ? "SAVED" : outcome.kind === "reset" ? "LIVES RESET" : "LIFE LOST",
     );
@@ -1905,6 +1934,18 @@ export class LearnSim {
     this.popup(lines.join("\n"));
   }
 
+  private burstOutOfPossession(): void {
+    const ghostEid = possessedGhostEid(this.learnUpgrades);
+    if (ghostEid === null) {
+      return;
+    }
+    this.possessionBurst = burstOutOfGhost(this.world, ghostEid);
+    this.learnUpgrades = endPossession(this.learnUpgrades);
+    this.seatGhostInHouse(ghostEid);
+    this.eatenHoldGhostEids.push(ghostEid);
+    this.eatenHoldRemainingMs = LEARN_EATEN_HOLD_MS;
+  }
+
   private finishLearnPossession(possessedEid: number | null): void {
     const hauntMs = possessionHauntMs(this.learnUpgrades.owned);
     this.learnUpgrades = endPossession(this.learnUpgrades);
@@ -1960,7 +2001,7 @@ export class LearnSim {
         this.boardCollected = 0;
         this.fruitPresence = { ...this.fruitPresence, nextThresholdIndex: 0 };
       } else if (tick.action === "despawn") {
-        this.releaseAll(removeAllFruit(this.world, this.cornucopiaFruit));
+        this.releaseAll(removeAllFruit(this.world, this.sideFruit()));
       }
     } else if (this.fruitRespawnRemainingMs !== null) {
       this.fruitRespawnRemainingMs -= delta;
@@ -1982,16 +2023,19 @@ export class LearnSim {
     this.releaseAll(removedFruitEids);
     this.learnUpgrades = leaveScent(this.learnUpgrades, owned, removedFruitEids, fruitTilesBefore);
     this.events.push({ type: "sfx", id: "pelletMunch" }, { type: "sfx", id: "pelletMunch2" });
-    const regularEaten = removedFruitEids.some((eid) => !this.cornucopiaFruit.has(eid));
+    const regularEaten = removedFruitEids.some(
+      (eid) => !this.cornucopiaFruit.has(eid) && !this.graveFruit.has(eid),
+    );
     for (const eid of removedFruitEids) {
       this.cornucopiaFruit.delete(eid);
+      this.graveFruit.delete(eid);
     }
     const fruitLeft = fruitPositions(this.world).length;
     if (scheduled) {
       if (regularEaten) {
         this.fruitPresence = markFruitCollected(
           this.fruitPresence,
-          fruitLeft > this.cornucopiaFruit.size,
+          fruitLeft > this.cornucopiaFruit.size + this.graveFruit.size,
         );
       }
     } else if (regularEaten || fruitLeft === 0) {
@@ -2135,7 +2179,7 @@ export class LearnSim {
 
   private spawnFruitEntity(stack = false): void {
     if (!stack) {
-      this.releaseAll(removeAllFruit(this.world, this.cornucopiaFruit));
+      this.releaseAll(removeAllFruit(this.world, this.sideFruit()));
       const kind = this.rollFruitKind();
       this.msSinceFruitSpawn = 0;
       spawnFruit(this.world, kind, fruitStackCenter(fruitPositions(this.world)) ?? undefined);
@@ -2154,7 +2198,30 @@ export class LearnSim {
   private clearAllFruit(): void {
     this.releaseAll(removeAllFruit(this.world));
     this.cornucopiaFruit.clear();
+    this.graveFruit.clear();
     this.pendingCornucopia = null;
+  }
+
+  private sideFruit(): ReadonlySet<number> {
+    return new Set([...this.cornucopiaFruit.keys(), ...this.graveFruit]);
+  }
+
+  private dropGraveFruit(at: { x: number; y: number }): void {
+    if (!hasUpgrade(this.learnUpgrades.owned, "passiveGraveLilies")) {
+      return;
+    }
+    if (this.graveFruit.size === 0) {
+      const taken = takeGraveLiliesCharge(this.graveLiliesCharges);
+      this.graveLiliesCharges = taken.charges;
+      if (!taken.drop) {
+        return;
+      }
+    }
+    for (const eid of this.graveFruit) {
+      removeEntity(this.world, eid);
+    }
+    this.releaseAll([...this.graveFruit]);
+    this.graveFruit = new Set([spawnFruit(this.world, GRAVE_FRUIT_KIND, at)]);
   }
 
   private flushPendingCornucopia(): void {

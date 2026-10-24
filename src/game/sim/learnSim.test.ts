@@ -1,5 +1,6 @@
 import { decoyTile } from "../../domain/chaff";
 import { formatPennies } from "../../domain/pennies";
+import { fruitKindsOnBoard, fruitPositions } from "../systems/collectFruit";
 import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
@@ -662,6 +663,30 @@ describe("LearnSim upgrade demos", () => {
     const before = query(sim.world, [Pellet]).length;
     expect(popups(catchByGhost(sim, player))[0]).toMatch(/^HARVEST [1-9]/);
     expect(query(sim.world, [Pellet]).length).toBeLessThan(before);
+  });
+
+  it("Grave Lilies leave one watermelon, move it on later deaths, and recharge on power pellets when enhanced", () => {
+    const { sim, player } = setup("passiveGraveLilies");
+    const kinds = () => fruitKindsOnBoard(sim.world);
+    const melons = () => {
+      const at = fruitPositions(sim.world);
+      return kinds().flatMap((kind, i) => (kind === "watermelon" ? [at[i]!] : []));
+    };
+    expect(melons()).toEqual([]);
+    catchByGhost(sim, player);
+    const first = melons();
+    expect(first).toHaveLength(1);
+    const cell = { x: first[0]!.x + 120, y: first[0]!.y };
+    moveTo(player, cell);
+    runMs(sim, 1_600);
+    expect(melons()).toEqual(first);
+    catchByGhost(sim, player);
+    expect(melons()).toHaveLength(1);
+    expect(melons()).not.toEqual(first);
+    sim.toggleUpgrade("passiveGraveLilies");
+    expect(sim["graveLiliesCharges"]).toBe(0);
+    sim.toggleUpgrade("passiveGraveLiliesPlus");
+    expect(sim["graveLiliesCharges"]).toBe(1);
   });
 
   it("Death's Bounty earns pennies with decaying payouts", () => {
@@ -2535,6 +2560,30 @@ describe("Martyr and Possession (LEARN)", () => {
     }
     expect(sim["learnUpgrades"].possessionRemainingMs).toBe(0);
     expect(sim["learnUpgrades"].possessedGhostEid).toBeNull();
+  });
+
+  it("Possession bursts Maze-Man out of the ghost when it clears the board", () => {
+    const { sim, player } = setup("passivePossession");
+    const ghost = sim.ghostEid!;
+    catchByGhost(sim, player);
+    const pellets = query(sim.world, [Pellet, Position]);
+    const last = pellets.find((eid) => !hasComponent(sim.world, eid, PowerPellet))!;
+    for (const eid of pellets.filter((eid) => eid !== last)) {
+      removeEntity(sim.world, eid);
+    }
+    moveTo(ghost, posOf(last));
+    const burst = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).possessionBurst!;
+    expect(burst).toMatchObject({ eid: ghost });
+    expect(sim["learnUpgrades"].possessedGhostEid).toBeNull();
+    expect(posOf(player)).toEqual({ x: burst.x, y: burst.y });
+    expect(posOf(ghost)).toEqual(ghostHouseSpawnCenter());
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    let options = lastDrawOptions(sim.step(held("left"), FRAME_MS));
+    for (let t = 0; t < 2000 && options.possessionBurst !== null; t += FRAME_MS) {
+      expect(posOf(player)).toEqual({ x: burst.x, y: burst.y });
+      options = lastDrawOptions(sim.step(held("left"), FRAME_MS));
+    }
+    expect(options.possessionBurst).toBeNull();
   });
 
   it("Possession+ haunts the steered ghost after possession ends", () => {

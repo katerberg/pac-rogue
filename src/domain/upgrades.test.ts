@@ -280,6 +280,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveGleaning",
   "passiveSonicBoom",
   "passiveScarecrow",
+  "passiveGraveLilies",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
@@ -847,6 +848,7 @@ describe("grantUpgrade", () => {
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     });
     expect(playerSpeedMultiplier(state.owned)).toBe(1);
     expect(ghostSpeedMultiplier(state.owned)).toBe(1);
@@ -868,6 +870,7 @@ describe("grantUpgrade", () => {
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     });
   });
 
@@ -930,6 +933,7 @@ describe("freeze / power pellet", () => {
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletFreeze");
@@ -959,6 +963,7 @@ describe("freeze / power pellet", () => {
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     });
   });
 });
@@ -1071,6 +1076,7 @@ describe("invuln / power pellet", () => {
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     });
 
     const owned = grantUpgrade(createRunUpgrades(), "powerPelletInvuln");
@@ -1291,6 +1297,7 @@ describe("passiveOvercharge", () => {
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     });
   });
 });
@@ -1772,6 +1779,8 @@ describe("enhanced upgrades", () => {
     expect(apply("powerPelletWallPassPlus").state.wallPassRemainingMs).toBe(6000);
     expect(apply("passiveTunnelBoring").tunnelBoringRecharge).toBe(false);
     expect(apply("passiveTunnelBoringPlus").tunnelBoringRecharge).toBe(true);
+    expect(apply("passiveGraveLilies").graveLiliesRecharge).toBe(false);
+    expect(apply("passiveGraveLiliesPlus").graveLiliesRecharge).toBe(true);
   });
 
   it("Warp Farthest Plus shields for 2s and Overcharge does not triple it", () => {
