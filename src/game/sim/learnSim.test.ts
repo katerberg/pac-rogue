@@ -2509,8 +2509,13 @@ describe("Martyr and Possession (LEARN)", () => {
 
   it("Martyr fires power effects on a demo catch", () => {
     const { sim, player } = setup("passiveMartyr", "powerPelletInvuln");
-    const text = popups(catchByGhost(sim, player)).join("\n");
-    expect(text).toContain("MARTYR");
+    const events = catchByGhost(sim, player);
+    expect(popups(events).join("\n")).toContain("MARTYR");
+    expect(events).toContainEqual({
+      type: "upgradePulse",
+      ids: ["powerPelletInvuln"],
+      cause: "passiveMartyr",
+    });
     expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
   });
 

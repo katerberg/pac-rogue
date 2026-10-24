@@ -477,6 +477,7 @@ export class PlayScene extends Phaser.Scene {
       hudUpgradeIcons: this.upgradeIcons.map(({ id, mark }) => ({
         id,
         texture: mark instanceof Phaser.GameObjects.Image ? mark.texture.key : null,
+        pulsing: this.tweens.isTweening(mark),
       })),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
       salvageUi: this.salvageUi.mode(),
@@ -629,7 +630,7 @@ export class PlayScene extends Phaser.Scene {
         this.salvageUi.toast(event.gained, this.poolTarget(event.gained), this.panelText());
         break;
       case "upgradePulse":
-        pulseUpgradeMarks(this, this.upgradeIcons, event.ids);
+        pulseUpgradeMarks(this, this.upgradeIcons, event.ids, event.cause);
         break;
       case "timer":
         this.timerText.setText(this.timerLabel());
