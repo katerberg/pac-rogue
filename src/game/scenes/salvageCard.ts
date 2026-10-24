@@ -13,7 +13,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { ALERT_RED, createSalvageKeys, type PanelItem } from "./salvagePanel";
+import type { PanelItem } from "./salvagePanel";
 import {
   buildUpgradeCardVisual,
   CHOICE_BUTTON_HEIGHT,
@@ -22,6 +22,7 @@ import {
 } from "./upgradeChoiceModal";
 
 const DEPTH = MODAL_DEPTH + 10;
+const ALERT_RED = 0xff3030;
 const FADE_IN_MS = 250;
 const CENTER_X = PLAYFIELD_WIDTH / 2;
 const TITLE_Y = 118;
@@ -77,6 +78,30 @@ const ARROW_AT: Record<Dir, { x: number; y: number }> = {
   left: { x: ICON_X - CHEVRON_GAP, y: ROW_Y },
   right: { x: ICON_X + CHEVRON_GAP, y: ROW_Y },
 };
+
+type SalvageKeys = { pressed: () => SalvageKey | null; anyHeld: () => boolean };
+
+function createSalvageKeys(scene: Phaser.Scene): SalvageKeys {
+  const keyboard = scene.input.keyboard;
+  const { KeyCodes } = Phaser.Input.Keyboard;
+  const codes: Record<SalvageKey, number[]> = {
+    up: [KeyCodes.UP, KeyCodes.W],
+    down: [KeyCodes.DOWN, KeyCodes.S],
+    left: [KeyCodes.LEFT, KeyCodes.A],
+    right: [KeyCodes.RIGHT, KeyCodes.D],
+    confirm: [KeyCodes.ENTER, KeyCodes.SPACE],
+  };
+  const keys = Object.entries(codes).map(([name, list]) => ({
+    name: name as SalvageKey,
+    keys: keyboard === null ? [] : list.map((code) => keyboard.addKey(code)),
+  }));
+  return {
+    pressed: () =>
+      keys.find(({ keys: list }) => list.some((key) => Phaser.Input.Keyboard.JustDown(key)))
+        ?.name ?? null,
+    anyHeld: () => keys.some(({ keys: list }) => list.some((key) => key.isDown)),
+  };
+}
 
 export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
   const keys = createSalvageKeys(scene);

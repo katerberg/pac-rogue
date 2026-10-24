@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { trinketToastAlpha, type SalvageKey } from "../../domain/salvagePanel";
+import { trinketToastAlpha } from "../../domain/salvagePanel";
 import { schoolArtTextureKey } from "../../domain/schoolArt";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import { wrapText } from "../../domain/wrapText";
@@ -12,7 +12,6 @@ import {
 import { MODAL_DEPTH, SCHOOL_COLORS } from "./upgradeChoiceModal";
 
 const DEPTH = MODAL_DEPTH + 10;
-export const ALERT_RED = 0xff3030;
 const TEXT_LINE_SPACING = 3;
 const DESCRIPTION_CHARS = 20;
 
@@ -37,30 +36,6 @@ export function addTrinketCard(
     .image(0, 0, schoolArtTextureKey("neutral"))
     .setDisplaySize(size * 0.75, size * 0.75);
   return scene.add.container(x, y, [back, art]).setSize(size, size);
-}
-
-export type SalvageKeys = { pressed: () => SalvageKey | null; anyHeld: () => boolean };
-
-export function createSalvageKeys(scene: Phaser.Scene): SalvageKeys {
-  const keyboard = scene.input.keyboard;
-  const { KeyCodes } = Phaser.Input.Keyboard;
-  const codes: Record<SalvageKey, number[]> = {
-    up: [KeyCodes.UP, KeyCodes.W],
-    down: [KeyCodes.DOWN, KeyCodes.S],
-    left: [KeyCodes.LEFT, KeyCodes.A],
-    right: [KeyCodes.RIGHT, KeyCodes.D],
-    confirm: [KeyCodes.ENTER, KeyCodes.SPACE],
-  };
-  const keys = Object.entries(codes).map(([name, list]) => ({
-    name: name as SalvageKey,
-    keys: keyboard === null ? [] : list.map((code) => keyboard.addKey(code)),
-  }));
-  return {
-    pressed: () =>
-      keys.find(({ keys: list }) => list.some((key) => Phaser.Input.Keyboard.JustDown(key)))
-        ?.name ?? null,
-    anyHeld: () => keys.some(({ keys: list }) => list.some((key) => key.isDown)),
-  };
 }
 
 export function createTrinketToast(scene: Phaser.Scene): TrinketToast {
