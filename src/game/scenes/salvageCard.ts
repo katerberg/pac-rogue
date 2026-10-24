@@ -191,7 +191,6 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
       };
       clickable(leftHint, "left");
       clickable(rightHint, "right");
-      clickable(icon, "right");
       (["up", "down"] as const).forEach((dir) => {
         const y = ICON_Y + (dir === "up" ? -ARROW_GAP : ARROW_GAP);
         clickable(track(scene.add.zone(CENTER_X, y, ARROW_SIZE * 4, ARROW_SIZE * 4)), dir);
@@ -204,10 +203,16 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
       if (parts.length === 0) {
         return;
       }
-      elapsed += deltaMs;
-      setAlpha(Math.min(1, elapsed / FADE_IN_MS));
       if (!armed) {
         armed = !keys.anyHeld();
+      }
+      if (elapsed < FADE_IN_MS) {
+        elapsed += deltaMs;
+        setAlpha(Math.min(1, elapsed / FADE_IN_MS));
+        keys.pressed();
+        return;
+      }
+      if (!armed) {
         return;
       }
       const pressed = keys.pressed();
