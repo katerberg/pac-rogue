@@ -356,9 +356,9 @@ export class PlayScene extends Phaser.Scene {
     this.sim.setTuning(tuning);
     this.playRender.setWallStyle(wallStyleFor(tuning, 0));
     this.playRender.setDotManLook({ chompSpeed: tuning.dotManChompSpeed });
-    this.playRender.setSpeedZoneDust({
-      entryTilesPerSec: tuning.speedZoneDustEntry,
-      exitTilesPerSec: tuning.speedZoneDustExit,
+    this.playRender.setSpeedZoneFlow({
+      entryTilesPerSec: tuning.speedZoneFlowEntry,
+      exitTilesPerSec: tuning.speedZoneFlowExit,
     });
     this.playRender.setCharmTuning(tuning);
   }

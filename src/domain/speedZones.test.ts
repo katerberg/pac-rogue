@@ -11,11 +11,8 @@ import {
   speedZoneAt,
   speedZoneCells,
   speedZoneEffect,
-  speedZoneGlowMask,
   speedZoneMultiplier,
   speedZoneCountForLevel,
-  speedZoneParticles,
-  type SpeedZoneDustSpeeds,
   speedZoneShift,
   speedZoneShiftFrame,
   speedZoneShiftSteps,
@@ -94,102 +91,6 @@ describe("speedZoneEffect", () => {
     expect(speedZoneMultiplier("fast")).toBe(FAST_ZONE_MULTIPLIER);
     expect(speedZoneMultiplier("slow")).toBe(SLOW_ZONE_MULTIPLIER);
     expect(speedZoneMultiplier(null)).toBe(1);
-  });
-});
-
-describe("speedZoneParticles", () => {
-  it("drifts particles toward the fast end without a fixed cadence", () => {
-    const speeds = { entryTilesPerSec: 0.5, exitTilesPerSec: 1 };
-    const first = speedZoneParticles(lane, 0, speeds);
-    const later = speedZoneParticles(lane, 50, speeds);
-    expect(first).toHaveLength(lane.length * 2);
-    expect(later.every((p, i) => p.col >= first[i]!.col || p.alpha < 0.05)).toBe(true);
-    expect(new Set(first.map((p) => p.col.toFixed(3))).size).toBeGreaterThan(lane.length);
-    const left = { ...lane, fastDir: "left" as const };
-    const a = speedZoneParticles(left, 0, speeds);
-    const b = speedZoneParticles(left, 50, speeds);
-    expect(b.every((p, i) => p.col <= a[i]!.col || p.alpha < 0.05)).toBe(true);
-  });
-
-  const speedAlongLane = (speeds?: SpeedZoneDustSpeeds) => {
-    const samples: { along: number; tilesPerSec: number }[] = [];
-    for (let ms = 0; ms < 20000; ms += 37) {
-      const to = speedZoneParticles(lane, ms + 10, speeds);
-      speedZoneParticles(lane, ms, speeds).forEach((p, i) => {
-        const delta = to[i]!.col - p.col;
-        if (delta > 0) {
-          samples.push({ along: (p.col - lane.col) / lane.length, tilesPerSec: delta / 0.01 });
-        }
-      });
-    }
-    return samples;
-  };
-
-  it("ramps dust speed evenly from the entry speed to the exit speed", () => {
-    for (const speeds of [
-      { entryTilesPerSec: 0.5, exitTilesPerSec: 4 },
-      { entryTilesPerSec: 2, exitTilesPerSec: 2 },
-    ]) {
-      for (const { along, tilesPerSec } of speedAlongLane(speeds)) {
-        const expected =
-          speeds.entryTilesPerSec + (speeds.exitTilesPerSec - speeds.entryTilesPerSec) * along;
-        expect(tilesPerSec / expected).toBeGreaterThan(0.98);
-        expect(tilesPerSec / expected).toBeLessThan(1.12);
-      }
-    }
-  });
-
-  it("defaults to dust that crawls in and zips out", () => {
-    const samples = speedAlongLane();
-    const entering = samples.filter((s) => s.along < 0.1).map((s) => s.tilesPerSec);
-    const leaving = samples.filter((s) => s.along > 0.9).map((s) => s.tilesPerSec);
-    expect(Math.min(...leaving)).toBeGreaterThan(Math.max(...entering) * 4);
-  });
-
-  it("keeps every particle inside the lane, faint, and fading at the ends", () => {
-    for (const zone of [lane, { ...lane, axis: "vertical" as const, fastDir: "up" as const }]) {
-      const vertical = zone.axis === "vertical";
-      for (const ms of [0, 130, 470, 999, 12345]) {
-        for (const p of speedZoneParticles(zone, ms)) {
-          const along = vertical ? p.row - zone.row : p.col - zone.col;
-          const across = vertical ? p.col - zone.col : p.row - zone.row;
-          expect(along).toBeGreaterThanOrEqual(0);
-          expect(along).toBeLessThanOrEqual(zone.length);
-          expect(across).toBeGreaterThan(0.1);
-          expect(across).toBeLessThan(0.9);
-          expect(p.alpha).toBeGreaterThanOrEqual(0);
-          expect(p.alpha).toBeLessThanOrEqual(0.5);
-        }
-      }
-    }
-  });
-
-  it("is deterministic for a lane and time", () => {
-    expect(speedZoneParticles(lane, 777)).toEqual(speedZoneParticles(lane, 777));
-  });
-});
-
-describe("speedZoneGlowMask", () => {
-  const style = { tileSize: 10, reachPx: 6, fillAlpha: 0.5, glowPeakAlpha: 0.8 };
-  const mask = speedZoneGlowMask(lane, style);
-  const at = (x: number, y: number) => mask.alpha[y * mask.width + x]!;
-
-  it("covers the lane padded by the glow reach", () => {
-    expect(mask.width).toBe(4 * 10 + 12);
-    expect(mask.height).toBe(10 + 12);
-  });
-
-  it("fills the lane body and fades with distance outside it", () => {
-    expect(at(26, 11)).toBe(0.5);
-    expect(at(26, 3)).toBeGreaterThan(at(26, 1));
-    expect(at(0, 0)).toBe(0);
-  });
-
-  it("rounds the lane ends instead of squaring them", () => {
-    const squareCorner = at(6, 6);
-    const endMiddle = at(6, 11);
-    expect(endMiddle).toBe(0.5);
-    expect(squareCorner).toBeLessThan(0.5);
   });
 });
 

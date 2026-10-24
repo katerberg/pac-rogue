@@ -7481,6 +7481,38 @@ describe("speed zones", () => {
     }
   });
 
+  it("hands the renderer a water rider only while a lane is moving Dot-Man", () => {
+    const riderMovingThrough = (dir: SpeedZone["fastDir"], options: Partial<PlayOptions> = {}) => {
+      const sim = startSim({ level: 5, infiniteLives: true, ...options }, "zones");
+      const cell = laneMiddle(settledZones(sim)[0]!);
+      const player = playerEid(sim);
+      for (let frame = 0; frame < 2; frame += 1) {
+        sim["eatDragMs"] = 0;
+        Position.x[player] = cellCenterX(cell.col);
+        Position.y[player] = cellCenterY(cell.row);
+        runFrames(sim, 1, { keys: held(KEY_FOR[dir]) });
+      }
+      return {
+        rider: sim.renderOptions().speedZoneRider,
+        x: Position.x[player],
+        y: Position.y[player],
+      };
+    };
+    const fastDir = settledZones(startSim({ level: 5 }, "zones"))[0]!.fastDir;
+    const fast = riderMovingThrough(fastDir);
+    expect(fast.rider).toMatchObject({ x: fast.x, y: fast.y, effect: "fast" });
+    expect(Math.abs(fast.rider!.dx) + Math.abs(fast.rider!.dy)).toBe(1);
+    expect(riderMovingThrough(OPPOSITE[fastDir]).rider?.effect).toBe("slow");
+    expect(
+      riderMovingThrough(OPPOSITE[fastDir], { enableUpgrades: ["passiveFloatingPlus"] }).rider,
+    ).toBeNull();
+    const still = startSim({ level: 5, infiniteLives: true }, "zones");
+    const cell = laneMiddle(settledZones(still)[0]!);
+    teleportPlayer(still, cellCenterX(cell.col), cellCenterY(cell.row));
+    runFrames(still, 2);
+    expect(still.renderOptions().speedZoneRider).toBeNull();
+  });
+
   it("has no effect while Dot-Man stands still in a lane", () => {
     const sim = startSim({ level: 5, infiniteLives: true }, "zones");
     const cell = laneMiddle(sim.snapshot().speedZones[0]!);

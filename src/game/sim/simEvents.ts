@@ -17,6 +17,7 @@ import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { SinkholeRenderState } from "../../domain/sinkholeArt";
 import type { LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
+import type { WakeRider } from "../../domain/speedZoneWater";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { ScentSprite } from "../systems/scarecrow";
 import type { ChaffSprite } from "../../domain/chaff";
@@ -54,6 +55,7 @@ export type SimRenderOptions = {
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
+  speedZoneRider?: WakeRider | null;
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
   scent?: ScentSprite[];

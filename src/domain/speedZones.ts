@@ -15,11 +15,6 @@ export const SLOW_ZONE_MULTIPLIER = 0.3;
 export const FAST_ZONE_MULTIPLIER = 1.8;
 export const SPEED_ZONE_END_DRIFT = [-2, -1, 0, 1, 1, 2] as const;
 export const SPEED_ZONE_SHIFT_STEP_MS = 120;
-const SPEED_ZONE_PARTICLES_PER_TILE = 2;
-const SPEED_ZONE_PARTICLE_SPEED_SPREAD = 0.1;
-const SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES = 0.6;
-const SPEED_ZONE_PARTICLE_PEAK_ALPHA = 0.45;
-const SPEED_ZONE_PARTICLE_FADE_SHARE = 0.12;
 
 export type SpeedZoneAxis = "horizontal" | "vertical";
 export type SpeedZoneFastDir = "up" | "down" | "left" | "right";
@@ -91,94 +86,6 @@ export function speedZoneFastVector(zone: SpeedZone): { dx: number; dy: number }
     default:
       return { dx: 1, dy: 0 };
   }
-}
-
-export type SpeedZoneParticle = { col: number; row: number; alpha: number; size: number };
-
-export type SpeedZoneDustSpeeds = { entryTilesPerSec: number; exitTilesPerSec: number };
-
-export const DEFAULT_SPEED_ZONE_DUST_SPEEDS: SpeedZoneDustSpeeds = {
-  entryTilesPerSec: 0.2,
-  exitTilesPerSec: 11,
-};
-
-function unitHash(n: number): number {
-  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
-  return x - Math.floor(x);
-}
-
-export function speedZoneParticles(
-  zone: SpeedZone,
-  nowMs: number,
-  speeds: SpeedZoneDustSpeeds = DEFAULT_SPEED_ZONE_DUST_SPEEDS,
-): SpeedZoneParticle[] {
-  const { dx, dy } = speedZoneFastVector(zone);
-  const startCol = dx < 0 ? zone.col + zone.length : zone.col + (dx === 0 ? 0.5 : 0);
-  const startRow = dy < 0 ? zone.row + zone.length : zone.row + (dy === 0 ? 0.5 : 0);
-  const seed = zone.col * 31 + zone.row * 17 + zone.length;
-  const count = zone.length * SPEED_ZONE_PARTICLES_PER_TILE;
-  const seconds = nowMs / 1000;
-  return Array.from({ length: count }, (_, i) => {
-    const key = seed * 101 + i;
-    const scale = 1 + unitHash(key + 1) * SPEED_ZONE_PARTICLE_SPEED_SPREAD;
-    const entry = speeds.entryTilesPerSec * scale;
-    const exit = speeds.exitTilesPerSec * scale;
-    const growth = (exit - entry) / zone.length;
-    const flat = Math.abs(growth) < 1e-9;
-    const crossingSec = flat ? zone.length / entry : Math.log(exit / entry) / growth;
-    const t = (unitHash(key) * crossingSec + seconds) % crossingSec;
-    const along = Math.min(
-      zone.length,
-      flat ? entry * t : (entry / growth) * Math.expm1(growth * t),
-    );
-    const progress = along / zone.length;
-    const side = (unitHash(key + 2) - 0.5) * SPEED_ZONE_PARTICLE_SIDE_SPREAD_TILES;
-    return {
-      col: startCol + dx * along + dy * side,
-      row: startRow + dy * along + dx * side,
-      alpha:
-        SPEED_ZONE_PARTICLE_PEAK_ALPHA *
-        Math.min(
-          1,
-          progress / SPEED_ZONE_PARTICLE_FADE_SHARE,
-          (1 - progress) / SPEED_ZONE_PARTICLE_FADE_SHARE,
-        ),
-      size: 0.5 + unitHash(key + 3),
-    };
-  });
-}
-
-export type SpeedZoneGlowMask = { width: number; height: number; alpha: Float32Array };
-
-export type SpeedZoneGlowStyle = {
-  tileSize: number;
-  reachPx: number;
-  fillAlpha: number;
-  glowPeakAlpha: number;
-};
-
-export function speedZoneGlowMask(zone: SpeedZone, style: SpeedZoneGlowStyle): SpeedZoneGlowMask {
-  const { tileSize, reachPx, fillAlpha, glowPeakAlpha } = style;
-  const horizontal = zone.axis === "horizontal";
-  const laneW = (horizontal ? zone.length : 1) * tileSize;
-  const laneH = (horizontal ? 1 : zone.length) * tileSize;
-  const width = laneW + reachPx * 2;
-  const height = laneH + reachPx * 2;
-  const radius = tileSize / 2;
-  const halfW = laneW / 2 - radius;
-  const halfH = laneH / 2 - radius;
-  const alpha = new Float32Array(width * height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const qx = Math.abs(x + 0.5 - width / 2) - halfW;
-      const qy = Math.abs(y + 0.5 - height / 2) - halfH;
-      const distance = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - radius;
-      const falloff = 1 - distance / reachPx;
-      alpha[y * width + x] =
-        distance <= 0 ? fillAlpha : falloff > 0 ? glowPeakAlpha * falloff * falloff : 0;
-    }
-  }
-  return { width, height, alpha };
 }
 
 function cellAllowed(board: SpeedZoneBoard, col: number, row: number): boolean {

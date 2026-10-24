@@ -43,14 +43,20 @@ import {
 } from "../../domain/sinkholeArt";
 import { BORE_JUNK_SETTLE_MS, type BoreJunk } from "../../domain/boreJunk";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
+import type { SpeedZone } from "../../domain/speedZones";
 import {
-  SPEED_ZONE_MAX_COUNT,
-  speedZoneGlowMask,
-  speedZoneParticles,
-  DEFAULT_SPEED_ZONE_DUST_SPEEDS,
-  type SpeedZone,
-  type SpeedZoneDustSpeeds,
-} from "../../domain/speedZones";
+  DEFAULT_SPEED_ZONE_FLOW_SPEEDS,
+  paintSpeedZoneWater,
+  SPEED_ZONE_WATER_ART_TILE,
+  speedZoneWaterCanvas,
+  stepWakeDroplets,
+  waterCellOpen,
+  wakePixels,
+  type SpeedZoneFlowSpeeds,
+  type WakeDroplet,
+  type WakeRider,
+  type WaterCanvas,
+} from "../../domain/speedZoneWater";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import {
   CHAFF_ALPHA,
@@ -699,6 +705,7 @@ export type RenderOptions = {
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
+  speedZoneRider?: WakeRider | null;
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
   scent?: ScentSprite[];
@@ -730,7 +737,7 @@ export type PlayRender = {
   queuePeelCrack: (x: number, y: number) => void;
   setWallStyle: (style: WallStyle | null) => void;
   setDotManLook: (look: { chompSpeed: number }) => void;
-  setSpeedZoneDust: (speeds: SpeedZoneDustSpeeds) => void;
+  setSpeedZoneFlow: (speeds: SpeedZoneFlowSpeeds) => void;
   setCharmTuning: (tuning: CharmTuning) => void;
   playerSpriteRotation: () => number | null;
 };
@@ -751,16 +758,7 @@ const LAVA_HOT_COLOR = 0xfff2b0;
 const LAVA_BED_COLORS = [0x2a1612, 0x3b2a26, 0x55301e, 0x4a1a0e];
 const LAVA_BED_FLASH_COLORS = [0x3b2a26, 0x55301e, 0x8a2008, 0xc23a0a, 0xff6a00];
 const SPEED_ZONE_DEPTH = -2;
-const SPEED_ZONE_PARTICLE_DEPTH = -1.5;
-const SPEED_ZONE_COLOR = 0x3fa9ff;
-const SPEED_ZONE_FILL_ALPHA = 0.5;
-const SPEED_ZONE_GLOW_PEAK_ALPHA = 0.6;
-const SPEED_ZONE_GLOW_REACH_TILES = 0.7;
-const SPEED_ZONE_PARTICLE_COLOR = 0xd8f2ff;
-const SPEED_ZONE_TEXTURE_KEYS = Array.from(
-  { length: SPEED_ZONE_MAX_COUNT },
-  (_, i) => `speed-zone-glow-${i}`,
-);
+const SPEED_ZONE_WAKE_DEPTH = -1.9;
 const CHAIN_AMPLITUDE_TILES = 0.25;
 const CHAIN_STROKES = [
   { strand: 0, width: 7, color: 0x3fa9ff, alpha: 0.25 },
@@ -819,59 +817,41 @@ function drawLava(
   }
 }
 
-function addSpeedZoneGlow(
-  scene: Phaser.Scene,
-  container: Phaser.GameObjects.Container,
-  zone: SpeedZone,
-  textureKey: string,
-): void {
-  const { tileSize } = getActiveLayout();
-  const reachPx = Math.round(tileSize * SPEED_ZONE_GLOW_REACH_TILES);
-  const mask = speedZoneGlowMask(zone, {
-    tileSize,
-    reachPx,
-    fillAlpha: SPEED_ZONE_FILL_ALPHA,
-    glowPeakAlpha: SPEED_ZONE_GLOW_PEAK_ALPHA,
-  });
-  const texture = scene.textures.createCanvas(textureKey, mask.width, mask.height);
-  if (texture === null) {
-    return;
-  }
-  const ctx = texture.getContext();
-  const image = ctx.createImageData(mask.width, mask.height);
-  mask.alpha.forEach((alpha, i) => {
-    image.data[i * 4] = (SPEED_ZONE_COLOR >> 16) & 0xff;
-    image.data[i * 4 + 1] = (SPEED_ZONE_COLOR >> 8) & 0xff;
-    image.data[i * 4 + 2] = SPEED_ZONE_COLOR & 0xff;
-    image.data[i * 4 + 3] = Math.round(alpha * 255);
-  });
-  ctx.putImageData(image, 0, 0);
-  texture.refresh();
-  const glow = scene.add.image(
-    cellOriginX(zone.col) - reachPx,
-    cellOriginY(zone.row) - reachPx,
-    textureKey,
-  );
-  glow.setOrigin(0, 0).setBlendMode(Phaser.BlendModes.ADD);
-  container.add(glow);
-}
+type SpeedZoneWater = {
+  zone: SpeedZone;
+  canvas: WaterCanvas;
+  pixels: ImageData;
+  image: Phaser.GameObjects.Image;
+  key: string;
+};
 
-function drawSpeedZoneParticles(
-  graphics: Phaser.GameObjects.Graphics,
+function addSpeedZoneWater(
+  scene: Phaser.Scene,
   zone: SpeedZone,
-  nowMs: number,
-  speeds: SpeedZoneDustSpeeds,
-): void {
-  const { tileSize } = getActiveLayout();
-  const originX = cellOriginX(0);
-  const originY = cellOriginY(0);
-  for (const particle of speedZoneParticles(zone, nowMs, speeds)) {
-    graphics.fillStyle(SPEED_ZONE_PARTICLE_COLOR, particle.alpha);
-    const size = particle.size < 1 ? 2 : 3;
-    const x = originX + particle.col * tileSize - size / 2;
-    const y = originY + particle.row * tileSize - size / 2;
-    graphics.fillRect(x, y, size, size);
+  key: string,
+): SpeedZoneWater | null {
+  const canvas = speedZoneWaterCanvas(zone);
+  if (scene.textures.exists(key)) {
+    scene.textures.remove(key);
   }
+  const texture = scene.textures.createCanvas(key, canvas.width, canvas.height);
+  if (texture === null) {
+    return null;
+  }
+  texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  const artPx = getActiveLayout().tileSize / SPEED_ZONE_WATER_ART_TILE;
+  const image = scene.add
+    .image(cellOriginX(0) + canvas.x * artPx, cellOriginY(0) + canvas.y * artPx, key)
+    .setOrigin(0, 0)
+    .setScale(artPx)
+    .setDepth(SPEED_ZONE_DEPTH);
+  return {
+    zone,
+    canvas,
+    pixels: new ImageData(canvas.rgba, canvas.width, canvas.height),
+    image,
+    key,
+  };
 }
 
 function strokePolyline(graphics: Phaser.GameObjects.Graphics, points: readonly ChainPoint[]) {
@@ -919,20 +899,21 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     .setVisible(false);
   const timedTunnelGraphics = scene.add.graphics();
   timedTunnelGraphics.setDepth(HAUNT_CAGE_DEPTH);
-  const speedZoneLayer = scene.add.container(0, 0);
-  speedZoneLayer.setDepth(SPEED_ZONE_DEPTH);
-  const speedZoneParticleGraphics = scene.add.graphics();
-  speedZoneParticleGraphics.setDepth(SPEED_ZONE_PARTICLE_DEPTH);
+  let speedZoneWater: SpeedZoneWater[] = [];
+  const speedZoneWakeGraphics = scene.add.graphics();
+  speedZoneWakeGraphics.setDepth(SPEED_ZONE_WAKE_DEPTH);
+  let wakeDroplets: WakeDroplet[] = [];
+  let wakeDropletsAtMs = 0;
   let drawnSpeedZones: readonly SpeedZone[] | null = null;
-  let speedZoneDustSpeeds = DEFAULT_SPEED_ZONE_DUST_SPEEDS;
+  let speedZoneFlowSpeeds = DEFAULT_SPEED_ZONE_FLOW_SPEEDS;
   const clearSpeedZones = (): void => {
-    speedZoneLayer.removeAll(true);
-    speedZoneParticleGraphics.clear();
-    for (const key of SPEED_ZONE_TEXTURE_KEYS) {
-      if (scene.textures.exists(key)) {
-        scene.textures.remove(key);
-      }
+    for (const water of speedZoneWater) {
+      water.image.destroy();
+      scene.textures.remove(water.key);
     }
+    speedZoneWater = [];
+    speedZoneWakeGraphics.clear();
+    wakeDroplets = [];
   };
   const droppedWallGraphics = scene.add.graphics();
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
@@ -1870,14 +1851,44 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     const speedZones = opts?.speedZones ?? [];
     if (speedZones !== drawnSpeedZones) {
       clearSpeedZones();
-      speedZones.forEach((zone, i) =>
-        addSpeedZoneGlow(scene, speedZoneLayer, zone, SPEED_ZONE_TEXTURE_KEYS[i]!),
-      );
+      speedZoneWater = speedZones.flatMap((zone, i) => {
+        const water = addSpeedZoneWater(scene, zone, `speed-zone-water-${i}`);
+        return water === null ? [] : [water];
+      });
       drawnSpeedZones = speedZones;
     }
-    speedZoneParticleGraphics.clear();
-    for (const zone of speedZones) {
-      drawSpeedZoneParticles(speedZoneParticleGraphics, zone, scene.time.now, speedZoneDustSpeeds);
+    const waterLayout = getActiveLayout();
+    const waterOpen = (col: number, row: number) => waterCellOpen(waterLayout, col, row);
+    for (const water of speedZoneWater) {
+      paintSpeedZoneWater(water.canvas, water.zone, scene.time.now, speedZoneFlowSpeeds, waterOpen);
+      const texture = water.image.texture as Phaser.Textures.CanvasTexture;
+      texture.getContext().putImageData(water.pixels, 0, 0);
+      texture.refresh();
+    }
+    const artPx = waterLayout.tileSize / SPEED_ZONE_WATER_ART_TILE;
+    const rider = opts?.speedZoneRider ?? null;
+    wakeDroplets = stepWakeDroplets(
+      wakeDroplets,
+      rider === null
+        ? null
+        : {
+            ...rider,
+            x: (rider.x - cellOriginX(0)) / artPx,
+            y: (rider.y - cellOriginY(0)) / artPx,
+          },
+      wakeDropletsAtMs,
+      scene.time.now,
+    );
+    wakeDropletsAtMs = scene.time.now;
+    speedZoneWakeGraphics.clear();
+    for (const px of wakePixels(wakeDroplets, scene.time.now, waterOpen)) {
+      speedZoneWakeGraphics.fillStyle(px.color, px.alpha);
+      speedZoneWakeGraphics.fillRect(
+        cellOriginX(0) + px.x * artPx,
+        cellOriginY(0) + px.y * artPx,
+        px.size * artPx,
+        px.size * artPx,
+      );
     }
 
     timedTunnelGraphics.clear();
@@ -2056,8 +2067,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     chompPixelsPerFrame = dotManChompPixelsPerFrame(look.chompSpeed);
   };
 
-  const setSpeedZoneDust = (speeds: SpeedZoneDustSpeeds): void => {
-    speedZoneDustSpeeds = speeds;
+  const setSpeedZoneFlow = (speeds: SpeedZoneFlowSpeeds): void => {
+    speedZoneFlowSpeeds = speeds;
   };
 
   return {
@@ -2068,7 +2079,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     queuePeelCrack,
     setWallStyle,
     setDotManLook,
-    setSpeedZoneDust,
+    setSpeedZoneFlow,
     setCharmTuning,
     playerSpriteRotation,
   };
