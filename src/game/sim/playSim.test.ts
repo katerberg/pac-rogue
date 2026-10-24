@@ -1,4 +1,5 @@
 import { hasComponent, query, removeEntity } from "bitecs";
+import { tickSlipstreams } from "../../domain/slipstream";
 import { describe, expect, it, vi } from "vitest";
 import {
   createFruitPresence,
@@ -11221,6 +11222,20 @@ describe("Slipstream", () => {
     expect(playerPx).toBeCloseTo(control.playerPx * 1.25, 5);
     expect(sim.renderOptions().slipstreamGhostEids).toEqual([ghost]);
     expect(sim.snapshot().slipstreamedGhosts).toHaveLength(1);
+  });
+
+  it("echoes out to the ghost once and does not re-hit a ghost already slipstreamed", () => {
+    const { sim, ghost } = slipSim([BASE]);
+    atJunctionWithGhost(sim, ghost, 12);
+    const first = runFrames(sim, 2).filter((event) => event.type === "slipstreamEcho");
+    expect(first).toHaveLength(1);
+    expect(first[0]).toMatchObject({ dx: 1, dy: 0, tiles: 1 });
+    sim["runUpgrades"] = tickSlipstreams(sim["runUpgrades"], 1000);
+    const before = sim.snapshot().timers.slipstreamMs;
+    atJunctionWithGhost(sim, ghost, 12);
+    const again = runFrames(sim, 2).filter((event) => event.type === "slipstreamEcho");
+    expect(again).toEqual([]);
+    expect(sim.snapshot().timers.slipstreamMs).toBeLessThan(before);
   });
 
   it("Plus reaches 2 tiles and holds the ghost still", () => {

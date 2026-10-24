@@ -97,6 +97,7 @@ export type SimEvent =
     }
   | { type: "chaffBurst"; x: number; y: number }
   | { type: "sonicBoomEcho"; x: number; y: number; dx: number; dy: number; tiles: number }
+  | { type: "slipstreamEcho"; x: number; y: number; dx: number; dy: number; tiles: number }
   | { type: "peelCrack"; x: number; y: number }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }

@@ -2637,8 +2637,8 @@ describe("Slipstream (LEARN)", () => {
     Position.x[ghost] = cellCenterX(spot!.col) + 12;
     Position.y[ghost] = cellCenterY(spot!.row);
     GhostPhase.value[ghost] = GHOST_PHASE.active;
-    sim.step(NO_KEYS_HELD, FRAME_MS);
-    sim.step(NO_KEYS_HELD, FRAME_MS);
+    const events = [...sim.step(NO_KEYS_HELD, FRAME_MS), ...sim.step(NO_KEYS_HELD, FRAME_MS)];
+    expect(events.filter((event) => event.type === "slipstreamEcho")).toHaveLength(1);
     expect(sim["learnUpgrades"].slipstreams.length).toBe(1);
     expect(sim.upgradeTimerFractions().passiveSlipstream).toBeGreaterThan(0);
     if (enhanced) {

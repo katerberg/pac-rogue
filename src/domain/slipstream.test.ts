@@ -4,6 +4,7 @@ import {
   applySlipstreams,
   atJunction,
   slipstreamGhostSpeedMul,
+  slipstreamEcho,
   slipstreamPlayerSpeedMul,
   slipstreamRemainingMs,
   slipstreamTargets,
@@ -40,22 +41,58 @@ describe("slipstream targets", () => {
     expect(atJunction(at(C - 2, R), T_JUNCTION)).toBe(false);
   });
 
-  it("base reaches a ghost within 1 tile at a junction", () => {
-    const near = { eid: 1, x: at(C, R).x + TILE_SIZE * 0.9, y: at(C, R).y };
-    const far = { eid: 2, x: at(C, R).x + TILE_SIZE * 1.5, y: at(C, R).y };
-    expect(slipstreamTargets(BASE, at(C, R), [near, far], T_JUNCTION)).toEqual([1]);
+  it("base reaches a ghost within 1.5 tiles at a junction", () => {
+    const near = { eid: 1, x: at(C, R).x + TILE_SIZE * 1.4, y: at(C, R).y };
+    const far = { eid: 2, x: at(C, R).x + TILE_SIZE * 1.6, y: at(C, R).y };
+    expect(slipstreamTargets(createRunUpgrades(), BASE, at(C, R), [near, far], T_JUNCTION)).toEqual(
+      [1],
+    );
   });
 
   it("Plus reaches 2 tiles", () => {
     const far = { eid: 2, x: at(C, R).x + TILE_SIZE * 1.9, y: at(C, R).y };
-    expect(slipstreamTargets(PLUS, at(C, R), [far], T_JUNCTION)).toEqual([2]);
+    expect(slipstreamTargets(createRunUpgrades(), PLUS, at(C, R), [far], T_JUNCTION)).toEqual([2]);
+  });
+
+  it("skips ghosts already slipstreamed", () => {
+    const ghost = { eid: 1, x: at(C, R).x + 4, y: at(C, R).y };
+    const state = applySlipstreams(createRunUpgrades(), [1]);
+    expect(slipstreamTargets(state, BASE, at(C, R), [ghost], T_JUNCTION)).toEqual([]);
+    expect(slipstreamTargets(createRunUpgrades(), BASE, at(C, R), [ghost], T_JUNCTION)).toEqual([
+      1,
+    ]);
   });
 
   it("does nothing off a junction or without the upgrade", () => {
     const ghost = { eid: 1, x: at(C - 2, R).x + 4, y: at(C - 2, R).y };
-    expect(slipstreamTargets(BASE, at(C - 2, R), [ghost], T_JUNCTION)).toEqual([]);
+    expect(slipstreamTargets(createRunUpgrades(), BASE, at(C - 2, R), [ghost], T_JUNCTION)).toEqual(
+      [],
+    );
     const beside = { eid: 1, x: at(C, R).x + 4, y: at(C, R).y };
-    expect(slipstreamTargets([], at(C, R), [beside], T_JUNCTION)).toEqual([]);
+    expect(slipstreamTargets(createRunUpgrades(), [], at(C, R), [beside], T_JUNCTION)).toEqual([]);
+  });
+});
+
+describe("slipstream echo", () => {
+  const p = at(C, R);
+
+  it("points down the dominant axis for the ghost's tile distance", () => {
+    expect(slipstreamEcho(p, { x: p.x + TILE_SIZE * 1.4, y: p.y + 3 })).toEqual({
+      ...p,
+      dx: 1,
+      dy: 0,
+      tiles: 1,
+    });
+    expect(slipstreamEcho(p, { x: p.x - 2, y: p.y - TILE_SIZE * 2 })).toEqual({
+      ...p,
+      dx: 0,
+      dy: -1,
+      tiles: 2,
+    });
+  });
+
+  it("has no direction for a ghost on the same spot", () => {
+    expect(slipstreamEcho(p, p)).toBeNull();
   });
 });
 

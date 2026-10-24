@@ -772,7 +772,11 @@ export class LearnSim {
     for (const echo of boom.echoes) {
       this.events.push({ type: "sonicBoomEcho", ...echo });
     }
-    this.learnUpgrades = stepSlipstream(this.world, this.learnUpgrades, owned);
+    const slip = stepSlipstream(this.world, this.learnUpgrades, owned);
+    this.learnUpgrades = slip.state;
+    for (const echo of slip.echoes) {
+      this.events.push({ type: "slipstreamEcho", ...echo });
+    }
 
     this.tickMirror(delta);
     const playerFrame = possessionActive(this.learnUpgrades)

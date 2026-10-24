@@ -1852,7 +1852,11 @@ export class PlaySim {
     this.tickSpeedTrail(delta);
     this.sonicBoom();
     if (this.death === null) {
-      this.runUpgrades = stepSlipstream(this.world, this.runUpgrades, this.effectiveUpgrades());
+      const slip = stepSlipstream(this.world, this.runUpgrades, this.effectiveUpgrades());
+      this.runUpgrades = slip.state;
+      for (const echo of slip.echoes) {
+        this.emit({ type: "slipstreamEcho", ...echo });
+      }
     }
     const facingAfterMove = playerFacing(this.world);
     this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);

@@ -1,6 +1,12 @@
 import { query, type World } from "bitecs";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
-import { applySlipstreams, slipstreamTargets, type SlipstreamGhost } from "../../domain/slipstream";
+import {
+  applySlipstreams,
+  slipstreamEcho,
+  slipstreamTargets,
+  type SlipstreamEcho,
+  type SlipstreamGhost,
+} from "../../domain/slipstream";
 import type { RunUpgrades, UpgradeId } from "../../domain/upgrades";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
@@ -11,10 +17,10 @@ export function stepSlipstream(
   world: World,
   state: RunUpgrades,
   owned: readonly UpgradeId[],
-): RunUpgrades {
+): { state: RunUpgrades; echoes: SlipstreamEcho[] } {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
-    return state;
+    return { state, echoes: [] };
   }
   const ghosts: SlipstreamGhost[] = [];
   for (const eid of query(world, [Ghost, GhostPhase, Position])) {
@@ -23,5 +29,11 @@ export function stepSlipstream(
     }
   }
   const player = { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 };
-  return applySlipstreams(state, slipstreamTargets(owned, player, ghosts));
+  const hit = slipstreamTargets(state, owned, player, ghosts);
+  return {
+    state: applySlipstreams(state, hit),
+    echoes: ghosts
+      .filter((ghost) => hit.includes(ghost.eid))
+      .flatMap((ghost) => slipstreamEcho(player, ghost) ?? []),
+  };
 }

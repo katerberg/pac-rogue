@@ -46,7 +46,30 @@ export function atJunction(player: SlipstreamPoint, solids?: SolidGrid): boolean
   );
 }
 
+export type SlipstreamEcho = { x: number; y: number; dx: number; dy: number; tiles: number };
+
+export function slipstreamEcho(
+  player: SlipstreamPoint,
+  ghost: SlipstreamPoint,
+): SlipstreamEcho | null {
+  const ax = ghost.x - player.x;
+  const ay = ghost.y - player.y;
+  if (ax === 0 && ay === 0) {
+    return null;
+  }
+  const horizontal = Math.abs(ax) >= Math.abs(ay);
+  const along = horizontal ? ax : ay;
+  return {
+    x: player.x,
+    y: player.y,
+    dx: horizontal ? Math.sign(ax) : 0,
+    dy: horizontal ? 0 : Math.sign(ay),
+    tiles: Math.max(1, Math.round(Math.abs(along) / TILE_SIZE)),
+  };
+}
+
 export function slipstreamTargets(
+  state: RunUpgrades,
   owned: readonly UpgradeId[],
   player: SlipstreamPoint,
   ghosts: readonly SlipstreamGhost[],
@@ -57,7 +80,11 @@ export function slipstreamTargets(
     return [];
   }
   return ghosts
-    .filter((ghost) => Math.hypot(ghost.x - player.x, ghost.y - player.y) <= reach)
+    .filter(
+      (ghost) =>
+        !state.slipstreams.some((s) => s.eid === ghost.eid) &&
+        Math.hypot(ghost.x - player.x, ghost.y - player.y) <= reach,
+    )
     .map((ghost) => ghost.eid);
 }
 
