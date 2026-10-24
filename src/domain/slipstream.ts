@@ -3,7 +3,6 @@ import {
   SLIPSTREAM_MS,
   SLIPSTREAM_PLAYER_SPEED_MUL,
   getUpgradeDef,
-  hasUpgrade,
   type RunUpgrades,
   type UpgradeId,
 } from "./upgrades";
@@ -96,10 +95,8 @@ export function slipstreamGhostSpeedMul(
   return state.slipstreams.some((s) => s.eid === eid) ? slipstreamGhostMul(owned) : 1;
 }
 
-export function slipstreamPlayerSpeedMul(state: RunUpgrades, owned: readonly UpgradeId[]): number {
-  return hasUpgrade(owned, "passiveSlipstream") && state.slipstreams.length > 0
-    ? SLIPSTREAM_PLAYER_SPEED_MUL
-    : 1;
+export function slipstreamPlayerSpeedMul(state: RunUpgrades): number {
+  return state.slipstreams.length > 0 ? SLIPSTREAM_PLAYER_SPEED_MUL : 1;
 }
 
 export function slipstreamGhostEids(state: RunUpgrades): number[] {

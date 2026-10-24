@@ -1785,7 +1785,7 @@ export class PlaySim {
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
               trinketPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
-              slipstreamPlayerSpeedMul(this.runUpgrades, this.effectiveUpgrades()) *
+              slipstreamPlayerSpeedMul(this.runUpgrades) *
               speedZoneMultiplier(this.zoneEffects().effect);
     const playerSpeedMul =
       rawPlayerSpeedMul *

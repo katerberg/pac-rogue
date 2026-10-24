@@ -74,9 +74,8 @@ describe("slipstream timers and multipliers", () => {
     expect(slipstreamGhostSpeedMul(state, BASE, 1)).toBe(SLIPSTREAM_GHOST_SPEED_MUL);
     expect(slipstreamGhostSpeedMul(state, PLUS, 1)).toBe(0);
     expect(slipstreamGhostSpeedMul(state, BASE, 2)).toBe(1);
-    expect(slipstreamPlayerSpeedMul(state, BASE)).toBe(SLIPSTREAM_PLAYER_SPEED_MUL);
-    expect(slipstreamPlayerSpeedMul(createRunUpgrades(), BASE)).toBe(1);
-    expect(slipstreamPlayerSpeedMul(state, [])).toBe(1);
+    expect(slipstreamPlayerSpeedMul(state)).toBe(SLIPSTREAM_PLAYER_SPEED_MUL);
+    expect(slipstreamPlayerSpeedMul(createRunUpgrades())).toBe(1);
   });
 
   it("clears with the other timers", () => {

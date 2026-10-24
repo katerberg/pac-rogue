@@ -667,7 +667,7 @@ export class LearnSim {
                 : 1) *
               this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
               trinketPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world)) *
-              slipstreamPlayerSpeedMul(this.learnUpgrades, this.learnUpgrades.owned);
+              slipstreamPlayerSpeedMul(this.learnUpgrades);
     applyPlayerSpeed(
       this.world,
       rawPlayerSpeedMul *
