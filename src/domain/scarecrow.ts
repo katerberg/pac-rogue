@@ -213,7 +213,7 @@ export function scentPixels(
       if (horizontal) {
         const x = cx + along;
         const dist = Math.abs(x - zx);
-        const width = scentLineWidth(dist, tileSize);
+        const width = scentLineWidth(Math.hypot(x - zx, cy - zy), tileSize);
         for (let k = 0; k < width; k += 1) {
           pixels.push({
             x: x - half,
@@ -226,7 +226,7 @@ export function scentPixels(
       if (vertical) {
         const y = cy + along;
         const dist = Math.abs(y - zy);
-        const width = scentLineWidth(dist, tileSize);
+        const width = scentLineWidth(Math.hypot(cx - zx, y - zy), tileSize);
         for (let k = 0; k < width; k += 1) {
           pixels.push({
             x: cx + wave(dist) + (k - (width - 1) / 2) * SCARECROW_PIXEL_PX - half,

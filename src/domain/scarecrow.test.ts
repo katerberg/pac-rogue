@@ -94,6 +94,19 @@ describe("scent core", () => {
     expect(scentLineWidth(60, 16)).toBe(1);
   });
 
+  it("tapers by distance from the origin, not from crossing corridors", () => {
+    const cross = (col: number, row: number) => (row === 10 && col >= 6 && col <= 14) || col === 12;
+    const cells = scentCells(zone, R, (col, row) => cross(col, row) && row >= 6 && row <= 14);
+    const px = scentPixels(zone, cells, R, 16, 0, 0, 0, cross);
+    const side = px.filter(
+      (p) => p.x >= 12 * 16 && p.x < 13 * 16 && p.y >= 9 * 16 && p.y < 10 * 16,
+    );
+    const rows = new Set(side.map((p) => p.y));
+    expect(rows.size).toBeGreaterThan(0);
+    const column = side.filter((p) => p.y === side[0]!.y);
+    expect(column.length).toBeLessThanOrEqual(1);
+  });
+
   it("marks the center point brighter than the surrounding scent", () => {
     const marker = scentCenterPixels(zone, 16, 0, 0);
     expect(marker).toHaveLength(9);
