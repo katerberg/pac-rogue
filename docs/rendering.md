@@ -21,6 +21,10 @@ Dot-Man is a round body PNG that never rotates, with a right-facing visor PNG dr
 
 Banked shields draw a PNG ring around Dot-Man (`public/art/other/bubble-shield.png`, or `bubble-shield-multiple.png` when 2+). Size is Dot-Man's display size plus a fixed pad (`bubbleShield.ts`); a lost shield splits into left/right halves that drift apart (`shieldCrack.ts`). The old drag-along charm bracelet (`charmTail.ts`, Visuals knobs) stays in the codebase but is off by default; enabling the knob replaces the bubble rather than stacking.
 
+## Colours
+
+School colours are reserved for their school; see [colours.md](./colours.md) before picking a new UI or effect colour.
+
 ## Fonts
 
 - IBM VGA 8x8 bitmasks (`font8x8Basic.ts`, atlas in `pixelFont.ts`); scenes create text with `addPixelText` / `placePixelText`.
