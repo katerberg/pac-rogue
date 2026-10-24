@@ -68,7 +68,7 @@ export function withSeenUpgrade(record: SeenRecord, id: UpgradeId): SeenRecord {
 
 export type LearnAllMode = "all" | "none";
 
-export const LEARN_LOCKED_GHOST_LABEL = "???";
+const LEARN_LOCKED_GHOST_LABEL = "???";
 
 export function learnSeenRecord(mode: LearnAllMode | null, stored: () => SeenRecord): SeenRecord {
   const upgrades =
