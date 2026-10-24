@@ -13,7 +13,7 @@ import {
   TEXT_COLOR_YELLOW,
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { createSalvageKeys, type PanelItem } from "./salvagePanel";
+import { ALERT_RED, createSalvageKeys, type PanelItem } from "./salvagePanel";
 import {
   buildUpgradeCardVisual,
   CHOICE_BUTTON_HEIGHT,
@@ -22,7 +22,6 @@ import {
 } from "./upgradeChoiceModal";
 
 const DEPTH = MODAL_DEPTH + 10;
-const ALERT_RED = 0xff3030;
 const FADE_IN_MS = 250;
 const CENTER_X = PLAYFIELD_WIDTH / 2;
 const TITLE_Y = 118;

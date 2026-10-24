@@ -12,7 +12,6 @@ export function salvageSelectionStep(
   key: SalvageKey,
   count: number,
   columns: number,
-  cancellable: boolean,
 ): SalvageStep {
   if (count === 0) {
     return { index, outcome: key === "cancel" || key === "confirm" ? "close" : null };
@@ -33,7 +32,7 @@ export function salvageSelectionStep(
     case "confirm":
       return { index, outcome: "salvage" };
     case "cancel":
-      return { index, outcome: cancellable ? "close" : null };
+      return { index, outcome: "close" };
   }
 }
 

@@ -19,7 +19,7 @@ import {
 import { MODAL_DEPTH, SCHOOL_COLORS } from "./upgradeChoiceModal";
 
 const DEPTH = MODAL_DEPTH + 10;
-const ALERT_RED = 0xff3030;
+export const ALERT_RED = 0xff3030;
 const SELECT_PAD = 3;
 const TEXT_LINE = 14;
 const TEXT_LINE_SPACING = 3;
@@ -170,7 +170,7 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
         placePixelText(hint, at.x, hintY, 0.5, 0);
       };
       onKey = (key) => {
-        const step = salvageSelectionStep(index, key, items.length, UPGRADE_HUD_COLUMNS, true);
+        const step = salvageSelectionStep(index, key, items.length, UPGRADE_HUD_COLUMNS);
         index = step.index;
         if (step.outcome === "salvage" && items[index] !== undefined) {
           const picked = items[index]!;

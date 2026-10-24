@@ -10,10 +10,7 @@ import {
 } from "./salvagePanel";
 
 function walk(start: number, keys: SalvageKey[], count = 7): number {
-  return keys.reduce(
-    (index, key) => salvageSelectionStep(index, key, count, 3, false).index,
-    start,
-  );
+  return keys.reduce((index, key) => salvageSelectionStep(index, key, count, 3).index, start);
 }
 
 describe("salvageSelectionStep", () => {
@@ -31,19 +28,18 @@ describe("salvageSelectionStep", () => {
   });
 
   it("salvages the selection on confirm", () => {
-    expect(salvageSelectionStep(2, "confirm", 7, 3, false)).toEqual({
+    expect(salvageSelectionStep(2, "confirm", 7, 3)).toEqual({
       index: 2,
       outcome: "salvage",
     });
   });
 
-  it("only backs out when cancellable", () => {
-    expect(salvageSelectionStep(2, "cancel", 7, 3, false).outcome).toBeNull();
-    expect(salvageSelectionStep(2, "cancel", 6, 3, true).outcome).toBe("close");
+  it("backs out on cancel", () => {
+    expect(salvageSelectionStep(2, "cancel", 6, 3).outcome).toBe("close");
   });
 
   it("closes an empty list", () => {
-    expect(salvageSelectionStep(0, "confirm", 0, 3, true).outcome).toBe("close");
+    expect(salvageSelectionStep(0, "confirm", 0, 3).outcome).toBe("close");
   });
 });
 
