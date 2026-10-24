@@ -513,7 +513,7 @@ export class LearnSim {
 
   start(): SimEvent[] {
     this.events = [];
-    activateLayout("mazeSmall");
+    activateLayout("mazeLearn");
     spawnWalls(this.world);
     spawnPlayer(this.world);
     this.resetPellets();

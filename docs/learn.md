@@ -1,6 +1,6 @@
 # Learn mode
 
-`MenuScene` -> LEARN opens `LearnScene`: a no-stakes sandbox on the level-1 `mazeSmall` board where the player drives Maze-Man while one chosen ghost chases, with its targeting drawn live. `LearnSim` (`src/game/sim/learnSim.ts`) is a reduced chase-only pipeline; the scene is an adapter like `PlayScene`.
+`MenuScene` -> LEARN opens `LearnScene`: a no-stakes sandbox on the `mazeLearn` board (the original small maze; level 1 of a run now uses a different `mazeSmall`, and `mazeLearn` is not selectable via `?maze=`) where the player drives Maze-Man while one chosen ghost chases, with its targeting drawn live. `LearnSim` (`src/game/sim/learnSim.ts`) is a reduced chase-only pipeline; the scene is an adapter like `PlayScene`.
 
 ## Seen record
 

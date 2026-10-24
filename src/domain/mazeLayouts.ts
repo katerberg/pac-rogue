@@ -1,4 +1,4 @@
-export type MazeLayoutId = "maze1" | "maze2" | "mazeSmall";
+export type MazeLayoutId = "maze1" | "maze2" | "mazeSmall" | "mazeLearn";
 
 export const MAZE_LAYOUT_IDS: readonly MazeLayoutId[] = ["maze1", "maze2", "mazeSmall"];
 
@@ -93,6 +93,29 @@ export const SMALL_MAZE_ASCII = `############################
 ############################
 ############################`;
 
+/** The original 22x21 level-1 board, kept as LEARN's sandbox; not selectable via `?maze=`. */
+export const LEARN_MAZE_ASCII = `######################
+#....................#
+#@#####.######.#####@#
+#.#####.######.#####.#
+#.....----------.....#
+#.####-###==###-####.#
+#-####-#HHHHHH#-####-#
+--####-#HHHHHH#-####--
+#-####-#HHHHHH#-####-#
+#.####-########-####.#
+#.....----------.....#
+#.####.########.####.#
+#.####.########.####.#
+#....................#
+###.##############.###
+###.##############.###
+#......---P----......#
+#.####.########.####.#
+#.####.########.####.#
+#.@................@.#
+######################`;
+
 export function tinyHouseMazeAscii(): string {
   let houseRows = 0;
   return SMALL_MAZE_ASCII.replace(/#HHHH#/g, () => {
@@ -105,6 +128,7 @@ export const MAZE_ASCII_BY_ID: Record<MazeLayoutId, string> = {
   maze1: CLASSIC_MAZE_ASCII,
   maze2: MSPAC_MAZE_ASCII,
   mazeSmall: SMALL_MAZE_ASCII,
+  mazeLearn: LEARN_MAZE_ASCII,
 };
 
 export function parseMazeParam(params: URLSearchParams): MazeLayoutId | null {
