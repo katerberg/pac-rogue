@@ -91,6 +91,17 @@ export function edibleGhostsTouchingEid(
   );
 }
 
+export function edibleGhostsTouchingPoint(
+  world: World,
+  at: { x: number; y: number },
+  edibleGhostEids: ReadonlySet<number>,
+): number[] {
+  const playerEid = query(world, [Player, Position, Drawable])[0];
+  return playerEid === undefined
+    ? []
+    : edibleGhostsTouchingAt(world, at.x, at.y, Drawable.radius[playerEid] ?? 0, edibleGhostEids);
+}
+
 function edibleGhostsTouchingAt(
   world: World,
   x: number,

@@ -4,6 +4,7 @@ import { randomFromSeed } from "./mazeTiling";
 import { INVULN_FLOOR_RATIO, levelScaledDurationMs } from "./levelScaledDuration";
 import { TRINKET_IDS, TRINKET_MAX_COPIES, isTrinketId } from "./trinkets";
 import {
+  simulacrumCopies,
   clearStaleUpgradeTimers,
   eatFrightenedGhost,
   frightenedGhostEids,
@@ -280,6 +281,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveGleaning",
   "passiveSonicBoom",
   "passiveScarecrow",
+  "passiveSimulacrum",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>
@@ -555,6 +557,25 @@ describe("eligibleUpgrades", () => {
     }
   });
 
+  it("keeps Mirror and Simulacrum out of the pool when the other is owned", () => {
+    const pad: UpgradeId[] = ["passiveAfterburner", "passiveGhostSlow"];
+    expect(eligibleUpgrades(pad)).toEqual(
+      expect.arrayContaining(["powerPelletMirror", "passiveSimulacrum"]),
+    );
+    for (const owned of ["powerPelletMirror", "powerPelletMirrorPlus"] as const) {
+      expect(eligibleUpgrades([...pad, owned])).not.toContain("passiveSimulacrum");
+    }
+    for (const owned of ["passiveSimulacrum", "passiveSimulacrumPlus"] as const) {
+      expect(eligibleUpgrades([...pad, owned])).not.toContain("powerPelletMirror");
+    }
+  });
+
+  it("counts Simulacrum copies in both forms", () => {
+    expect(simulacrumCopies([])).toBe(0);
+    expect(simulacrumCopies(["passiveSimulacrum"])).toBe(1);
+    expect(simulacrumCopies(["passiveSimulacrumPlus"])).toBe(2);
+  });
+
   it("keeps Mole and Afterburner out of the pool when the other is owned", () => {
     const pad: UpgradeId[] = ["passiveGhostSlow", "fruitFeast"];
     expect(eligibleUpgrades(pad)).toEqual(
@@ -586,6 +607,7 @@ describe("rare upgrades", () => {
     "powerPelletMirror",
     "passiveMartyr",
     "passivePossession",
+    "passiveSimulacrum",
   ];
 
   it("marks the build-around upgrades rare, in both forms", () => {

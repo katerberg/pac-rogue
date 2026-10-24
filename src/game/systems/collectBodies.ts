@@ -13,17 +13,16 @@ type Point = { x: number; y: number };
 export function collectPelletsForBodies(
   world: World,
   opts: CollectPelletsOptions,
-  twin: Point | null,
+  bodies: readonly Point[],
 ): PlayerPelletFrame {
-  const own = collectPellets(world, opts);
-  return twin === null
-    ? own
-    : mergePlayerPelletFrames(own, collectPellets(world, { ...opts, at: twin }));
+  return bodies.reduce(
+    (frame, at) => mergePlayerPelletFrames(frame, collectPellets(world, { ...opts, at })),
+    collectPellets(world, opts),
+  );
 }
 
-export function collectFruitForBodies(world: World, twin: Point | null): number[] {
-  const own = collectFruit(world);
-  return twin === null ? own : [...own, ...collectFruit(world, twin)];
+export function collectFruitForBodies(world: World, bodies: readonly Point[]): number[] {
+  return [collectFruit(world), ...bodies.map((at) => collectFruit(world, at))].flat();
 }
 
 export function collectExtraForBodies(world: World, count: number, twin: Point | null): number[] {

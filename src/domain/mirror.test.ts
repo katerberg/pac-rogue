@@ -124,24 +124,30 @@ describe("nearestBody", () => {
   const twin: BodyTile = { col: 1, row: 3, facing: GHOST_DIR.right };
 
   it("returns the player when there is no twin", () => {
-    expect(nearestBody({ col: 1, row: 1 }, player, null, loop)).toBe(player);
+    expect(nearestBody({ col: 1, row: 1 }, player, [], loop)).toBe(player);
   });
 
   it("picks the body with the shorter path, not the closer straight line", () => {
     const wall = grid(["#######", "#.....#", "#.###.#", "#.....#", "#######"]);
-    expect(nearestBody({ col: 2, row: 1 }, player, twin, wall)).toBe(twin);
-    expect(nearestBody({ col: 4, row: 1 }, player, twin, wall)).toBe(player);
+    expect(nearestBody({ col: 2, row: 1 }, player, [twin], wall)).toBe(twin);
+    expect(nearestBody({ col: 4, row: 1 }, player, [twin], wall)).toBe(player);
   });
 
   it("breaks path ties toward the real player", () => {
-    expect(nearestBody({ col: 3, row: 1 }, player, twin, loop)).toBe(player);
+    expect(nearestBody({ col: 3, row: 1 }, player, [twin], loop)).toBe(player);
   });
 
   it("falls back to straight-line distance when both are unreachable", () => {
     const isolated = grid(["#######", "#.#.#.#", "#######"]);
     const a: BodyTile = { col: 5, row: 1, facing: GHOST_DIR.none };
     const b: BodyTile = { col: 3, row: 1, facing: GHOST_DIR.none };
-    expect(nearestBody({ col: 1, row: 1 }, a, b, isolated)).toBe(b);
+    expect(nearestBody({ col: 1, row: 1 }, a, [b], isolated)).toBe(b);
+  });
+
+  it("picks the nearest of several bodies, ties toward the earlier one", () => {
+    const copy: BodyTile = { col: 3, row: 1, facing: GHOST_DIR.none };
+    expect(nearestBody({ col: 2, row: 1 }, player, [twin, copy], loop)).toBe(copy);
+    expect(nearestBody({ col: 3, row: 1 }, player, [copy, { ...copy }], loop)).toBe(copy);
   });
 });
 

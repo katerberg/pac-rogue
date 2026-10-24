@@ -433,6 +433,7 @@ import {
   type CornucopiaMode,
   endMirror,
   mirrorSavesLife,
+  simulacrumCopies,
 } from "../../domain/upgrades";
 import {
   mirrorFacing,
@@ -470,8 +471,17 @@ import {
   catchPlayer,
   edibleGhostsTouchingEid,
   edibleGhostsTouchingPlayer,
+  edibleGhostsTouchingPoint,
   type CatchOptions,
 } from "../systems/catchPlayer";
+import {
+  popCaughtSimulacra,
+  promoteNearestSimulacrum,
+  simulacrumBodies,
+  simulacrumPoints,
+  simulacrumSprites,
+  syncSimulacra,
+} from "../systems/simulacrum";
 import { harvestPelletsByGhost } from "../systems/possessionHarvest";
 import {
   lifeAfterDeathClear,
@@ -593,7 +603,7 @@ import {
 import { slidePlayer } from "../systems/playerSlide";
 import { eatDragAfterCollect, eatDragMultiplier, tickEatDrag } from "../../domain/eatDrag";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
-import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
+import { snapBodiesToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
   startWarpGlide,
   tickWarpGlide,
@@ -633,6 +643,7 @@ import {
   spawnCrumb,
   spawnPellet,
   spawnPlayer,
+  spawnSimulacra,
   spawnSlotMachine,
   spawnWalls,
 } from "./spawn";
@@ -804,6 +815,7 @@ export class PlaySim {
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private mirrorPop: MirrorPop | null = null;
+  private simulacrumPops: MirrorPop[] = [];
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -1242,6 +1254,8 @@ export class PlaySim {
           : [],
       mirror: this.death === null ? this.twinRenderBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
+      simulacra: this.death === null ? simulacrumSprites(this.world) : [],
+      simulacrumPops: this.simulacrumPops.map((pop) => mirrorPopRender(pop)!),
     };
   }
 
@@ -1392,6 +1406,10 @@ export class PlaySim {
         col: twinBody?.col ?? null,
         row: twinBody?.row ?? null,
         popProgress: mirrorPopRender(this.mirrorPop)?.progress ?? null,
+      },
+      simulacrum: {
+        copies: simulacrumBodies(this.world).map(({ col, row }) => ({ col, row })),
+        pops: this.simulacrumPops.length,
       },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
@@ -1714,7 +1732,7 @@ export class PlaySim {
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
-      snapPlayerToNearestWalkable(this.world);
+      snapBodiesToNearestWalkable(this.world);
     }
     this.runUpgrades = tickInvuln(this.runUpgrades, delta);
     this.turnCatchGraceMs = tickTurnCatchGrace(this.turnCatchGraceMs, delta);
@@ -1750,6 +1768,7 @@ export class PlaySim {
     this.eatDragMs = tickEatDrag(this.eatDragMs, delta);
     this.turnTuning.tick(delta);
     this.mirrorPop = tickMirrorPop(this.mirrorPop, delta);
+    this.simulacrumPops = this.simulacrumPops.flatMap((pop) => tickMirrorPop(pop, delta) ?? []);
     this.checkMirrorPop();
     const levelSpeedMul = speedLevelMultiplier(this.levelIndex, this.currentTuning);
     const hyperspeedMul =
@@ -1810,6 +1829,7 @@ export class PlaySim {
       droppedWall: this.runUpgrades.droppedWall,
     });
     const moveFrame = (frameDelta: number): void => {
+      syncSimulacra(this.world);
       movement(
         this.world,
         frameDelta,
@@ -1967,7 +1987,7 @@ export class PlaySim {
       ]),
       blockTunnelRow,
       this.runUpgrades.droppedWall,
-      this.twinBody(),
+      this.extraBodies(),
       this.runUpgrades.chaff?.decoys,
       scentFieldFor(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
     );
@@ -2023,7 +2043,7 @@ export class PlaySim {
     }
 
     const fruitTilesBefore = fruitTiles(this.world);
-    const removedFruitEids = collectFruitForBodies(this.world, this.twinPosition());
+    const removedFruitEids = collectFruitForBodies(this.world, this.bodyPoints());
     for (const eid of removedFruitEids) {
       this.releaseDrawable(eid);
     }
@@ -2083,6 +2103,7 @@ export class PlaySim {
       this.emitDraw();
       return;
     }
+    this.popCaughtSimulacra(catchOptions);
     const playerCaughtBy =
       catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
     const playerLava = playerCaughtBy === null && this.touchesLava(catchOptions);
@@ -2106,6 +2127,9 @@ export class PlaySim {
         if (twinCatch === null) {
           this.runUpgrades = applyShieldBreakInvuln(this.runUpgrades);
         }
+        return;
+      }
+      if (this.promoteSimulacrum()) {
         return;
       }
       const fellAt = twinCatch?.position ?? this.playerPosition();
@@ -2268,6 +2292,38 @@ export class PlaySim {
         };
   }
 
+  private bodyPoints(): Point[] {
+    const twin = this.twinPosition();
+    return [...(twin === null ? [] : [twin]), ...simulacrumPoints(this.world)];
+  }
+
+  private extraBodies(): BodyTile[] {
+    const twin = this.twinBody();
+    return [...(twin === null ? [] : [twin]), ...simulacrumBodies(this.world)];
+  }
+
+  private popCaughtSimulacra(options: CatchOptions): void {
+    const popped = popCaughtSimulacra(this.world, (at) => {
+      const atCopy = { ...options, at };
+      return (
+        catchPlayer(this.world, atCopy) !== null ||
+        chainCatch(this.world, atCopy) !== null ||
+        this.touchesLava(options, at)
+      );
+    });
+    this.simulacrumPops.push(...popped.map((at) => ({ ...at, elapsedMs: 0 })));
+  }
+
+  private promoteSimulacrum(): boolean {
+    const from = promoteNearestSimulacrum(this.world, this.playerSolids());
+    if (from === null) {
+      return false;
+    }
+    this.simulacrumPops.push({ ...from, elapsedMs: 0 });
+    this.recorder.activation("simulacrum");
+    return true;
+  }
+
   private twinCatch(
     options: CatchOptions,
   ): { eid: number | null; lava: boolean; position: Point } | null {
@@ -2288,7 +2344,7 @@ export class PlaySim {
         radiusBonusPx: pelletCollectRadiusBonusPx(this.effectiveUpgrades()),
         solids: getActiveLayout().playerSolids,
       },
-      this.twinPosition(),
+      this.bodyPoints(),
     );
   }
 
@@ -2385,7 +2441,14 @@ export class PlaySim {
     const possessed = possessedGhostEid(this.runUpgrades);
     const eaten =
       possessed === null
-        ? edibleGhostsTouchingPlayer(this.world, edible)
+        ? [
+            ...new Set([
+              ...edibleGhostsTouchingPlayer(this.world, edible),
+              ...simulacrumPoints(this.world).flatMap((at) =>
+                edibleGhostsTouchingPoint(this.world, at, edible),
+              ),
+            ]),
+          ]
         : edibleGhostsTouchingEid(this.world, possessed, edible);
     for (const eid of eaten) {
       if (eid === frozenGhostEid(this.runUpgrades)) {
@@ -3098,6 +3161,7 @@ export class PlaySim {
     this.ghostTraction.reset();
     this.sonicEchoes.reset();
     this.mirrorPop = null;
+    this.simulacrumPops = [];
     this.deathsThisBoard = 0;
     this.elroySuppressed = false;
     this.lastReactiveArmorSent = 0;
@@ -3150,6 +3214,7 @@ export class PlaySim {
     spawnWalls(this.world);
     spawnBoardPellets(this.world);
     spawnPlayer(this.world);
+    spawnSimulacra(this.world, simulacrumCopies(this.effectiveUpgrades()));
     this.bossState = null;
     if (boss !== null) {
       this.startBoss(boss);
@@ -3799,9 +3864,8 @@ export class PlaySim {
     if (player !== null) {
       avoid.push({ col: worldToCol(player.x), row: worldToRow(player.y) });
     }
-    const twin = this.twinPosition();
-    if (twin !== null) {
-      avoid.push({ col: worldToCol(twin.x), row: worldToRow(twin.y) });
+    for (const body of this.bodyPoints()) {
+      avoid.push({ col: worldToCol(body.x), row: worldToRow(body.y) });
     }
     return avoid;
   }
@@ -3847,7 +3911,7 @@ export class PlaySim {
     if (!this.slotPickupBoardEligible()) {
       return;
     }
-    for (const item of collectSlotMachinesForBodies(this.world, this.twinPosition())) {
+    for (const item of collectSlotMachinesForBodies(this.world, this.bodyPoints())) {
       this.releaseDrawable(item.eid);
       const idx = this.slotPickupCells.findIndex(
         (cell) => cell.col === item.col && cell.row === item.row,
@@ -4137,7 +4201,7 @@ export class PlaySim {
           this.hyperspeedPellets,
           this.collectBodyPellets(),
         );
-        const eatenFruit = collectFruitForBodies(this.world, this.twinPosition());
+        const eatenFruit = collectFruitForBodies(this.world, this.bodyPoints());
         for (const eid of eatenFruit) {
           this.releaseDrawable(eid);
           this.hyperspeedFruitEaten += 1;
@@ -4149,6 +4213,7 @@ export class PlaySim {
         if (this.tryBreakPeel(catchOptions)) {
           return false;
         }
+        this.popCaughtSimulacra(catchOptions);
         const hit = catchPlayer(this.world, catchOptions) ?? chainCatch(this.world, catchOptions);
         const twin = hit === null ? this.twinCatch(catchOptions) : null;
         const caughtBy = hit ?? twin?.eid ?? null;

@@ -10,13 +10,14 @@ import {
 } from "../../domain/maze";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Simulacrum } from "../components/Simulacrum";
 import { Velocity } from "../components/Velocity";
-import { snapPlayerToNearestWalkable } from "./playerWallPassSnap";
+import { snapBodiesToNearestWalkable } from "./playerWallPassSnap";
 
-describe("snapPlayerToNearestWalkable", () => {
+describe("snapBodiesToNearestWalkable", () => {
   it("no-ops when there is no player", () => {
     const world = createWorld();
-    expect(() => snapPlayerToNearestWalkable(world)).not.toThrow();
+    expect(() => snapBodiesToNearestWalkable(world)).not.toThrow();
   });
 
   it("leaves a walkable player in place", () => {
@@ -29,16 +30,19 @@ describe("snapPlayerToNearestWalkable", () => {
     Position.x[eid] = cellCenterX(playerSpawn.col);
     Position.y[eid] = cellCenterY(playerSpawn.row);
     Velocity.x[eid] = 10;
-    snapPlayerToNearestWalkable(world);
+    snapBodiesToNearestWalkable(world);
     expect(Position.x[eid]).toBe(cellCenterX(playerSpawn.col));
     expect(Position.y[eid]).toBe(cellCenterY(playerSpawn.row));
     expect(Velocity.x[eid]).toBe(10);
   });
 
-  it("snaps out of a solid cell onto nearest playerSolids walkable center", () => {
+  it.each([
+    ["player", Player],
+    ["simulacrum", Simulacrum],
+  ])("snaps a %s out of a solid cell onto nearest playerSolids walkable center", (_, tag) => {
     const world = createWorld();
     const eid = addEntity(world);
-    addComponent(world, eid, Player);
+    addComponent(world, eid, tag);
     addComponent(world, eid, Position);
     addComponent(world, eid, Velocity);
     const { walls, exterior, house, playerSolids } = getActiveLayout();
@@ -60,7 +64,7 @@ describe("snapPlayerToNearestWalkable", () => {
     Position.y[eid] = cellCenterY(wallRow);
     Velocity.x[eid] = 5;
     Velocity.y[eid] = 5;
-    snapPlayerToNearestWalkable(world);
+    snapBodiesToNearestWalkable(world);
 
     const col = worldToCol(Position.x[eid] ?? 0);
     const row = worldToRow(Position.y[eid] ?? 0);

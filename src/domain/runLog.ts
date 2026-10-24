@@ -41,7 +41,8 @@ export type ActivationKind =
   | "mirror"
   | "tunnelBoring"
   | "martyr"
-  | "possession";
+  | "possession"
+  | "simulacrum";
 export type TimedEffect = "freeze" | "invuln" | "wallPass" | "speedBurst" | "ghostHarvest";
 export type QuarterSource =
   | "fruit"

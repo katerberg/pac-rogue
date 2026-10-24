@@ -39,15 +39,26 @@ describe("collecting for both bodies", () => {
     const { world, at } = build();
     const mine = at(100, 100, Pellet);
     const theirs = at(500, 100, Pellet);
-    expect(collectPelletsForBodies(world, {}, null).removedEids).toEqual([mine]);
-    expect(collectPelletsForBodies(world, {}, { x: 500, y: 100 }).removedEids).toEqual([theirs]);
+    expect(collectPelletsForBodies(world, {}, []).removedEids).toEqual([mine]);
+    expect(collectPelletsForBodies(world, {}, [{ x: 500, y: 100 }]).removedEids).toEqual([theirs]);
+  });
+
+  it("eats under every extra body", () => {
+    const { world, at } = build();
+    const a = at(500, 100, Pellet);
+    const b = at(800, 100, Pellet);
+    const eaten = collectPelletsForBodies(world, {}, [
+      { x: 500, y: 100 },
+      { x: 800, y: 100 },
+    ]).removedEids;
+    expect(eaten).toEqual([a, b]);
   });
 
   it("eats fruit under either body", () => {
     const { world, at } = build();
     const mine = at(100, 100, Fruit);
     const theirs = at(500, 100, Fruit);
-    expect(collectFruitForBodies(world, { x: 500, y: 100 })).toEqual([mine, theirs]);
+    expect(collectFruitForBodies(world, [{ x: 500, y: 100 }])).toEqual([mine, theirs]);
   });
 
   it("takes the farthest pellets from each body", () => {
