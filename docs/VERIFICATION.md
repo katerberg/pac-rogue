@@ -56,7 +56,7 @@ A change in shared code (movement, input, render, systems) can reach every `Play
 - Level 1 board: `play=1&maze=mazeSmall`
 - Pool base map (levels 2-8, same map every level for a seed): `play=1&level=2`; force index: `maze=0`
 - Store floor: `play=1&store=1&quarters=10`
-- Boss (level 9): `play=1&boss=blinkySwarm` / `boss=chainedGhosts`; stage transition: `bossStageAdvance=1`
+- Boss (level 9): `play=1&boss=blinkySwarm` / `boss=chainedGhosts` / `boss=slimeTrail`; stage transition: `bossStageAdvance=1`
 - Level-clear upgrade modal: `play=1&jumpToUpgrade=1`
 - Death / respawn: `play=1&level=2&infiniteLives=1`, then get caught
 - Pause / Settings / Resume: `press:Escape`, then `click:` menu rows

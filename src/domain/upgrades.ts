@@ -1151,13 +1151,13 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveFloating",
     label: "Floating",
     school: "speed",
-    description: "Pass over lava and sinkholes unharmed.",
+    description: "Pass over lava, sinkholes and slime unharmed.",
     storePrice: STORE_UPGRADE_PRICE,
     floatsOverHazards: true,
     enhanced: {
       enhanceNote: "Floating also stops the slow side of speed zones from slowing you.",
       description:
-        "Pass over lava and sinkholes unharmed and move through the slow side of speed zones freely.",
+        "Pass over lava, sinkholes and slime unharmed and move through the slow side of speed zones freely.",
       floatsOverSlowZones: true,
     },
   },

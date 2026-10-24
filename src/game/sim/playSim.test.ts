@@ -2446,7 +2446,7 @@ describe("PlaySim", () => {
         expect(startSim({ level: 9 }, seed).snapshot().boss?.id).toBe(id);
         picks.add(id!);
       }
-      expect([...picks].sort()).toEqual(["blinkySwarm", "chainedGhosts"]);
+      expect([...picks].sort()).toEqual(["blinkySwarm", "chainedGhosts", "slimeTrail"]);
     });
 
     it("starts the Blinky Swarm with the knob's Blinky count", () => {
@@ -2614,6 +2614,161 @@ describe("PlaySim", () => {
       placePair(sim, CHAIN_PAIR.blinkyClyde, row, [1, 2]);
       placePair(sim, CHAIN_PAIR.pinkyInky, row + 2, [4, 5]);
       expect(sim.renderOptions().bossChains).toHaveLength(2);
+    });
+  });
+
+  describe("Slime Trail boss", () => {
+    function startSlime(overrides: Partial<PlayOptions> = {}): PlaySim {
+      return startSim({ level: 9, boss: "slimeTrail", infiniteLives: true, ...overrides });
+    }
+
+    function ghostOf(sim: PlaySim, kind: GhostKindId): number {
+      return [...query(sim.world, [Ghost, GhostKind])].find((eid) => GhostKind.kind[eid] === kind)!;
+    }
+
+    function trails(sim: PlaySim): ReadonlyMap<number, readonly MazeTile[]> {
+      return sim["slimeTrails"];
+    }
+
+    function allOut(sim: PlaySim): void {
+      runUntil(
+        sim,
+        () =>
+          query(sim.world, [Ghost]).every((eid) => GhostPhase.value[eid] === GHOST_PHASE.active),
+        900,
+        { keys: held("left") },
+      );
+    }
+
+    function slimeUnderPlayer(sim: PlaySim): number {
+      const owner = ghostOf(sim, GHOST_KIND.blinky);
+      const player = playerEid(sim);
+      sim["slimeTrails"] = new Map([
+        [owner, [{ col: worldToCol(Position.x[player]!), row: worldToRow(Position.y[player]!) }]],
+      ]);
+      return owner;
+    }
+
+    it("replays the level-8 pool board with its wear, lanes, lava and timed tunnel", () => {
+      const sim = startSlime();
+      const snap = sim.snapshot();
+      expect(snap.boss).toMatchObject({ id: "slimeTrail", stage: 1, slimeTiles: [] });
+      expect(snap.layout).toMatch(/^pool-/);
+      expect(snap.collapse.chains).toHaveLength(3);
+      expect(snap.collapse.fresh).toEqual([false, false, false]);
+      expect(snap.sinkhole.cells).not.toBeNull();
+      expect(snap.sinkhole.fresh).toBe(false);
+      expect(snap.speedZones).toHaveLength(3);
+      expect(snap.speedZonesShifting).toBe(false);
+      expect(snap.lava).not.toBeNull();
+      expect(snap.timedTunnel).not.toBeNull();
+    });
+
+    it("matches level 8's board and roster for the same seed", () => {
+      const level8 = startSim({ level: 8 }, "slime");
+      runUntil(level8, () => !level8.snapshot().speedZonesShifting, 900);
+      const board = level8.snapshot();
+      const roster = [...query(level8.world, [Ghost, GhostKind])].map((eid) => GhostKind.kind[eid]);
+      const sim = startSim({ level: 9, boss: "slimeTrail" }, "slime");
+      expect(sim.snapshot().layout).toBe(board.layout);
+      expect(sim.snapshot().collapse.chains).toEqual(board.collapse.chains);
+      expect(sim.snapshot().speedZones).toEqual(board.speedZones);
+      expect(
+        [...query(sim.world, [Ghost, GhostKind])].map((eid) => GhostKind.kind[eid]).sort(),
+      ).toEqual([...roster].sort());
+      expect(query(sim.world, [BossGhost]).length).toBe(roster.length);
+    });
+
+    it("leaves slime behind Blinky only in stage 1", () => {
+      const sim = startSlime({ godMode: true });
+      allOut(sim);
+      runFrames(sim, 30, { keys: held("left") });
+      const blinky = ghostOf(sim, GHOST_KIND.blinky);
+      expect([...trails(sim).keys()]).toEqual([blinky]);
+      expect(trails(sim).get(blinky)!.length).toBeGreaterThan(1);
+      expect(sim.renderOptions().slimeTrails).toEqual([
+        {
+          head: { x: Position.x[blinky], y: Position.y[blinky] },
+          tiles: trails(sim).get(blinky),
+          maxTiles: 10,
+        },
+      ]);
+    });
+
+    it("leaves slime behind every ghost in stage 2", () => {
+      const sim = startSlime({ godMode: true, bossStageAdvance: true });
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+      expect(trails(sim).size).toBe(0);
+      allOut(sim);
+      runFrames(sim, 30, { keys: held("left") });
+      expect(trails(sim).size).toBe(query(sim.world, [Ghost]).length);
+    });
+
+    it("caps Blinky's stage-1 trail at 10 tiles", () => {
+      const sim = startSlime({ godMode: true });
+      allOut(sim);
+      runFrames(sim, 300, { keys: held("left") });
+      const blinky = ghostOf(sim, GHOST_KIND.blinky);
+      expect(trails(sim).get(blinky)!.length).toBe(10);
+    });
+
+    it("caps every ghost's stage-2 trail at 6 tiles, Blinky included", () => {
+      const sim = startSlime({ godMode: true, bossStageAdvance: true });
+      runUntil(
+        sim,
+        () => sim.snapshot().boss?.stage === 2 && sim.snapshot().bossStageTransition === false,
+        BOSS_STAGE_WAIT_FRAMES,
+      );
+      allOut(sim);
+      runFrames(sim, 300, { keys: held("left") });
+      const lengths = [...query(sim.world, [Ghost])].map((eid) => trails(sim).get(eid)?.length);
+      expect(lengths).toEqual(lengths.map(() => 6));
+      expect(trails(sim).get(ghostOf(sim, GHOST_KIND.blinky))!.length).toBe(6);
+    });
+
+    it("stops a frightened ghost laying slime but keeps what it left", () => {
+      const sim = startSlime({ godMode: true });
+      allOut(sim);
+      const blinky = ghostOf(sim, GHOST_KIND.blinky);
+      const before = trails(sim).get(blinky)!;
+      sim["runUpgrades"] = {
+        ...sim["runUpgrades"],
+        frightenedGhostEids: [blinky],
+        frightenedRemainingMs: 60_000,
+      };
+      runFrames(sim, 60, { keys: held("left") });
+      expect(trails(sim).get(blinky)).toBe(before);
+      const newest = before[before.length - 1]!;
+      expect([worldToCol(Position.x[blinky]!), worldToRow(Position.y[blinky]!)]).not.toEqual([
+        newest.col,
+        newest.row,
+      ]);
+      expect(sim.renderOptions().slimeTrails?.[0]?.head).toBeNull();
+    });
+
+    it("kills Dot-Man on slime and records the trail's ghost", () => {
+      const sim = startSlime();
+      runFrames(sim, 1, { keys: held("left") });
+      const owner = slimeUnderPlayer(sim);
+      runFrames(sim, 1, { keys: held("left") });
+      expect(sim.snapshot().dying).toBe(true);
+      expect(sim["caughtByEid"]).toBe(owner);
+      const deaths = sim.snapshot().runLog;
+      expect(deaths.deaths).toBe(1);
+      runUntil(sim, () => !sim.snapshot().dying, 400);
+      expect(trails(sim).size).toBe(0);
+    });
+
+    it("lets Floating cross slime unharmed", () => {
+      const sim = startSlime({ enableUpgrades: ["passiveFloating"] });
+      runFrames(sim, 1, { keys: held("left") });
+      slimeUnderPlayer(sim);
+      runFrames(sim, 1, { keys: held("left") });
+      expect(sim.snapshot().dying).toBe(false);
     });
   });
 
@@ -7612,8 +7767,11 @@ describe("speed zones", () => {
       }
       expect(settledZones(startSim({ level }, "zones"))).toEqual(zones);
     }
-    for (const level of [1, 2, 3, 9]) {
+    for (const level of [1, 2, 3]) {
       expect(startSim({ level }, "zones").snapshot().speedZones).toEqual([]);
+    }
+    for (const boss of ["blinkySwarm", "chainedGhosts"] as const) {
+      expect(startSim({ level: 9, boss }, "zones").snapshot().speedZones).toEqual([]);
     }
   });
 

@@ -44,6 +44,7 @@ import {
   type SinkholeRenderState,
 } from "../../domain/sinkholeArt";
 import { BORE_JUNK_SETTLE_MS, type BoreJunk } from "../../domain/boreJunk";
+import { slimePixels, type SlimeTrailView } from "../../domain/slimeArt";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import {
@@ -721,6 +722,7 @@ export type RenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
+  slimeTrails?: readonly SlimeTrailView[];
   collapse?: CollapseRenderState | null;
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
@@ -771,6 +773,7 @@ const PROGRAMMER_PATH_ARROW_SCALE = 0.45;
 const PROGRAMMER_PATH_FADED_ALPHA = 0.4;
 const SPEED_TRAIL_DEPTH = -1;
 const LAVA_DEPTH = -1.25;
+const SLIME_DEPTH = -1.2;
 const SINKHOLE_FRAME_MS = 50;
 const LAVA_PX = 2;
 const LAVA_FLICKER_MS = 90;
@@ -941,6 +944,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   droppedWallGraphics.setDepth(HAUNT_CAGE_DEPTH);
   const lavaGraphics = scene.add.graphics();
   lavaGraphics.setDepth(LAVA_DEPTH);
+  const slimeGraphics = scene.add.graphics();
+  slimeGraphics.setDepth(SLIME_DEPTH);
   const programmerGraphics = scene.add.graphics();
   programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
   const programmerPathGraphics = scene.add.graphics();
@@ -1976,6 +1981,13 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     lavaGraphics.clear();
     if (opts?.lava) {
       drawLava(lavaGraphics, opts.lava, scene.time.now);
+    }
+
+    slimeGraphics.clear();
+    slimeGraphics.setAlpha(opts?.entityAlpha ?? 1);
+    for (const pixel of slimePixels(opts?.slimeTrails ?? [], scene.time.now)) {
+      slimeGraphics.fillStyle(pixel.color, 1);
+      slimeGraphics.fillRect(pixel.x, pixel.y, pixel.size, pixel.size);
     }
 
     droppedWallGraphics.clear();

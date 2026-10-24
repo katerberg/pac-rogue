@@ -3,7 +3,7 @@ import { parseJumpToSpinnerFlag, parseSlotParam, type SlotOutcome } from "./slot
 import { parseSlotMachineFlag } from "./slotMachineFlag";
 import { parseFruitFlag } from "./fruitFlag";
 import { parseBossStageAdvanceFlag } from "./bossStageAdvanceFlag";
-import { BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
+import { BOSS_IDS, BOSS_LEVEL, parseBossParam, type BossId } from "./bossRules";
 import type { GhostKindId } from "./ghostKind";
 import { parseGhostsParam } from "./ghostsFlag";
 import { GHOST_ROSTERS, parseRosterId } from "./ghostRoster";
@@ -110,7 +110,7 @@ export function parsePlayOptions(params: URLSearchParams): {
     `Unknown ?roster= value; expected an integer 0..${GHOST_ROSTERS.length - 1}`,
   );
   const boss = parseBossParam(params);
-  warnIf("boss", boss === null, "Unknown ?boss= value; expected blinkySwarm|chainedGhosts");
+  warnIf("boss", boss === null, `Unknown ?boss= value; expected ${BOSS_IDS.join("|")}`);
   const lives = parseLivesCountParam(params, "lives");
   warnIf("lives", lives === null, "Unknown ?lives= value; expected positive integer");
   const slot = parseSlotParam(params);

@@ -19,6 +19,7 @@ import {
   recordBossPelletsEaten,
   splitBossGhosts,
   totalBossSpawnPellets,
+  withBossRoster,
 } from "./bossRules";
 import { GHOST_KIND } from "./ghostKind";
 import { DEFAULT_TUNING } from "./tuning";
@@ -36,9 +37,10 @@ describe("isBossLevel", () => {
 });
 
 describe("pickBoss", () => {
-  it("picks either boss from the roll", () => {
+  it("picks any boss from the roll", () => {
     expect(pickBoss(null, () => 0).id).toBe("blinkySwarm");
-    expect(pickBoss(null, () => 0.99).id).toBe("chainedGhosts");
+    expect(pickBoss(null, () => 0.5).id).toBe("chainedGhosts");
+    expect(pickBoss(null, () => 0.99).id).toBe("slimeTrail");
   });
 
   it("uses the forced boss without rolling", () => {
@@ -69,8 +71,8 @@ describe("Blinky Swarm", () => {
     expect(bossGhostKind(def, 7)).toBe(GHOST_KIND.blinky);
     expect(def.startGhosts).toBe(2);
     expect(bossStageCount(def)).toBe(2);
-    expect(bossStage(def, 0)).toEqual({ spawnPellets: 3, chainPairs: [] });
-    expect(bossStage(def, 1)).toEqual({ spawnPellets: 3, chainPairs: [] });
+    expect(bossStage(def, 0)).toEqual({ spawnPellets: 3, chainPairs: [], slime: null });
+    expect(bossStage(def, 1)).toEqual({ spawnPellets: 3, chainPairs: [], slime: null });
     expect(totalBossSpawnPellets(def)).toBe(6);
     expect(maxBossGhosts(def)).toBe(8);
   });
@@ -172,5 +174,24 @@ describe("recordBossPelletsEaten", () => {
       pendingSpawns: 0,
       bossPelletsRemaining: 1,
     });
+  });
+});
+
+describe("Slime Trail", () => {
+  const slime = BOSS_DEFS.slimeTrail;
+
+  it("slimes Blinky for 10 tiles in stage 1 and every ghost for 6 in stage 2", () => {
+    expect(slime.poolBoard).toBe(true);
+    expect(bossStage(slime, 0).slime).toEqual({ scope: "blinky", tiles: 10 });
+    expect(bossStage(slime, 1).slime).toEqual({ scope: "all", tiles: 6 });
+    expect(totalBossSpawnPellets(slime)).toBe(0);
+  });
+
+  it("fights the run's roster in place of its own ghost list", () => {
+    const roster = [GHOST_KIND.blinky, GHOST_KIND.wardy, GHOST_KIND.inky];
+    const def = withBossRoster(slime, roster);
+    expect(def.ghostKinds).toEqual(roster);
+    expect(def.startGhosts).toBe(3);
+    expect(withBossRoster(BOSS_DEFS.chainedGhosts, roster)).toBe(BOSS_DEFS.chainedGhosts);
   });
 });
