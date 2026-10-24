@@ -1,7 +1,6 @@
 export type StickDirection = "up" | "down" | "left" | "right";
 export type StickPoint = { x: number; y: number };
 
-// World px. The stick appears wherever a finger lands, so these stay small enough to steer with a thumb.
 export const TOUCH_STICK_DEADZONE = 8;
 export const TOUCH_STICK_RADIUS = 28;
 
@@ -21,7 +20,6 @@ export function stickDirection(
   return dy < 0 ? "up" : "down";
 }
 
-// Drag the origin along once the finger leaves the ring, so reversing never needs a long swipe back.
 export function followStickOrigin(
   origin: StickPoint,
   finger: StickPoint,

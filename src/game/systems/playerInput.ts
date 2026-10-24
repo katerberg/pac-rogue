@@ -51,9 +51,7 @@ type Stick = {
   since: number;
 };
 
-// A floating stick: it appears wherever a touch lands (canvas or the black margins) unless that
-// touch hit an interactive object, and vanishes on release. Phaser reports canvas touches (with
-// the objects under them); margin touches come straight from the DOM. Mouse input never creates one.
+// Phaser never reports touches that start outside the canvas, so margin touches and all moves come from the DOM.
 function createTouchStick(scene: Phaser.Scene): () => HeldKeys {
   let stick: Stick | null = null;
   const graphics = scene.add.graphics().setDepth(TOUCH_STICK_DEPTH);
