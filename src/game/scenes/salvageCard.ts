@@ -43,6 +43,10 @@ const NAME_CHARS = 11;
 const STACK_GAP = 2;
 const NAME_LINE_SPACING = 3;
 const HUD_SELECT_PAD = 5;
+const TAG_LEFT = CENTER_X - CHOICE_BUTTON_WIDTH / 2 + TAG_STROKE;
+const TAG_RIGHT = CENTER_X + CHOICE_BUTTON_WIDTH / 2 - TAG_STROKE;
+const TAG_BOTTOM = TAG_TOP + TAG_HEIGHT - TAG_STROKE;
+const ROW_TOP = TAG_TOP + 40;
 
 export type SalvageCard = {
   isOpen: () => boolean;
@@ -236,12 +240,19 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
           }
         });
       };
-      clickable(skip, "left");
-      clickable(salvage, "right");
-      (Object.keys(ARROW_AT) as Dir[]).forEach((dir) => {
-        const at = ARROW_AT[dir];
-        clickable(track(scene.add.zone(at.x, at.y, ARROW_SIZE * 4, ARROW_SIZE * 4)), dir);
-      });
+      const zone = (dir: Dir, left: number, top: number, right: number, bottom: number) =>
+        clickable(
+          track(scene.add.zone((left + right) / 2, (top + bottom) / 2, right - left, bottom - top)),
+          dir,
+        );
+      const iconTop = ROW_Y - ICON_SIZE / 2;
+      const iconBottom = ROW_Y + ICON_SIZE / 2;
+      const iconLeft = ICON_X - ICON_SIZE / 2;
+      const iconRight = ICON_X + ICON_SIZE / 2;
+      zone("left", TAG_LEFT, iconTop, iconLeft, iconBottom);
+      zone("right", iconRight, iconTop, TAG_RIGHT, iconBottom);
+      zone("up", iconLeft, ROW_TOP, iconRight, iconTop);
+      zone("down", iconLeft, iconBottom, iconRight, TAG_BOTTOM);
       redraw();
       setAlpha(0);
     },
