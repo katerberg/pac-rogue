@@ -11,6 +11,9 @@ import {
   scentCells,
   scentRouteStep,
   scentPixels,
+  scentLineWidth,
+  scentCenterPixels,
+  SCARECROW_CENTER_ALPHA,
   tickScentLingers,
 } from "./scarecrow";
 
@@ -80,6 +83,23 @@ describe("scent corridors", () => {
     const near = a.find((px) => px.x > 10 * 16 && px.x < 11 * 16)!;
     const far = a.find((px) => px.x < 7 * 16)!;
     expect(far.alpha).toBeLessThan(near.alpha);
+  });
+});
+
+describe("scent core", () => {
+  it("tapers the line from 5 wide at the source to 1 wide two tiles out", () => {
+    expect(scentLineWidth(0, 16)).toBe(5);
+    expect(scentLineWidth(16, 16)).toBe(3);
+    expect(scentLineWidth(32, 16)).toBe(1);
+    expect(scentLineWidth(60, 16)).toBe(1);
+  });
+
+  it("marks the center point brighter than the surrounding scent", () => {
+    const marker = scentCenterPixels(zone, 16, 0, 0);
+    expect(marker).toHaveLength(9);
+    expect(marker.every((px) => px.alpha === SCARECROW_CENTER_ALPHA)).toBe(true);
+    const xs = marker.map((px) => px.x);
+    expect((Math.min(...xs) + Math.max(...xs) + SCARECROW_PIXEL_PX) / 2).toBe(zone.col * 16 + 8);
   });
 });
 

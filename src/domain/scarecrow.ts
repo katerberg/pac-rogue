@@ -8,6 +8,9 @@ export const SCARECROW_WAVE_LENGTH_PX = 24;
 export const SCARECROW_WAFT_PX_PER_MS = 0.02;
 export const SCARECROW_BASE_ALPHA = 0.28;
 export const SCARECROW_FAR_ALPHA_MUL = 0.3;
+export const SCARECROW_CORE_WIDTH = 5;
+export const SCARECROW_CORE_TILES = 2;
+export const SCARECROW_CENTER_ALPHA = 0.7;
 
 export type ScentZone = { col: number; row: number };
 export type ScentLinger = ScentZone & { remainingMs: number };
@@ -148,6 +151,34 @@ export function scentCells(
   return cells;
 }
 
+export function scentLineWidth(distPx: number, tileSize: number): number {
+  const taper = Math.max(0, 1 - distPx / (SCARECROW_CORE_TILES * tileSize));
+  return 1 + 2 * Math.round(((SCARECROW_CORE_WIDTH - 1) / 2) * taper);
+}
+
+export function scentCenterPixels(
+  zone: ScentZone,
+  tileSize: number,
+  originX: number,
+  originY: number,
+): ScentPixel[] {
+  const cx = originX + zone.col * tileSize + tileSize / 2;
+  const cy = originY + zone.row * tileSize + tileSize / 2;
+  const half = SCARECROW_PIXEL_PX / 2;
+  const pixels: ScentPixel[] = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      pixels.push({
+        x: cx + dx * SCARECROW_PIXEL_PX - half,
+        y: cy + dy * SCARECROW_PIXEL_PX - half,
+        size: SCARECROW_PIXEL_PX,
+        alpha: SCARECROW_CENTER_ALPHA,
+      });
+    }
+  }
+  return pixels;
+}
+
 export function scentPixels(
   zone: ScentZone,
   cells: readonly ScentCell[],
@@ -181,21 +212,29 @@ export function scentPixels(
       const along = (i - steps / 2) * SCARECROW_PIXEL_PX + half;
       if (horizontal) {
         const x = cx + along;
-        pixels.push({
-          x: x - half,
-          y: cy + wave(Math.abs(x - zx)) - half,
-          size: SCARECROW_PIXEL_PX,
-          alpha,
-        });
+        const dist = Math.abs(x - zx);
+        const width = scentLineWidth(dist, tileSize);
+        for (let k = 0; k < width; k += 1) {
+          pixels.push({
+            x: x - half,
+            y: cy + wave(dist) + (k - (width - 1) / 2) * SCARECROW_PIXEL_PX - half,
+            size: SCARECROW_PIXEL_PX,
+            alpha,
+          });
+        }
       }
       if (vertical) {
         const y = cy + along;
-        pixels.push({
-          x: cx + wave(Math.abs(y - zy)) - half,
-          y: y - half,
-          size: SCARECROW_PIXEL_PX,
-          alpha,
-        });
+        const dist = Math.abs(y - zy);
+        const width = scentLineWidth(dist, tileSize);
+        for (let k = 0; k < width; k += 1) {
+          pixels.push({
+            x: cx + wave(dist) + (k - (width - 1) / 2) * SCARECROW_PIXEL_PX - half,
+            y: y - half,
+            size: SCARECROW_PIXEL_PX,
+            alpha,
+          });
+        }
       }
     }
   }
