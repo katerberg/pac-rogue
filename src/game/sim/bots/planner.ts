@@ -51,7 +51,10 @@ export type PlannerState = {
   fruit: number | null;
   pelletDist: Int32Array;
   depth: number;
+  readsGhosts: boolean;
 };
+
+const STRAIGHT_AHEAD = 100;
 
 type Ghost = PlannerGhost;
 
@@ -65,7 +68,7 @@ function wrap(grid: Grid, col: number, row: number): { col: number; row: number 
   };
 }
 
-function advanceGhost(
+export function advanceGhost(
   state: PlannerState,
   ghost: Ghost,
   amount: number,
@@ -79,13 +82,19 @@ function advanceGhost(
     const next = wrap(state.grid, ghost.col + dx, ghost.row + dy);
     ghost.col = next.col;
     ghost.row = next.row;
-    const target = resolveGhostTarget(
-      ghost.eid,
-      state.mode,
-      state.pelletsRemaining,
-      { player: { ...player, facing: player.facing as GhostDir }, blinky, tuning: state.tuning },
-      next,
-    );
+    const target = state.readsGhosts
+      ? resolveGhostTarget(
+          ghost.eid,
+          state.mode,
+          state.pelletsRemaining,
+          {
+            player: { ...player, facing: player.facing as GhostDir },
+            blinky,
+            tuning: state.tuning,
+          },
+          next,
+        )
+      : { col: next.col + dx * STRAIGHT_AHEAD, row: next.row + dy * STRAIGHT_AHEAD };
     ghost.dir = pickGhostDirection({
       x: cellCenterX(next.col),
       y: cellCenterY(next.row),
