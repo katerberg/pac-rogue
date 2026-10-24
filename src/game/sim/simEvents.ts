@@ -47,6 +47,7 @@ export type SimRenderOptions = {
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   spriteOffsets?: Record<number, { x: number; y: number; rotation?: number }>;
   hauntedGhost?: HauntedGhost | null;
+  slipstreamGhostEids?: readonly number[];
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;

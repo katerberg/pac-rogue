@@ -561,6 +561,14 @@ import {
   tickSonicHits,
 } from "../../domain/sonicBoom";
 import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
+import {
+  slipstreamGhostEids,
+  slipstreamGhostSpeedMul,
+  slipstreamPlayerSpeedMul,
+  slipstreamRemainingMs,
+  tickSlipstreams,
+} from "../../domain/slipstream";
+import { stepSlipstream } from "../systems/slipstream";
 import { pelletAtCell } from "../systems/pelletAtCell";
 import { playerCell } from "../systems/playerCell";
 import { programmerQueueSlots } from "../../domain/programmer";
@@ -1217,6 +1225,7 @@ export class PlaySim {
         shieldBounceSpriteOffsets(this.shieldBounce, getActiveLayout().tileSize),
       ),
       hauntedGhost: hauntedGhost(this.runUpgrades),
+      slipstreamGhostEids: slipstreamGhostEids(this.runUpgrades),
       frightenedGhosts: frightenedGhosts(this.runUpgrades),
       bossChains: bossChains(this.world, this.catchOptions()),
       entityAlpha: this.bossStageDraw?.entityAlpha,
@@ -1319,6 +1328,7 @@ export class PlaySim {
       deathsThisBoard: this.deathsThisBoard,
       lastReactiveArmorSent: this.lastReactiveArmorSent,
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
+      slipstreamedGhosts: slipstreamGhostEids(upgrades).map((eid) => ghostName(this.world, eid)),
       possessedGhost: ghostName(this.world, possessedGhostEid(upgrades)),
       possessing: possessionActive(upgrades),
       nearMissesPaid: this.nearMissesPaid,
@@ -1340,6 +1350,7 @@ export class PlaySim {
       timers: {
         freezeMs: upgrades.freezeRemainingMs,
         sonicBoomHitMs: sonicHitRemainingMs(upgrades),
+        slipstreamMs: slipstreamRemainingMs(upgrades),
         wallPassMs: upgrades.wallPassRemainingMs,
         invulnMs: upgrades.invulnRemainingMs,
         speedBurstMs: upgrades.speedBurstRemainingMs,
@@ -1711,6 +1722,7 @@ export class PlaySim {
 
     this.runUpgrades = tickFreeze(this.runUpgrades, delta);
     this.runUpgrades = tickSonicHits(this.runUpgrades, delta);
+    this.runUpgrades = tickSlipstreams(this.runUpgrades, delta);
     const wasWallPass = wallPassActive(this.runUpgrades);
     this.runUpgrades = tickWallPass(this.runUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.runUpgrades)) {
@@ -1773,6 +1785,7 @@ export class PlaySim {
               eatDragMultiplier(this.eatDragMs, this.currentTuning) *
               this.turnTuning.speedMultiplier(this.effectiveUpgrades()) *
               trinketPlayerSpeedMul(this.effectiveUpgrades(), playerInTunnel(this.world)) *
+              slipstreamPlayerSpeedMul(this.runUpgrades, this.effectiveUpgrades()) *
               speedZoneMultiplier(this.zoneEffects().effect);
     const playerSpeedMul =
       rawPlayerSpeedMul *
@@ -1780,8 +1793,11 @@ export class PlaySim {
       tunnelBoringSpeedMul(this.world, this.tunnelBore);
     applyPlayerSpeed(this.world, playerSpeedMul, this.currentTuning);
     this.ghostTraction.tick(this.world, this.effectiveUpgrades(), delta);
+    const tractionMul = this.ghostTraction.speedMultiplier(this.effectiveUpgrades());
     applyGhostSpeed(this.world, this.pelletsForElroy(), this.levelIndex, {
-      extraSpeedMul: this.ghostTraction.speedMultiplier(this.effectiveUpgrades()),
+      extraSpeedMul: (eid, kind, inTunnel) =>
+        tractionMul(eid, kind, inTunnel) *
+        slipstreamGhostSpeedMul(this.runUpgrades, this.effectiveUpgrades(), eid),
       ghostSpeedMul:
         (this.bossState === null ? levelSpeedMul : 1) *
         ghostSpeedMultiplier(this.effectiveUpgrades()),
@@ -1835,6 +1851,9 @@ export class PlaySim {
     this.noteTunnelExit(positionBeforeMove);
     this.tickSpeedTrail(delta);
     this.sonicBoom();
+    if (this.death === null) {
+      this.runUpgrades = stepSlipstream(this.world, this.runUpgrades, this.effectiveUpgrades());
+    }
     const facingAfterMove = playerFacing(this.world);
     this.noteTurnCatchGrace(facingBeforeMove, facingAfterMove);
     this.emitTurnSparks(

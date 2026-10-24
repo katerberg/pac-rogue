@@ -1,3 +1,4 @@
+import { slipstreamRemainingMs } from "./slipstream";
 import { sonicHitRemainingMs } from "./sonicBoom";
 import type { BaseUpgradeId, RunUpgrades } from "./upgrades";
 
@@ -20,6 +21,7 @@ const TIMER_READINGS: Partial<Record<BaseUpgradeId, (state: RunUpgrades) => numb
   passiveHaunting: (s) => finite(s.hauntRemainingMs),
   passivePossession: (s) => s.possessionRemainingMs,
   passiveSonicBoom: sonicHitRemainingMs,
+  passiveSlipstream: slipstreamRemainingMs,
   passiveEcho: (s) => Math.max(0, ...s.pendingEchoes.map((echo) => echo.remainingMs)),
 };
 

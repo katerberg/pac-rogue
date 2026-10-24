@@ -301,6 +301,13 @@ import {
 } from "../../domain/sonicBoom";
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
+import {
+  slipstreamGhostEids,
+  slipstreamGhostSpeedMul,
+  slipstreamPlayerSpeedMul,
+  tickSlipstreams,
+} from "../../domain/slipstream";
+import { stepSlipstream } from "../systems/slipstream";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
 import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
@@ -586,6 +593,7 @@ export class LearnSim {
 
     this.learnUpgrades = tickFreeze(this.learnUpgrades, delta);
     this.learnUpgrades = tickSonicHits(this.learnUpgrades, delta);
+    this.learnUpgrades = tickSlipstreams(this.learnUpgrades, delta);
     const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
@@ -658,7 +666,8 @@ export class LearnSim {
                 ? speedBurstMultiplier(this.learnUpgrades.owned)
                 : 1) *
               this.turnTuning.speedMultiplier(this.learnUpgrades.owned) *
-              trinketPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world));
+              trinketPlayerSpeedMul(this.learnUpgrades.owned, playerInTunnel(this.world)) *
+              slipstreamPlayerSpeedMul(this.learnUpgrades, this.learnUpgrades.owned);
     applyPlayerSpeed(
       this.world,
       rawPlayerSpeedMul *
@@ -666,8 +675,11 @@ export class LearnSim {
         tunnelBoringSpeedMul(this.world, this.tunnelBore),
     );
     this.ghostTraction.tick(this.world, this.learnUpgrades.owned, delta);
+    const tractionMul = this.ghostTraction.speedMultiplier(this.learnUpgrades.owned);
     applyGhostSpeed(this.world, NO_ELROY_PELLETS, LEARN_LEVEL, {
-      extraSpeedMul: this.ghostTraction.speedMultiplier(this.learnUpgrades.owned),
+      extraSpeedMul: (eid, kind, inTunnel) =>
+        tractionMul(eid, kind, inTunnel) *
+        slipstreamGhostSpeedMul(this.learnUpgrades, this.learnUpgrades.owned, eid),
       ghostSpeedMul: levelSpeedMul * ghostSpeedMultiplier(this.learnUpgrades.owned),
       frozenGhostEid: frozenGhostEid(this.learnUpgrades),
       heldGhostEids: new Set([
@@ -760,6 +772,7 @@ export class LearnSim {
     for (const echo of boom.echoes) {
       this.events.push({ type: "sonicBoomEcho", ...echo });
     }
+    this.learnUpgrades = stepSlipstream(this.world, this.learnUpgrades, owned);
 
     this.tickMirror(delta);
     const playerFrame = possessionActive(this.learnUpgrades)
@@ -894,6 +907,7 @@ export class LearnSim {
         boreJunk: this.tunnelBore.junk,
         scent: scentSprites(this.learnUpgrades.owned, this.world, this.learnUpgrades.scentLingers),
         hauntedGhost: hauntedGhost(this.learnUpgrades),
+        slipstreamGhostEids: slipstreamGhostEids(this.learnUpgrades),
         frightenedGhosts: frightenedGhosts(this.learnUpgrades),
         droppedWall: this.learnUpgrades.droppedWall,
         chaff: chaffSprites(this.learnUpgrades.chaff),

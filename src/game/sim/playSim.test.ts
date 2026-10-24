@@ -11161,3 +11161,95 @@ describe("PlaySim touch stick input", () => {
     expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
   });
 });
+
+describe("Slipstream", () => {
+  const BASE = "passiveSlipstream";
+  const PLUS = "passiveSlipstreamPlus";
+
+  function slipSim(enableUpgrades: PlayOptions["enableUpgrades"]): { sim: PlaySim; ghost: number } {
+    const sim = startSim(
+      { level: 2, maze: "maze1", infiniteLives: true, enableUpgrades },
+      "slipstream",
+    );
+    const [ghost, ...rest] = query(sim.world, [Ghost, Position]);
+    for (const eid of rest) {
+      removeEntity(sim.world, eid);
+    }
+    runFrames(sim, 1);
+    return { sim, ghost: ghost! };
+  }
+
+  function atJunctionWithGhost(sim: PlaySim, ghost: number, gap: number): void {
+    const layout = getActiveLayout();
+    const open = (c: number, r: number): boolean => !layout.playerSolids[r]?.[c];
+    for (let row = 2; row < layout.rows - 2; row += 1) {
+      for (let col = 2; col < layout.cols - 2; col += 1) {
+        if (open(col, row) && open(col - 1, row) && open(col + 1, row) && open(col, row + 1)) {
+          const player = playerEid(sim);
+          Position.x[player] = cellCenterX(col);
+          Position.y[player] = cellCenterY(row);
+          Position.x[ghost] = cellCenterX(col) + gap;
+          Position.y[ghost] = cellCenterY(row);
+          GhostPhase.value[ghost] = GHOST_PHASE.active;
+          return;
+        }
+      }
+    }
+    throw new Error("no junction");
+  }
+
+  const slips = (sim: PlaySim): number => sim["runUpgrades"].slipstreams.length;
+
+  function crossedSpeeds(enableUpgrades: PlayOptions["enableUpgrades"]): {
+    sim: PlaySim;
+    ghost: number;
+    ghostPx: number;
+    playerPx: number;
+  } {
+    const { sim, ghost } = slipSim(enableUpgrades);
+    atJunctionWithGhost(sim, ghost, 12);
+    runFrames(sim, 2);
+    return { sim, ghost, ghostPx: Speed.px[ghost]!, playerPx: Speed.px[playerEid(sim)]! };
+  }
+
+  it("base slows a ghost crossed at a junction and speeds the player", () => {
+    const control = crossedSpeeds([]);
+    const { sim, ghost, ghostPx, playerPx } = crossedSpeeds([BASE]);
+    expect(slips(sim)).toBe(1);
+    expect(sim.snapshot().timers.slipstreamMs).toBeGreaterThan(2000);
+    expect(ghostPx).toBeCloseTo(control.ghostPx * 0.7, 5);
+    expect(playerPx).toBeCloseTo(control.playerPx * 1.25, 5);
+    expect(sim.renderOptions().slipstreamGhostEids).toEqual([ghost]);
+    expect(sim.snapshot().slipstreamedGhosts).toHaveLength(1);
+  });
+
+  it("Plus reaches 2 tiles and holds the ghost still", () => {
+    const { sim, ghost } = slipSim([PLUS]);
+    atJunctionWithGhost(sim, ghost, 30);
+    runFrames(sim, 2);
+    expect(slips(sim)).toBe(1);
+    expect(Speed.px[ghost]).toBe(0);
+  });
+
+  it("base does not reach a ghost 2 tiles away", () => {
+    const { sim, ghost } = slipSim([BASE]);
+    atJunctionWithGhost(sim, ghost, 30);
+    runFrames(sim, 2);
+    expect(slips(sim)).toBe(0);
+  });
+
+  it("does nothing without the upgrade", () => {
+    const { sim, ghost } = slipSim([]);
+    atJunctionWithGhost(sim, ghost, 12);
+    runFrames(sim, 2);
+    expect(slips(sim)).toBe(0);
+  });
+
+  it("clears with the other timers", () => {
+    const { sim, ghost } = slipSim([BASE]);
+    atJunctionWithGhost(sim, ghost, 12);
+    runFrames(sim, 2);
+    sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
+    expect(slips(sim)).toBe(0);
+  });
+});

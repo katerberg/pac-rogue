@@ -280,6 +280,7 @@ const ALL_IDS: BaseUpgradeId[] = [
   "passiveGleaning",
   "passiveSonicBoom",
   "passiveScarecrow",
+  "passiveSlipstream",
 ];
 
 const MAXED_LOW: UpgradeId[] = TRINKET_IDS.flatMap((id) =>

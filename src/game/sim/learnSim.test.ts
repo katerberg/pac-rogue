@@ -2610,3 +2610,48 @@ describe("Sonic Boom (LEARN)", () => {
     expect(lostLife("passiveSonicBoom")).toBe(true);
   });
 });
+
+describe("Slipstream (LEARN)", () => {
+  it.each([false, true])("slows the ghost crossed at a junction (enhanced=%s)", (enhanced) => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    sim.toggleUpgrade("passiveSlipstream");
+    if (enhanced) {
+      sim.toggleEnhanced("passiveSlipstream");
+    }
+    const layout = getActiveLayout();
+    const open = (c: number, r: number): boolean => !layout.playerSolids[r]?.[c];
+    let spot: { col: number; row: number } | null = null;
+    for (let row = 2; row < layout.rows - 2 && spot === null; row += 1) {
+      for (let col = 2; col < layout.cols - 2 && spot === null; col += 1) {
+        if (open(col, row) && open(col - 1, row) && open(col + 1, row) && open(col, row + 1)) {
+          spot = { col, row };
+        }
+      }
+    }
+    const player = query(sim.world, [Player, Position])[0]!;
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    Position.x[player] = cellCenterX(spot!.col);
+    Position.y[player] = cellCenterY(spot!.row);
+    Position.x[ghost] = cellCenterX(spot!.col) + 12;
+    Position.y[ghost] = cellCenterY(spot!.row);
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(sim["learnUpgrades"].slipstreams.length).toBe(1);
+    expect(sim.upgradeTimerFractions().passiveSlipstream).toBeGreaterThan(0);
+    if (enhanced) {
+      expect(Speed.px[ghost]).toBe(0);
+    }
+  });
+
+  it("clears when the upgrade is toggled off", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.toggleUpgrade("passiveSlipstream");
+    sim["learnUpgrades"] = { ...sim["learnUpgrades"], slipstreams: [{ eid: 1, remainingMs: 500 }] };
+    sim.toggleUpgrade("passiveSlipstream");
+    expect(sim["learnUpgrades"].slipstreams).toEqual([]);
+  });
+});
