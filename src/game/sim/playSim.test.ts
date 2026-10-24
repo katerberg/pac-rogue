@@ -2686,7 +2686,13 @@ describe("PlaySim", () => {
       const blinky = ghostOf(sim, GHOST_KIND.blinky);
       expect([...trails(sim).keys()]).toEqual([blinky]);
       expect(trails(sim).get(blinky)!.length).toBeGreaterThan(1);
-      expect(sim.renderOptions().slimeTiles).toEqual(trails(sim).get(blinky));
+      expect(sim.renderOptions().slimeTrails).toEqual([
+        {
+          head: { x: Position.x[blinky], y: Position.y[blinky] },
+          tiles: trails(sim).get(blinky),
+          maxTiles: 10,
+        },
+      ]);
     });
 
     it("leaves slime behind every ghost in stage 2", () => {

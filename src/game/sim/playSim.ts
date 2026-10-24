@@ -51,6 +51,7 @@ import {
   type BossDef,
   type BossState,
 } from "../../domain/bossRules";
+import type { SlimeTrailView } from "../../domain/slimeArt";
 import { slimeOwnerTouching, type SlimeTrails } from "../../domain/slimeTrail";
 import {
   createBossStageTransition,
@@ -1259,7 +1260,7 @@ export class PlaySim {
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
-      slimeTiles: [...this.slimeTrails.values()].flat(),
+      slimeTrails: this.slimeTrailViews(),
       collapse: this.collapseRenderState(),
       sinkhole: this.sinkholeRenderState(),
       boreJunk: this.tunnelBore.junk,
@@ -2591,6 +2592,30 @@ export class PlaySim {
         ...glidingGhostEids(this.ghostCornerWarps),
       ]),
     );
+  }
+
+  private slimeTrailViews(): SlimeTrailView[] {
+    const stageSlime =
+      this.bossState === null
+        ? null
+        : bossStage(this.bossState.def, this.bossState.stageIndex).slime;
+    return [...this.slimeTrails].map(([eid, tiles]) => {
+      const newest = tiles[tiles.length - 1];
+      const x = Position.x[eid];
+      const y = Position.y[eid];
+      const laying =
+        newest !== undefined &&
+        x !== undefined &&
+        y !== undefined &&
+        hasComponent(this.world, eid, Ghost) &&
+        worldToCol(x) === newest.col &&
+        worldToRow(y) === newest.row;
+      return {
+        head: laying ? { x, y } : null,
+        tiles,
+        maxTiles: stageSlime?.tiles ?? tiles.length,
+      };
+    });
   }
 
   private slimeCatch(catchOptions: CatchOptions, at?: Point): number | null {

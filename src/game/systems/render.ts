@@ -26,7 +26,6 @@ import {
   worldToRow,
   wrappedTwinPosition,
   type MazeLayout,
-  type MazeTile,
   type WallPathCommand,
 } from "../../domain/maze";
 import {
@@ -45,7 +44,7 @@ import {
   type SinkholeRenderState,
 } from "../../domain/sinkholeArt";
 import { BORE_JUNK_SETTLE_MS, type BoreJunk } from "../../domain/boreJunk";
-import { SLIME_STYLE } from "../../domain/slimeTrail";
+import { slimePixels, type SlimeTrailView } from "../../domain/slimeArt";
 import { lavaSignedDistancePx, type LavaRenderState } from "../../domain/lavaZone";
 import type { SpeedZone } from "../../domain/speedZones";
 import {
@@ -723,7 +722,7 @@ export type RenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
-  slimeTiles?: readonly MazeTile[];
+  slimeTrails?: readonly SlimeTrailView[];
   collapse?: CollapseRenderState | null;
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
@@ -1985,17 +1984,10 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
 
     slimeGraphics.clear();
-    if (opts?.slimeTiles && opts.slimeTiles.length > 0) {
-      const tile = getActiveLayout().tileSize;
-      slimeGraphics.fillStyle(SLIME_STYLE.color, SLIME_STYLE.alpha * (opts.entityAlpha ?? 1));
-      for (const cell of opts.slimeTiles) {
-        slimeGraphics.fillRect(
-          cellCenterX(cell.col) - tile / 2,
-          cellCenterY(cell.row) - tile / 2,
-          tile,
-          tile,
-        );
-      }
+    slimeGraphics.setAlpha(opts?.entityAlpha ?? 1);
+    for (const pixel of slimePixels(opts?.slimeTrails ?? [], scene.time.now)) {
+      slimeGraphics.fillStyle(pixel.color, 1);
+      slimeGraphics.fillRect(pixel.x, pixel.y, pixel.size, pixel.size);
     }
 
     droppedWallGraphics.clear();

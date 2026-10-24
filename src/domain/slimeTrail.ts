@@ -4,8 +4,6 @@ import { GHOST_KIND, type GhostKindId } from "./ghostKind";
 import { cellCenterX, cellCenterY, type MazeTile } from "./maze";
 import { ghostRadius } from "./playfield";
 
-export const SLIME_STYLE = { color: 0x51ff00, alpha: 0.55 } as const;
-
 export type SlimeTrails = ReadonlyMap<number, readonly MazeTile[]>;
 
 export function slimesInScope(scope: SlimeScope, kind: GhostKindId): boolean {

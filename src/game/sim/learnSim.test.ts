@@ -2403,7 +2403,7 @@ const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
   "bossChains",
   "timedTunnel",
   "lava",
-  "slimeTiles",
+  "slimeTrails",
   "collapse",
   "sinkhole",
   "speedZones",

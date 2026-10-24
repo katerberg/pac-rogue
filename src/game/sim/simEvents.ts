@@ -16,7 +16,7 @@ import type { BoreJunk } from "../../domain/boreJunk";
 import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { SinkholeRenderState } from "../../domain/sinkholeArt";
 import type { LavaRenderState } from "../../domain/lavaZone";
-import type { MazeTile } from "../../domain/maze";
+import type { SlimeTrailView } from "../../domain/slimeArt";
 import type { SpeedZone } from "../../domain/speedZones";
 import type { WakeRider } from "../../domain/speedZoneWater";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
@@ -54,7 +54,7 @@ export type SimRenderOptions = {
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
   lava?: LavaRenderState | null;
-  slimeTiles?: readonly MazeTile[];
+  slimeTrails?: readonly SlimeTrailView[];
   collapse?: CollapseRenderState | null;
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
