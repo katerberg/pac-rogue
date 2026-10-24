@@ -2,12 +2,15 @@ import {
   applyPowerPelletEffects,
   createRunUpgrades,
   powerPelletPickupFires,
+  shieldBankCap,
+  shieldBreakOwned,
   shieldPelletsCap,
   speedBurstMultiplier,
   type UpgradeId,
 } from "../../../domain/upgrades";
+import { WARP_GLIDE_MS } from "../../../domain/warpGlide";
 
-export type PowerPelletAffordance = {
+export type PowerPelletEffects = {
   frightSteps: number;
   invulnSteps: number;
   freezeSteps: number;
@@ -15,35 +18,30 @@ export type PowerPelletAffordance = {
   speedSteps: number;
   warp: boolean;
   recall: number;
-  cornerTeleport: boolean;
+  cornerHoldSteps: number;
   extraPellets: number;
+};
+
+export type PowerPelletAffordance = PowerPelletEffects & {
+  firesOnPickup: boolean;
+  firesOnBreak: boolean;
   shieldGain: number;
+  shieldCap: number;
 };
 
 export function powerPelletAffordance(
   owned: readonly UpgradeId[],
   level: number,
   stepMs: number,
+  shields: number,
 ): PowerPelletAffordance | null {
   if (owned.length === 0) {
     return null;
   }
-  const shieldGain = shieldPelletsCap(owned) === null ? 0 : 1;
+  const banks = shieldPelletsCap(owned) !== null;
+  const shieldCap = shieldBankCap(owned);
+  const overflow = banks ? Math.max(0, shields + 1 - shieldCap) : 0;
   const steps = (ms: number) => ms / stepMs;
-  if (powerPelletPickupFires(owned, 1, 0) === 0) {
-    return {
-      frightSteps: 0,
-      invulnSteps: 0,
-      freezeSteps: 0,
-      speedMul: 1,
-      speedSteps: 0,
-      warp: false,
-      recall: 0,
-      cornerTeleport: false,
-      extraPellets: 0,
-      shieldGain,
-    };
-  }
   const result = applyPowerPelletEffects(createRunUpgrades(owned), 1, undefined, level);
   const after = result.state;
   return {
@@ -54,8 +52,12 @@ export function powerPelletAffordance(
     speedSteps: steps(after.speedBurstRemainingMs),
     warp: result.warpPlayerFarthest,
     recall: result.recallGhostCount,
-    cornerTeleport: result.cornerTeleportHoldMs !== null,
+    cornerHoldSteps:
+      result.cornerTeleportHoldMs === null ? 0 : steps(result.cornerTeleportHoldMs + WARP_GLIDE_MS),
     extraPellets: result.collectExtraPellets,
-    shieldGain,
+    firesOnPickup: powerPelletPickupFires(owned, 1, overflow) > 0,
+    firesOnBreak: shieldBreakOwned(owned),
+    shieldGain: banks ? 1 : 0,
+    shieldCap,
   };
 }

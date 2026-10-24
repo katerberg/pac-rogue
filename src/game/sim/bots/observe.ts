@@ -182,6 +182,7 @@ export class Observer {
       current: decision.current,
       facing: decision.facing,
       leadSteps: decision.distPx / layout.tileSize,
+      stepMs,
       ghosts: ghosts
         .filter((ghost) => ghost.phase !== GHOST_PHASE.inHouse)
         .map((ghost): PlannerGhost => {
@@ -222,6 +223,7 @@ export class Observer {
           ? null
           : { atStep: flip.inMs / stepMs, mode: flip.mode },
       pelletsRemaining: snapshot.pelletsRemaining,
+      elroySuppressed: snapshot.elroySuppressed,
       tuning,
       invulnSteps: Math.max(timers.invulnMs, timers.defyDeathMs) / stepMs,
       shields: sim.hud().shields + (timers.hyperspeedShieldMs > 0 ? 1 : 0),
@@ -232,7 +234,7 @@ export class Observer {
         empty: cellSpeedMultiplier(owned, true),
       },
       speedOf,
-      affordance: powerPelletAffordance(owned, level, stepMs),
+      affordance: powerPelletAffordance(owned, level, stepMs, sim.hud().shields),
       pellets: mark(pellets),
       power: mark(powerPellets),
       fruit: cellsOf(query(world, [Fruit, Position]))[0] ?? null,

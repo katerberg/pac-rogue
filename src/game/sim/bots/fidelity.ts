@@ -1,14 +1,12 @@
-import { effectiveGhostMode } from "../../../domain/ghostMode";
-import { GHOST_PHASE } from "../../../domain/ghostPhase";
+import { GHOST_AI_MODE, type GhostAiMode } from "../../../domain/ghostMode";
 import { ghostDirStep } from "../../../domain/ghostPath";
+import { GHOST_PHASE } from "../../../domain/ghostPhase";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../../domain/maze";
 import { defaultPlayOptions } from "../../../domain/playOptions";
-import { playerSpeed as playerSpeedPx } from "../../../domain/playfield";
-import { speedLevelMultiplier } from "../../../domain/tuning";
-import { playerSpeedMultiplier } from "../../../domain/upgrades";
 import { Facing } from "../../components/Facing";
 import { DIRECTION, type Direction } from "../../components/Input";
 import { Position } from "../../components/Position";
+import { nameOf } from "../../systems/worldSnapshot";
 import { PlaySim } from "../playSim";
 import { FRAME_MS } from "../simTesting";
 import { Bot } from "./bot";
@@ -43,9 +41,8 @@ type Frame = {
   elroy: number;
 };
 
-function phaseName(phase: number): string {
-  return Object.entries(GHOST_PHASE).find(([, value]) => value === phase)?.[0] ?? String(phase);
-}
+const ghostIn = (frame: Frame | undefined, eid: number) =>
+  frame?.ghosts.find((ghost) => ghost.eid === eid);
 
 export function measureGhostPrediction(options: FidelityOptions): FidelitySample[] {
   const sim = new PlaySim(
@@ -57,12 +54,7 @@ export function measureGhostPrediction(options: FidelityOptions): FidelitySample
   const skill = profileFor(options.profile).skill;
   sim.start();
   const frames: Frame[] = [];
-  const states: {
-    frame: number;
-    state: PlannerState;
-    ghosts: GhostSample[];
-    tilesPerFrame: number;
-  }[] = [];
+  const states: { frame: number; state: PlannerState }[] = [];
   for (let frame = 0; frame < options.frames; frame += 1) {
     answerPrompts(sim, bot);
     sim.step(bot.step(sim), FRAME_MS);
@@ -82,42 +74,34 @@ export function measureGhostPrediction(options: FidelityOptions): FidelitySample
     });
     if (frame % options.everyFrames === 0 && playerCell !== null && sim.offer() === null) {
       const decision = { current: playerCell, cell: playerCell, distPx: 0, facing };
-      const speed =
-        playerSpeedPx(sim.tuning) *
-        speedLevelMultiplier(sim.currentLevel(), sim.tuning) *
-        playerSpeedMultiplier(sim.hud().upgrades);
-      states.push({
-        frame,
-        state: observer.plannerState(sim, ghosts, decision, skill),
-        ghosts,
-        tilesPerFrame: (speed * FRAME_MS) / 1000 / getActiveLayout().tileSize,
-      });
+      states.push({ frame, state: observer.plannerState(sim, ghosts, decision, skill) });
     }
   }
+  const tile = getActiveLayout().tileSize;
   const samples: FidelitySample[] = [];
-  for (const { frame, state, ghosts, tilesPerFrame } of states) {
+  for (const { frame, state } of states) {
     const grid = state.grid;
+    const tilesPerFrame = FRAME_MS / state.stepMs;
     for (const horizon of options.horizons) {
       const target = frames[frame + horizon];
       if (target === undefined) {
         continue;
       }
-      const flipped = frames
-        .slice(frame, frame + horizon)
-        .some((f) => f.mode !== frames[frame]!.mode);
+      const span = frames.slice(frame, frame + horizon);
+      const flipped = span.some((at) => at.mode !== frames[frame]!.mode);
       for (const planned of state.ghosts) {
-        const sample = ghosts.find((g) => g.eid === planned.eid);
-        const actual = target.ghosts.find((g) => g.eid === planned.eid);
-        if (
-          sample === undefined ||
-          actual === undefined ||
-          (horizon > 0 && actual.x === sample.x && actual.y === sample.y)
-        ) {
+        const sample = ghostIn(frames[frame], planned.eid);
+        const actual = ghostIn(target, planned.eid);
+        const paused = span.some((at, i) => {
+          const next = ghostIn(frames[frame + i + 1], planned.eid);
+          const now = ghostIn(at, planned.eid);
+          return now !== undefined && next !== undefined && now.x === next.x && now.y === next.y;
+        });
+        if (sample === undefined || actual === undefined || (horizon > 0 && paused)) {
           continue;
         }
         const ghost: PlannerGhost = { ...planned };
-        for (let f = 0; f < horizon; f += 1) {
-          const at = frames[frame + f]!;
+        for (const at of span) {
           if (at.playerCell === null) {
             continue;
           }
@@ -132,11 +116,8 @@ export function measureGhostPrediction(options: FidelityOptions): FidelitySample
             blinkyCell === null
               ? player
               : { col: blinkyCell % grid.cols, row: Math.floor(blinkyCell / grid.cols) };
-          const flip = state.modeFlip;
-          const mode = effectiveGhostMode(
-            flip !== null && f * tilesPerFrame >= flip.atStep ? flip.mode : state.mode,
-            state.pelletsRemaining,
-          );
+          const mode: GhostAiMode =
+            GHOST_AI_MODE[at.mode as keyof typeof GHOST_AI_MODE] ?? GHOST_AI_MODE.chase;
           tickGhost(
             state,
             ghost,
@@ -148,22 +129,19 @@ export function measureGhostPrediction(options: FidelityOptions): FidelitySample
           );
         }
         const { dx: stepX, dy: stepY } = ghostDirStep(ghost.dir);
-        const tile = getActiveLayout().tileSize;
         const rawX = Math.abs(
           ghost.col + stepX * ghost.progress - (actual.x - cellCenterX(0)) / tile,
         );
         const rawY = Math.abs(
           ghost.row + stepY * ghost.progress - (actual.y - cellCenterY(0)) / tile,
         );
-        const dx = Math.min(rawX, grid.cols - rawX);
-        const dy = Math.min(rawY, grid.rows - rawY);
         samples.push({
           kind: sample.kind,
-          phase: phaseName(sample.phase),
+          phase: nameOf(GHOST_PHASE, sample.phase),
           modeFlipped: flipped,
           elroy: frames[frame]!.elroy,
           horizonFrames: horizon,
-          errorTiles: dx + dy,
+          errorTiles: Math.min(rawX, grid.cols - rawX) + Math.min(rawY, grid.rows - rawY),
         });
       }
     }

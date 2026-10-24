@@ -46,6 +46,7 @@ import { Facing } from "../components/Facing";
 import { Ghost } from "../components/Ghost";
 import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
+import type { GhostPhaseValue } from "../../domain/ghostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
@@ -102,8 +103,8 @@ export function resolveGhostTarget(
   pelletsRemaining: number,
   ctx: GhostAiContext,
   tile?: { col: number; row: number },
+  phase: GhostPhaseValue = (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) as GhostPhaseValue,
 ): GhostTarget {
-  const phase = GhostPhase.value[eid] ?? GHOST_PHASE.inHouse;
   const kind = (GhostKind.kind[eid] ?? GHOST_KIND.blinky) as GhostKindId;
   const col = tile?.col ?? worldToCol(Position.x[eid] ?? 0);
   const row = tile?.row ?? worldToRow(Position.y[eid] ?? 0);

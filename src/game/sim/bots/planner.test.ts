@@ -11,6 +11,7 @@ import { GhostPhase } from "../../components/GhostPhase";
 import { DIRECTION } from "../../components/Input";
 import { Position } from "../../components/Position";
 import { GHOST_AI_MODE } from "../../../domain/ghostMode";
+import { isGhostTunnelSlow } from "../../../domain/maze";
 import { PlaySim } from "../playSim";
 import { bestExit, cellIndex } from "./navigate";
 import { Observer, playerEid, sampleGhosts } from "./observe";
@@ -18,7 +19,9 @@ import { powerPelletAffordance } from "./affordances";
 import {
   advanceGhost,
   planExits,
+  routeMode,
   SURVIVABLE_SCORE,
+  tickGhost,
   type PlannerState,
   type PlannerWeights,
 } from "./planner";
@@ -109,7 +112,7 @@ function rightExit(state: PlannerState): number {
 function withPowerPellet(state: PlannerState, cell: number, owned: UpgradeId[]): PlannerState {
   const power = new Uint8Array(state.power);
   power[cell] = 1;
-  return { ...state, power, affordance: powerPelletAffordance(owned, 3, 100) };
+  return { ...state, power, affordance: powerPelletAffordance(owned, 3, 100, state.shields) };
 }
 
 describe("planExits with upgrades", () => {
@@ -152,6 +155,69 @@ describe("planExits with upgrades", () => {
     expect(
       rightExit(withPowerPellet(state, pelletCell, ["powerPelletInvuln", "passiveShieldBreak"])),
     ).toBeLessThan(SURVIVABLE_SCORE);
+  });
+
+  it("fires the loadout when a shield breaks under Shield Break", () => {
+    const { state } = headOn();
+    const owned = ["powerPelletInvuln", "passiveShieldPellets", "passiveShieldBreak"] as const;
+    const armed = {
+      ...state,
+      shields: 1,
+      affordance: powerPelletAffordance([...owned], 3, 100, 1),
+    };
+    expect(rightExit(armed)).toBeGreaterThan(SURVIVABLE_SCORE);
+  });
+});
+
+describe("ghost tick", () => {
+  it("releases a leaving ghost after its delay and sends it after the player, not the exit", () => {
+    const { state } = headOn();
+    const player = {
+      col: state.start % state.grid.cols,
+      row: Math.floor(state.start / state.grid.cols),
+      facing: DIRECTION.right,
+    };
+    const exitGhost = { ...state.ghosts[0]!, leaving: true, delaySteps: 2 };
+    const start = { col: exitGhost.col, row: exitGhost.row };
+    const distance = (g: { col: number; row: number }) =>
+      Math.abs(g.col - player.col) + Math.abs(g.row - player.row);
+    tickGhost(state, exitGhost, exitGhost.speed, 1, player, player, GHOST_AI_MODE.chase);
+    expect(exitGhost).toMatchObject({ ...start, leaving: true });
+    for (let i = 0; i < 8; i += 1) {
+      tickGhost(state, exitGhost, exitGhost.speed, 1, player, player, GHOST_AI_MODE.chase);
+    }
+    expect(exitGhost.leaving).toBe(false);
+    expect(distance(exitGhost)).toBeLessThan(distance(start));
+  });
+
+  it("slows a ghost in the tunnel band", () => {
+    const { state } = headOn();
+    const ghost = state.ghosts[0]!;
+    const { cols, rows } = state.grid;
+    let tunnel: { col: number; row: number } | null = null;
+    for (let row = 0; row < rows && tunnel === null; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        if (isGhostTunnelSlow(col, row)) {
+          tunnel = { col, row };
+          break;
+        }
+      }
+    }
+    expect(tunnel).not.toBeNull();
+    const inTunnel = state.speedOf({ ...ghost, ...tunnel! }, state.pelletsRemaining);
+    expect(inTunnel).toBeLessThan(state.speedOf(ghost, state.pelletsRemaining));
+  });
+
+  it("switches mode at the flip and forces chase on the last pellets", () => {
+    const { state } = headOn();
+    const scattering = {
+      ...state,
+      mode: GHOST_AI_MODE.scatter,
+      modeFlip: { atStep: 5, mode: GHOST_AI_MODE.chase },
+    };
+    expect(routeMode(scattering, 4, 100)).toBe(GHOST_AI_MODE.scatter);
+    expect(routeMode(scattering, 5, 100)).toBe(GHOST_AI_MODE.chase);
+    expect(routeMode({ ...scattering, modeFlip: null }, 99, 10)).toBe(GHOST_AI_MODE.chase);
   });
 });
 
