@@ -2,46 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   salvageCardStep,
   salvageCardTitle,
-  salvageSelectionStep,
   TRINKET_TOAST_FADE_MS,
   TRINKET_TOAST_HOLD_MS,
   trinketToastAlpha,
-  type SalvageKey,
 } from "./salvagePanel";
-
-function walk(start: number, keys: SalvageKey[], count = 7): number {
-  return keys.reduce((index, key) => salvageSelectionStep(index, key, count, 3).index, start);
-}
-
-describe("salvageSelectionStep", () => {
-  it("wraps left and right through all seven", () => {
-    expect(walk(6, ["right"])).toBe(0);
-    expect(walk(0, ["left"])).toBe(6);
-  });
-
-  it("moves by rows on the three-column grid", () => {
-    expect(walk(6, ["up"])).toBe(3);
-    expect(walk(1, ["down"])).toBe(4);
-    expect(walk(4, ["down"])).toBe(6);
-    expect(walk(6, ["down"])).toBe(6);
-    expect(walk(1, ["up"])).toBe(1);
-  });
-
-  it("salvages the selection on confirm", () => {
-    expect(salvageSelectionStep(2, "confirm", 7, 3)).toEqual({
-      index: 2,
-      outcome: "salvage",
-    });
-  });
-
-  it("backs out on cancel", () => {
-    expect(salvageSelectionStep(2, "cancel", 6, 3).outcome).toBe("close");
-  });
-
-  it("closes an empty list", () => {
-    expect(salvageSelectionStep(0, "confirm", 0, 3).outcome).toBe("close");
-  });
-});
 
 describe("salvageCardStep", () => {
   it("walks the six owned cards with up and down, wrapping", () => {
@@ -54,10 +18,6 @@ describe("salvageCardStep", () => {
     expect(salvageCardStep(3, "left", 6)).toEqual({ index: 3, outcome: "salvageNew" });
     expect(salvageCardStep(3, "right", 6)).toEqual({ index: 3, outcome: "salvageOwned" });
     expect(salvageCardStep(3, "confirm", 6).outcome).toBe("salvageOwned");
-  });
-
-  it("has no dismiss", () => {
-    expect(salvageCardStep(3, "cancel", 6)).toEqual({ index: 3, outcome: null });
   });
 });
 

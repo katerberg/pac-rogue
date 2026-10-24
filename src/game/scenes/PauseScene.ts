@@ -16,15 +16,13 @@ import {
   placeSelectableMenuOption,
   TEXT_COLOR_WHITE,
   TEXT_COLOR_YELLOW,
-  UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
-import { addTrinketCard, createSalvagePanel, type SalvagePanel } from "./salvagePanel";
+import { addTrinketCard } from "./salvagePanel";
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
 const UPGRADE_PREVIEW_Y_MIN = 90;
 const UPGRADE_PREVIEW_Y_MAX = 510;
-const SALVAGE_HINT_Y = 470;
 
 const RESUME_INDEX = 0;
 const SETTINGS_INDEX = 1;
@@ -57,9 +55,6 @@ export class PauseScene extends Phaser.Scene {
 
   private upgradePreview: UpgradeCardVisual | null = null;
   private upgradeList: Phaser.GameObjects.GameObject[] = [];
-  private salvageUi!: SalvagePanel;
-  private salvageHint!: Phaser.GameObjects.BitmapText;
-  private keyT!: Phaser.Input.Keyboard.Key;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -154,10 +149,7 @@ export class PauseScene extends Phaser.Scene {
 
     this.upgradePreview = null;
     this.upgradeList = [];
-    this.salvageHint = addPixelText(this, ROW_CENTER_X, SALVAGE_HINT_Y, "", UPGRADES_HUD_FONT_SIZE);
     this.buildUpgradeList();
-    this.salvageUi = createSalvagePanel(this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.salvageUi.destroy());
 
     if (this.input.keyboard === null) {
       return;
@@ -171,7 +163,6 @@ export class PauseScene extends Phaser.Scene {
     this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.keyEsc = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.keyT = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T);
   }
 
   update(_time: number, delta: number): void {
@@ -181,20 +172,8 @@ export class PauseScene extends Phaser.Scene {
 
     this.moveCooldownMs = Math.max(0, this.moveCooldownMs - delta);
 
-    const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
-    const salvaging = this.salvageUi.isOpen();
-    this.salvageUi.tick(delta, salvaging && escDown);
-    if (salvaging) {
-      return;
-    }
-
-    if (escDown) {
+    if (Phaser.Input.Keyboard.JustDown(this.keyEsc)) {
       this.resumeGame();
-      return;
-    }
-
-    if (Phaser.Input.Keyboard.JustDown(this.keyT)) {
-      this.openSalvagePicker(0);
       return;
     }
 
@@ -281,8 +260,7 @@ export class PauseScene extends Phaser.Scene {
     }
     this.hideUpgradePreview();
     const play = this.playScene();
-    const salvageable = play.canSalvageNow();
-    this.upgradeList = play.upgradeHudSlots().map(({ id, copies, x, y, size }, index) => {
+    this.upgradeList = play.upgradeHudSlots().map(({ id, copies, x, y, size }) => {
       const icon = this.add
         .image(x, y, upgradeIconTexture(id))
         .setDisplaySize(size, size)
@@ -295,7 +273,6 @@ export class PauseScene extends Phaser.Scene {
         icon.setDisplaySize(size, size);
         this.hideUpgradePreview();
       });
-      icon.on("pointerdown", () => this.openSalvagePicker(index));
       return icon;
     });
     for (const { id, copies, x, y, size } of play.trinketPoolCards()) {
@@ -306,28 +283,6 @@ export class PauseScene extends Phaser.Scene {
       card.on("pointerout", () => this.hideUpgradePreview());
       this.upgradeList.push(card);
     }
-    this.salvageHint.setText(salvageable ? "T: SALVAGE AN UPGRADE" : "").setVisible(salvageable);
-    placePixelText(this.salvageHint, ROW_CENTER_X, SALVAGE_HINT_Y, 0.5, 0.5);
-  }
-
-  private openSalvagePicker(start: number): void {
-    const play = this.playScene();
-    if (!play.canSalvageNow()) {
-      return;
-    }
-    this.hideUpgradePreview();
-    this.salvageUi.open({
-      items: play.upgradeHudSlots(),
-      text: play.panelText(),
-      start,
-      onPick: (id) => {
-        const result = play.salvageFromPause(id);
-        this.buildUpgradeList();
-        if (result !== null) {
-          this.salvageUi.toast(result.gained, play.poolTarget(result.gained), play.panelText());
-        }
-      },
-    });
   }
 
   private showUpgradePreview(id: UpgradeId, copies: number, pointerY: number): void {

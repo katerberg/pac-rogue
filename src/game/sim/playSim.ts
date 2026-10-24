@@ -1020,18 +1020,6 @@ export class PlaySim {
     return this.slot === null ? (this.salvageQueue[0] ?? null) : null;
   }
 
-  canSalvageNow(): boolean {
-    return (
-      this.salvageQueue.length === 0 &&
-      this.death === null &&
-      !possessionActive(this.runUpgrades) &&
-      this.runEndElapsedMs === null &&
-      this.bossStageTransition === null &&
-      this.intermission === null &&
-      this.levelTransitionRemainingMs === 0
-    );
-  }
-
   salvageNew(): SimEvent[] {
     this.events = [];
     const prompt = this.salvagePrompt();
@@ -1064,18 +1052,6 @@ export class PlaySim {
     );
     this.grantNow(prompt.incoming, prompt.source);
     this.emit({ type: "lives", pulse: false });
-    return this.takeEvents();
-  }
-
-  salvageOwned(id: UpgradeId): SimEvent[] {
-    this.events = [];
-    if (!this.canSalvageNow() || !canSalvage(this.runUpgrades.owned, id)) {
-      return [];
-    }
-    this.applySalvage(
-      salvageUpgrade(this.runUpgrades, id, this.rosterKinds(), this.random.stream("salvage")),
-      id,
-    );
     return this.takeEvents();
   }
 
@@ -1299,7 +1275,6 @@ export class PlaySim {
         slotCount: slotCount(upgrades.owned),
         cap: isAtCap(upgrades.owned),
         trinketCount: upgrades.owned.length - slotCount(upgrades.owned),
-        canSalvage: this.canSalvageNow(),
       },
       trinkets: trinketCounts(upgrades.owned),
       slotPickup: {

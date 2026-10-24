@@ -9298,7 +9298,8 @@ describe("sinkhole", () => {
     const mid = cells[Math.floor(cells.length / 2)]!;
     teleportPlayer(sim, cellCenterX(mid.col), cellCenterY(mid.row));
     runFrames(sim, 5);
-    expect(sim.salvageOwned("passiveFloating").length).toBeGreaterThan(0);
+    sim["salvageQueue"].push({ incoming: "passiveAfterburner", source: "slots" });
+    expect(sim.salvageReplace("passiveFloating").length).toBeGreaterThan(0);
     runFrames(sim, 2);
     const eid = playerEid(sim);
     const at = () => ({ col: worldToCol(Position.x[eid]!), row: worldToRow(Position.y[eid]!) });
@@ -9874,6 +9875,10 @@ describe("PlaySim salvage", () => {
     return sim.snapshot().upgrades.filter((id) => isTrinketId(id));
   }
 
+  function queuePrompt(sim: PlaySim): void {
+    sim["salvageQueue"].push({ incoming: "passiveAfterburner", source: "slots" });
+  }
+
   function offerAtCap(seed = "salvage"): { sim: PlaySim; picked: BaseUpgradeId } {
     const sim = startSim({ jumpToUpgrade: true, level: 4, enableUpgrades: SIX }, seed);
     const offer = drainToOffer(sim);
@@ -9938,28 +9943,17 @@ describe("PlaySim salvage", () => {
       enableUpgrades: ["passiveExtraLife"],
     });
     const lives = sim.snapshot().lives;
-    sim.salvageOwned("passiveExtraLife");
+    queuePrompt(sim);
+    sim.salvageReplace("passiveExtraLife");
     expect(sim.snapshot().lives).toBe(lives);
     expect(sim.snapshot().upgrades).not.toContain("passiveExtraLife");
-  });
-
-  it("salvages on demand under the cap and rejects a Trinket", () => {
-    const sim = startSim({
-      level: 2,
-      maze: "maze1",
-      enableUpgrades: ["lowSpeed", ...SIX.slice(0, 2)],
-    });
-    expect(sim.salvageOwned("lowSpeed")).toEqual([]);
-    const events = sim.salvageOwned("passiveAfterburner");
-    expect(events.some((e) => e.type === "salvage")).toBe(true);
-    expect(slotIds(sim)).toEqual(["powerPelletFreeze"]);
-    expect(trinketIds(sim)).toHaveLength(2);
   });
 
   it("clears a live freeze when Freeze is salvaged mid-level", () => {
     const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
     sim["runUpgrades"] = { ...sim["runUpgrades"], freezeRemainingMs: 4000, frozenGhostEid: 5 };
-    sim.salvageOwned("powerPelletFreeze");
+    queuePrompt(sim);
+    sim.salvageReplace("powerPelletFreeze");
     expect(sim["runUpgrades"]).toMatchObject({ freezeRemainingMs: 0, frozenGhostEid: null });
   });
 
@@ -9970,17 +9964,11 @@ describe("PlaySim salvage", () => {
       quarters: 0,
       enableUpgrades: ["powerPelletFreeze", ...MAXED_TRINKETS],
     });
-    const events = sim.salvageOwned("powerPelletFreeze");
+    queuePrompt(sim);
+    const events = sim.salvageReplace("powerPelletFreeze");
     expect(events).toContainEqual({ type: "salvage", gained: null, quarters: 1 });
     expect(sim.snapshot().quarters).toBe(1);
     expect(sim.runLogRecord().levels.at(-1)!.quartersEarned.salvage).toBe(1);
-  });
-
-  it("refuses on-demand salvage during a death sequence", () => {
-    const sim = startSim({ level: 2, maze: "maze1", enableUpgrades: ["powerPelletFreeze"] });
-    sim["death"] = {} as never;
-    expect(sim.salvageOwned("powerPelletFreeze")).toEqual([]);
-    expect(sim.snapshot().salvage.canSalvage).toBe(false);
   });
 
   it("never prompts for the starting upgrade or debug flags past 6", () => {
@@ -10180,14 +10168,6 @@ describe("Possession", () => {
     expect(sim.snapshot().dying).toBe(false);
     return killer;
   }
-
-  it("refuses to salvage anything while a possession defers the death", () => {
-    const sim = startPossession(["passivePossession", "powerPelletFreeze"]);
-    enterPossession(sim);
-    expect(sim.snapshot().salvage.canSalvage).toBe(false);
-    expect(sim.salvageOwned("passivePossession")).toEqual([]);
-    expect(sim.snapshot().possessing).toBe(true);
-  });
 
   it("hides the player and marks the possessed ghost for the renderer", () => {
     const sim = startPossession(["passivePossession"]);

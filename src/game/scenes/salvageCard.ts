@@ -27,18 +27,20 @@ const CENTER_X = PLAYFIELD_WIDTH / 2;
 const TITLE_Y = 118;
 const TITLE_BAND = 28;
 const CARD_Y = 225;
-const TAG_HEIGHT = 170;
+const ICON_X = CENTER_X - 30;
+const TAG_HEIGHT = 130;
 const TAG_TOP = CARD_Y + CHOICE_BUTTON_HEIGHT / 2;
 const TAG_Y = TAG_TOP + TAG_HEIGHT / 2;
 const TAG_STROKE = 4;
+const ROW_Y = TAG_TOP + 80;
 const ICON_SIZE = 40;
-const ICON_Y = TAG_TOP + 78;
 const ARROW_GAP = 30;
+const CHEVRON_GAP = ICON_SIZE / 2 + 12;
+const TEXT_GAP = 11;
 const ARROW_SIZE = 6;
-const LABEL_Y = ICON_Y + ARROW_GAP + 14;
-const LABEL_CHARS = 24;
-const HINT_Y = TAG_TOP + TAG_HEIGHT - 16;
-const HINT_PAD = 12;
+const NAME_CHARS = 11;
+const STACK_GAP = 2;
+const NAME_LINE_SPACING = 3;
 const HUD_SELECT_PAD = 5;
 
 export type SalvageCard = {
@@ -55,11 +57,26 @@ export type SalvageCard = {
   destroy: () => void;
 };
 
-function arrow(graphics: Phaser.GameObjects.Graphics, dir: "up" | "down", y: number): void {
-  const tip = dir === "up" ? y - ARROW_SIZE : y + ARROW_SIZE;
-  const base = dir === "up" ? y + ARROW_SIZE - 2 : y - ARROW_SIZE + 2;
-  graphics.fillTriangle(CENTER_X, tip, CENTER_X - ARROW_SIZE, base, CENTER_X + ARROW_SIZE, base);
+type Dir = "up" | "down" | "left" | "right";
+
+function arrow(graphics: Phaser.GameObjects.Graphics, dir: Dir, x: number, y: number): void {
+  const r = ARROW_SIZE;
+  const sign = dir === "up" || dir === "left" ? -1 : 1;
+  const tip = sign * r;
+  const base = -sign * (r - 2);
+  if (dir === "up" || dir === "down") {
+    graphics.fillTriangle(x, y + tip, x - r, y + base, x + r, y + base);
+  } else {
+    graphics.fillTriangle(x + tip, y, x + base, y - r, x + base, y + r);
+  }
 }
+
+const ARROW_AT: Record<Dir, { x: number; y: number }> = {
+  up: { x: ICON_X, y: ROW_Y - ARROW_GAP },
+  down: { x: ICON_X, y: ROW_Y + ARROW_GAP },
+  left: { x: ICON_X - CHEVRON_GAP, y: ROW_Y },
+  right: { x: ICON_X + CHEVRON_GAP, y: ROW_Y },
+};
 
 export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
   const keys = createSalvageKeys(scene);
@@ -133,23 +150,28 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
           .setStrokeStyle(TAG_STROKE, ALERT_RED),
       );
       centered(TAG_TOP + 18, "SLOTS FULL!", UPGRADES_HUD_FONT_SIZE, ALERT_RED);
-      centered(TAG_TOP + 32, "PICK ONE TO SALVAGE", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
-      const icon = track(scene.add.image(CENTER_X, ICON_Y, ""));
-      const label = centered(LABEL_Y, "", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW);
+      centered(TAG_TOP + 32, "CHOOSE 1 TO SALVAGE:", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
+      const icon = track(scene.add.image(ICON_X, ROW_Y, ""));
+      const name = track(
+        addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, ALERT_RED).setLineSpacing(
+          NAME_LINE_SPACING,
+        ),
+      );
       const arrows = track(scene.add.graphics());
       const hudSelector = track(scene.add.graphics());
       arrows.fillStyle(TEXT_COLOR_YELLOW, 1);
-      arrow(arrows, "up", ICON_Y - ARROW_GAP);
-      arrow(arrows, "down", ICON_Y + ARROW_GAP);
-      const left = -CHOICE_BUTTON_WIDTH / 2 + HINT_PAD;
-      const leftHint = track(
-        addPixelText(scene, 0, 0, "< SALVAGE NEW", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW),
+      (Object.keys(ARROW_AT) as Dir[]).forEach((dir) =>
+        arrow(arrows, dir, ARROW_AT[dir].x, ARROW_AT[dir].y),
       );
-      placePixelText(leftHint, CENTER_X + left, HINT_Y, 0, 0.5);
-      const rightHint = track(
-        addPixelText(scene, 0, 0, "SALVAGE >", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_YELLOW),
+      const skip = track(
+        addPixelText(scene, 0, 0, "SKIP", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE),
       );
-      placePixelText(rightHint, CENTER_X - left, HINT_Y, 1, 0.5);
+      placePixelText(skip, ARROW_AT.left.x - TEXT_GAP, ROW_Y, 1, 0.5);
+      const salvage = track(
+        addPixelText(scene, 0, 0, "SALVAGE", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE),
+      );
+      const rightX = ARROW_AT.right.x + TEXT_GAP;
+      placePixelText(salvage, rightX, ROW_Y - STACK_GAP, 0, 1);
 
       const redraw = (): void => {
         const current = owned[index];
@@ -157,8 +179,8 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
           return;
         }
         icon.setTexture(upgradeIconTexture(current.id)).setDisplaySize(ICON_SIZE, ICON_SIZE);
-        label.setText(wrapText(getUpgradeDef(current.id).label, LABEL_CHARS));
-        placePixelText(label, CENTER_X, LABEL_Y, 0.5, 0.5);
+        name.setText(wrapText(getUpgradeDef(current.id).label, NAME_CHARS));
+        placePixelText(name, rightX, ROW_Y + STACK_GAP, 0, 0);
         hudSelector.clear().lineStyle(2, TEXT_COLOR_YELLOW, 1);
         const half = current.size / 2 + HUD_SELECT_PAD;
         hudSelector.strokeRect(current.x - half, current.y - half, half * 2, half * 2);
@@ -189,11 +211,11 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
           }
         });
       };
-      clickable(leftHint, "left");
-      clickable(rightHint, "right");
-      (["up", "down"] as const).forEach((dir) => {
-        const y = ICON_Y + (dir === "up" ? -ARROW_GAP : ARROW_GAP);
-        clickable(track(scene.add.zone(CENTER_X, y, ARROW_SIZE * 4, ARROW_SIZE * 4)), dir);
+      clickable(skip, "left");
+      clickable(salvage, "right");
+      (Object.keys(ARROW_AT) as Dir[]).forEach((dir) => {
+        const at = ARROW_AT[dir];
+        clickable(track(scene.add.zone(at.x, at.y, ARROW_SIZE * 4, ARROW_SIZE * 4)), dir);
       });
       redraw();
       setAlpha(0);
