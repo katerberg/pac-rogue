@@ -1,59 +1,31 @@
 import { describe, expect, it } from "vitest";
 import {
-  SALVAGE_ALERT_BLINK_MS,
-  SALVAGE_ALERT_MS,
-  salvageAlertFrame,
-  salvageSelectionStep,
+  salvageCardStep,
+  salvageCardTitle,
   TRINKET_TOAST_FADE_MS,
   TRINKET_TOAST_HOLD_MS,
   trinketToastAlpha,
-  type SalvageKey,
 } from "./salvagePanel";
 
-function walk(start: number, keys: SalvageKey[], count = 7): number {
-  return keys.reduce(
-    (index, key) => salvageSelectionStep(index, key, count, 3, false).index,
-    start,
-  );
-}
-
-describe("salvageSelectionStep", () => {
-  it("wraps left and right through all seven", () => {
-    expect(walk(6, ["right"])).toBe(0);
-    expect(walk(0, ["left"])).toBe(6);
+describe("salvageCardStep", () => {
+  it("walks the six owned cards with left and right, wrapping", () => {
+    expect(salvageCardStep(0, "right", 6)).toEqual({ index: 1, outcome: null });
+    expect(salvageCardStep(5, "right", 6).index).toBe(0);
+    expect(salvageCardStep(0, "left", 6).index).toBe(5);
   });
 
-  it("moves by rows on the three-column grid", () => {
-    expect(walk(6, ["up"])).toBe(3);
-    expect(walk(1, ["down"])).toBe(4);
-    expect(walk(4, ["down"])).toBe(6);
-    expect(walk(6, ["down"])).toBe(6);
-    expect(walk(1, ["up"])).toBe(1);
-  });
-
-  it("salvages the selection on confirm", () => {
-    expect(salvageSelectionStep(2, "confirm", 7, 3, false)).toEqual({
-      index: 2,
-      outcome: "salvage",
-    });
-  });
-
-  it("only backs out when cancellable", () => {
-    expect(salvageSelectionStep(2, "cancel", 7, 3, false).outcome).toBeNull();
-    expect(salvageSelectionStep(2, "cancel", 6, 3, true).outcome).toBe("close");
-  });
-
-  it("closes an empty list", () => {
-    expect(salvageSelectionStep(0, "confirm", 0, 3, true).outcome).toBe("close");
+  it("skips the new card on up and salvages the selected owned card on down or confirm", () => {
+    expect(salvageCardStep(3, "up", 6)).toEqual({ index: 3, outcome: "salvageNew" });
+    expect(salvageCardStep(3, "down", 6)).toEqual({ index: 3, outcome: "salvageOwned" });
+    expect(salvageCardStep(3, "confirm", 6).outcome).toBe("salvageOwned");
   });
 });
 
-describe("salvageAlertFrame", () => {
-  it("blinks the outline, then hands over to selection", () => {
-    expect(salvageAlertFrame(0)).toEqual({ phase: "alert", outlineVisible: true });
-    expect(salvageAlertFrame(SALVAGE_ALERT_BLINK_MS).outlineVisible).toBe(false);
-    expect(salvageAlertFrame(SALVAGE_ALERT_BLINK_MS * 2).outlineVisible).toBe(true);
-    expect(salvageAlertFrame(SALVAGE_ALERT_MS)).toEqual({ phase: "select", outlineVisible: true });
+describe("salvageCardTitle", () => {
+  it("calls a slot win a bonus", () => {
+    expect(salvageCardTitle("slots")).toBe("BONUS UPGRADE!");
+    expect(salvageCardTitle("offer")).toBe("NEW UPGRADE!");
+    expect(salvageCardTitle("store")).toBe("NEW UPGRADE!");
   });
 });
 

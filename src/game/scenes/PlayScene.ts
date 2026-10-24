@@ -23,7 +23,7 @@ import { playTurnSparks } from "./turnSparks";
 import { playChaffBurst } from "./chaffBurst";
 import { playSonicBoomEcho } from "./sonicBoomEcho";
 import { createPowerPelletBreakFx, type PowerPelletBreakFx } from "./powerPelletBreakFx";
-import { slotHeld, stepMusicDuck } from "../../domain/slotMachine";
+import { stepMusicDuck } from "../../domain/slotMachine";
 import { bossTimerLabel } from "../../domain/bossRules";
 import { DEATH_FADE_DURATION_MS } from "../../domain/deathSequence";
 import { livesHudIconCount } from "../../domain/lives";
@@ -104,11 +104,12 @@ import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingU
 import { playStreakPop } from "./streakPop";
 import { drawUpgradeDrain, pulseUpgradeMarks, type UpgradeMark } from "./upgradeTimerFx";
 import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
+import { createSalvageCard, type SalvageCard } from "./salvageCard";
 import {
   addTrinketCard,
-  createSalvagePanel,
+  createTrinketToast,
   type PanelItem,
-  type SalvagePanel,
+  type TrinketToast,
 } from "./salvagePanel";
 import { storeFocusForDir, type StoreDir } from "../../domain/store";
 import { createStoreOverlay, type StoreOverlay } from "./storeOverlay";
@@ -166,8 +167,8 @@ export class PlayScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.BitmapText;
   private upgradeIcons: UpgradeMark[] = [];
   private trinketCards: Phaser.GameObjects.Container[] = [];
-  private salvageUi!: SalvagePanel;
-  private keyT!: Phaser.Input.Keyboard.Key;
+  private trinketToast!: TrinketToast;
+  private salvageCard!: SalvageCard;
   private upgradeDrain!: Phaser.GameObjects.Graphics;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
   private lifeIcons: Phaser.GameObjects.Container[] = [];
@@ -238,10 +239,12 @@ export class PlayScene extends Phaser.Scene {
     this.startingUpgradeCard?.destroy();
     this.startingUpgradeCard = createStartingUpgradeCard(this);
     this.slotOverlay = createSlotOverlay(this);
-    this.salvageUi?.destroy();
-    this.salvageUi = createSalvagePanel(this);
+    this.trinketToast?.destroy();
+    this.trinketToast = createTrinketToast(this);
+    this.salvageCard?.destroy();
+    this.salvageCard = createSalvageCard(this);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.repeat && event.key !== "Escape" && event.key.toLowerCase() !== "t") {
+      if (!event.repeat && event.key !== "Escape") {
         this.keyPressed = true;
       }
     };
@@ -283,7 +286,6 @@ export class PlayScene extends Phaser.Scene {
     this.readHeldKeys = createHeldKeysReader(this);
     this.musicPendingFanfareEnd = null;
     this.keyEsc = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    this.keyT = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.T);
     const { KeyCodes } = Phaser.Input.Keyboard;
     this.storeYesKeys = [KeyCodes.UP, KeyCodes.W].map((code) => this.input.keyboard!.addKey(code));
     this.storeNoKeys = [KeyCodes.DOWN, KeyCodes.S].map((code) => this.input.keyboard!.addKey(code));
@@ -330,7 +332,8 @@ export class PlayScene extends Phaser.Scene {
       stopLoopingSfx(this, "revive");
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
-      this.salvageUi.destroy();
+      this.trinketToast.destroy();
+      this.salvageCard.destroy();
       this.closeStoreUi();
       this.clearLevelBanner();
       this.knobsPanel?.destroy();
@@ -393,13 +396,14 @@ export class PlayScene extends Phaser.Scene {
     }
 
     const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
-    const salvaging = this.salvageUi.mode() !== null;
+    const salvaging = this.salvageCard.isOpen();
     if (escDown && !salvaging && this.runEndMenu === null && !this.sim.storeRouting()) {
       this.pauseForMenu();
       return;
     }
 
-    this.salvageUi.tick(delta, salvaging && escDown);
+    this.trinketToast.tick(delta);
+    this.salvageCard.tick(delta);
     if (salvaging) {
       this.keyPressed = false;
     } else if (this.startingUpgradeCard.isActive()) {
@@ -407,7 +411,7 @@ export class PlayScene extends Phaser.Scene {
     } else if (this.upgradeChoiceModal.isActive()) {
       this.upgradeChoiceModal.tick(delta);
     }
-    this.syncSalvageUi();
+    this.syncSalvageCard();
     const readsStoreKeys = this.sim.readsStoreKeys();
     const keyDir = readsStoreKeys ? this.storeDirPressed() : null;
     const storeDir = keyDir ?? (readsStoreKeys ? this.storeDir : null);
@@ -417,7 +421,7 @@ export class PlayScene extends Phaser.Scene {
         uiOpen:
           this.startingUpgradeCard.isActive() ||
           this.upgradeChoiceModal.isActive() ||
-          this.salvageUi.mode() !== null,
+          this.salvageCard.isOpen(),
         storeFocus: storeFocusForDir(keyDir),
         storeDir,
         storeConfirm:
@@ -480,7 +484,10 @@ export class PlayScene extends Phaser.Scene {
         pulsing: this.tweens.isTweening(mark),
       })),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
-      salvageUi: this.salvageUi.mode(),
+      salvageCard: {
+        open: this.salvageCard.isOpen(),
+        selected: this.salvageCard.selected(),
+      },
       trinketPool: this.trinketCards.length,
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
@@ -627,7 +634,7 @@ export class PlayScene extends Phaser.Scene {
         break;
       case "salvage":
         this.refreshUpgradesHud();
-        this.salvageUi.toast(event.gained, this.poolTarget(event.gained), this.panelText());
+        this.trinketToast.show(event.gained, this.poolTarget(event.gained), this.panelText());
         break;
       case "upgradePulse":
         pulseUpgradeMarks(this, this.upgradeIcons, event.ids, event.cause);
@@ -1090,7 +1097,7 @@ export class PlayScene extends Phaser.Scene {
     size: number;
   }[] {
     const { size, left } = this.hudIconGeometry();
-    return ownedUpgradeStacks(this.hudUpgradeIds())
+    return ownedUpgradeStacks(this.sim.hud().upgrades)
       .filter(({ id }) => !isTrinketId(id))
       .map(({ id, copies }, i) => ({
         id,
@@ -1108,13 +1115,7 @@ export class PlayScene extends Phaser.Scene {
     };
   }
 
-  private hudUpgradeIds(): UpgradeId[] {
-    const incoming = this.sim.salvagePrompt()?.incoming;
-    const owned = this.sim.hud().upgrades;
-    return incoming === undefined ? [...owned] : [...owned, incoming];
-  }
-
-  public panelText(): { x: number; y: number } {
+  private panelText(): { x: number; y: number } {
     const { size, left } = this.hudIconGeometry();
     return upgradeHudTextAnchor(
       [...this.upgradeHudSlots(), ...this.trinketPoolCards()],
@@ -1126,7 +1127,7 @@ export class PlayScene extends Phaser.Scene {
 
   public trinketPoolCards() {
     const { size, left } = this.hudIconGeometry();
-    const stacks = ownedUpgradeStacks(this.hudUpgradeIds());
+    const stacks = ownedUpgradeStacks(this.sim.hud().upgrades);
     return trinketPoolLayout(
       stacks.filter(({ id }) => isTrinketId(id)),
       stacks.filter(({ id }) => !isTrinketId(id)).length,
@@ -1136,67 +1137,31 @@ export class PlayScene extends Phaser.Scene {
     );
   }
 
-  public poolTarget(gained: UpgradeId | null): PanelItem | null {
+  private poolTarget(gained: UpgradeId | null): PanelItem | null {
     const cards = this.trinketPoolCards().filter((card) => card.id === gained);
     return cards[cards.length - 1] ?? null;
   }
 
-  public canSalvageNow(): boolean {
-    return this.sim.canSalvageNow() && this.upgradeHudSlots().length > 0;
-  }
-
-  public salvageFromPause(id: UpgradeId): { gained: UpgradeId | null } | null {
-    const events = this.sim.salvageOwned(id);
-    const salvage = events.find((event) => event.type === "salvage");
-    this.applyEvents(
-      events.filter((event) => event.type !== "salvage"),
-      0,
-    );
-    this.upgradeIcons.forEach(({ mark }) => mark.setVisible(false));
-    this.trinketCards.forEach((card) => card.setVisible(false));
-    return salvage?.type === "salvage" ? { gained: salvage.gained } : null;
-  }
-
-  private syncSalvageUi(): void {
-    if (this.salvageUi.mode() !== null) {
-      return;
-    }
+  private syncSalvageCard(): void {
     const prompt = this.sim.salvagePrompt();
-    if (prompt !== null) {
-      if (!this.upgradeChoiceModal.isActive() && this.sim.slotView() === null) {
-        this.openSalvageRequired();
-      }
+    if (
+      prompt === null ||
+      this.salvageCard.isOpen() ||
+      this.upgradeChoiceModal.isActive() ||
+      this.sim.slotView() !== null
+    ) {
       return;
     }
-    if (!Phaser.Input.Keyboard.JustDown(this.keyT)) {
-      return;
-    }
-    const slot = this.sim.slotView();
-    const choosing = this.upgradeChoiceModal.offer() !== null;
-    const slotWaiting = slot !== null && slotHeld(slot.timeline, slot.elapsedMs);
-    if ((choosing || slotWaiting) && this.canSalvageNow()) {
-      this.salvageUi.open({
-        items: this.upgradeHudSlots(),
-        text: this.panelText(),
-        alert: false,
-        cancellable: true,
-        onPick: (id) => {
-          this.upgradeChoiceModal.rearmSelectionKeys();
-          this.applyEvents(this.sim.salvageOwned(id), 0);
-        },
-        onClose: () => this.upgradeChoiceModal.rearmSelectionKeys(),
-      });
-    }
-  }
-
-  private openSalvageRequired(): void {
-    this.refreshUpgradesHud();
-    this.salvageUi.open({
-      items: this.upgradeHudSlots(),
-      text: this.panelText(),
-      alert: true,
-      cancellable: false,
-      onPick: (id) => this.applyEvents(this.sim.salvagePick(id), 0),
+    this.makeUpgradeIconsHoverable();
+    const resolve = (events: SimEvent[]): void => {
+      this.upgradeHoverPreview?.hide();
+      this.applyEvents(events, 0);
+    };
+    this.salvageCard.open({
+      ...prompt,
+      owned: this.upgradeHudSlots(),
+      onSalvageNew: () => resolve(this.sim.salvageNew()),
+      onSalvageOwned: (id) => resolve(this.sim.salvageReplace(id)),
     });
   }
 
