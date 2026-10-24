@@ -703,7 +703,7 @@ export class PlaySim {
   private lastStreakPop: number | null = null;
   private upgradeTimers: UpgradeTimers = {};
   private firedUpgrades: BaseUpgradeId[] = [];
-  private pulseCause: BaseUpgradeId | null = null;
+  private pulseCause: BaseUpgradeId | undefined;
   private upgradePulseCount = 0;
   private lastUpgradePulse: BaseUpgradeId[] = [];
   private lastUpgradePulseCause: BaseUpgradeId | null = null;
@@ -949,12 +949,12 @@ export class PlaySim {
     this.upgradeTimers = timers;
     this.firedUpgrades = [];
     const cause = this.pulseCause;
-    this.pulseCause = null;
-    if (pulses.length > 0 || cause !== null) {
+    this.pulseCause = undefined;
+    if (pulses.length > 0 || cause !== undefined) {
       this.upgradePulseCount += 1;
       this.lastUpgradePulse = pulses;
-      this.lastUpgradePulseCause = cause;
-      this.emit({ type: "upgradePulse", ids: pulses, ...(cause !== null && { cause }) });
+      this.lastUpgradePulseCause = cause ?? null;
+      this.emit({ type: "upgradePulse", ids: pulses, cause });
     }
   }
 
