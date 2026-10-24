@@ -4,6 +4,8 @@ import { ALL_UPGRADE_IDS } from "./upgrades";
 import {
   allSeenRecord,
   emptySeenRecord,
+  learnGhostLabel,
+  learnGhostUnlocked,
   learnSeenRecord,
   parseLearnAllMode,
   parseSeenRecord,
@@ -105,10 +107,21 @@ describe("allSeenRecord / parseLearnAllMode", () => {
 describe("learnSeenRecord", () => {
   const stored = () => ({ ghosts: [], upgrades: ["passiveAfterburner" as const] });
 
-  it("always shows every ghost", () => {
-    for (const mode of [null, "all", "none"] as const) {
-      expect(learnSeenRecord(mode, stored).ghosts).toEqual(allSeenRecord().ghosts);
-    }
+  it("learnAll=1 unlocks every ghost, learnAll=0 only Blinky, otherwise Blinky plus the stored ones", () => {
+    const seenPinky = () => ({ ghosts: [GHOST_KIND.pinky], upgrades: [] });
+    expect(learnSeenRecord("all", stored).ghosts).toEqual(allSeenRecord().ghosts);
+    expect(learnSeenRecord("none", seenPinky).ghosts).toEqual([GHOST_KIND.blinky]);
+    expect(learnSeenRecord(null, stored).ghosts).toEqual([GHOST_KIND.blinky]);
+    expect(learnSeenRecord(null, seenPinky).ghosts).toEqual([GHOST_KIND.blinky, GHOST_KIND.pinky]);
+  });
+
+  it("names unseen ghosts ??? and keeps Blinky always unlocked", () => {
+    const record = learnSeenRecord(null, () => ({ ghosts: [GHOST_KIND.inky], upgrades: [] }));
+    expect(learnGhostUnlocked(record, GHOST_KIND.blinky)).toBe(true);
+    expect(learnGhostUnlocked(record, GHOST_KIND.inky)).toBe(true);
+    expect(learnGhostUnlocked(record, GHOST_KIND.clyde)).toBe(false);
+    expect(learnGhostLabel(record, GHOST_KIND.inky)).toBe("INKY");
+    expect(learnGhostLabel(record, GHOST_KIND.clyde)).toBe("???");
   });
 
   it("learnAll=0 lists no upgrades, learnAll=1 all, otherwise the stored ones", () => {

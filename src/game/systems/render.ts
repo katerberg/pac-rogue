@@ -416,13 +416,17 @@ export function addGhostIcon(
   x: number,
   y: number,
   size: number,
+  locked = false,
 ): void {
   const textureKey = GHOST_TEXTURE_BY_ID[drawableId]!;
   const crisp = crispGhost(scene, x, y, size);
   const image = scene.add.image(crisp.x, crisp.y, textureKey);
   placeCroppedGhostBody(image, crisp.x, crisp.y, crisp.size);
+  if (locked) {
+    image.setTintMode(Phaser.TintModes.FILL).setTint(HAUNT_GHOST_COLOR);
+  }
   const skirt = scene.add.graphics();
-  const color = skirtBaseColor(scene, textureKey);
+  const color = locked ? HAUNT_GHOST_COLOR : skirtBaseColor(scene, textureKey);
   fillGhostSkirt(skirt, crisp.x, crisp.y, crisp.size, 0, color);
   if (drawableId === BLINKY_DRAWABLE_ID) {
     fillGhostHorns(scene.add.graphics(), crisp.x, crisp.y, crisp.size, 0, 0, color);
@@ -430,6 +434,9 @@ export function addGhostIcon(
   if (ghostPupilsVisible({ inFrightenedSet: false, drawKind: "primary" })) {
     const pupils = scene.add.graphics();
     fillGhostPupils(pupils, crisp.x, crisp.y, crisp.size, ghostPupilLookOffset(GHOST_DIR.none));
+  }
+  if (locked) {
+    scene.add.image(crisp.x, crisp.y, HAUNT_LOCK_KEY).setDisplaySize(crisp.size, crisp.size);
   }
 }
 

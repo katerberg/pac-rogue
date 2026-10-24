@@ -4,9 +4,9 @@
 
 ## Seen record
 
-All six ghosts are always selectable; only upgrades met in real play are listed. The record (`src/domain/seenRecord.ts`, stored by `seenRecordStorage.ts`) is written **only** by `PlayScene` / `PlaySim` (every spawned ghost kind, and every owned upgrade id whenever `owned` can grow, `?enableUpgrade` included). Learn reads it. A malformed or missing record is empty.
+Blinky is always selectable; every other ghost shows as a grey, locked slot named `???` (and does nothing when clicked or keyed) until it has spawned in real play. Only upgrades met in real play are listed. The record (`src/domain/seenRecord.ts`, stored by `seenRecordStorage.ts`) is written **only** by `PlayScene` / `PlaySim` (every spawned ghost kind, and every owned upgrade id whenever `owned` can grow, `?enableUpgrade` included). Learn reads it. A malformed or missing record is empty.
 
-`?learnAll=1|0` (without `?play=1`) boots straight into LEARN. `1` lists every upgrade without touching storage; `0` lists none, overriding real storage.
+`?learnAll=1|0` (without `?play=1`) boots straight into LEARN. `1` unlocks every ghost and lists every upgrade without touching storage; `0` unlocks only Blinky and lists no upgrades, overriding real storage.
 
 ## Screen and overlay
 
