@@ -571,7 +571,7 @@ export class LearnSim {
           this.playerSolids(),
         ).state,
       };
-    } else if (!warping && !bouncing) {
+    } else if (!warping && !bouncing && this.possessionBurst === null) {
       turnTap = applyHeldKeys(this.world, maskStaleKeys(keys, this.bounceStaleKeys), {
         diagonalAllowed,
         turnTuning: turnTuningOpts,
