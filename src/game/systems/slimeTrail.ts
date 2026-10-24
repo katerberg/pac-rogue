@@ -9,7 +9,6 @@ import { GhostKind } from "../components/GhostKind";
 import { GhostPhase } from "../components/GhostPhase";
 import { Position } from "../components/Position";
 
-/** Active, in-scope ghosts lay slime on their tile; `skipEids` (frightened, gliding) lay none. */
 export function tickSlimeTrails(
   world: World,
   trails: SlimeTrails,

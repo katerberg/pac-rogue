@@ -51,7 +51,7 @@ import {
   type BossDef,
   type BossState,
 } from "../../domain/bossRules";
-import { slimeOwnerTouching, slimeTiles, type SlimeTrails } from "../../domain/slimeTrail";
+import { slimeOwnerTouching, type SlimeTrails } from "../../domain/slimeTrail";
 import {
   createBossStageTransition,
   tickBossStageTransition,
@@ -758,7 +758,6 @@ export class PlaySim {
   private readonly sonicEchoes = new SonicBoomEchoes();
   private lavaZone: LavaZone | null = null;
   private slimeTrails: SlimeTrails = new Map();
-  /** Level whose board and modifiers are in play (a pool-board boss replays level 8). */
   private boardLevel = 1;
   private lavaElapsedMs = 0;
   private lavaStarted = false;
@@ -1244,7 +1243,7 @@ export class PlaySim {
       mazeColorInverted: this.bossState?.mazeColorInverted === true,
       timedTunnel: this.timedTunnelRenderState(),
       lava: this.lavaRenderState(),
-      slimeTiles: slimeTiles(this.slimeTrails),
+      slimeTiles: [...this.slimeTrails.values()].flat(),
       collapse: this.collapseRenderState(),
       sinkhole: this.sinkholeRenderState(),
       boreJunk: this.tunnelBore.junk,

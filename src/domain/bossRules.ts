@@ -23,7 +23,6 @@ export function chainPairForKind(kind: GhostKindId): ChainPairId | null {
   return null;
 }
 
-/** Which ghosts lay slime in a stage: none, Blinky only, or every ghost. */
 export type SlimeScope = "none" | "blinky" | "all";
 
 export type BossStageDef = {
@@ -41,7 +40,6 @@ export type BossDef = {
   tunnelCount: number | null;
   houseReleaseStaggerMs: number;
   chained: boolean;
-  /** Fought on the run's level 2-8 pool map with level 8's modifiers and roster. */
   poolBoard: boolean;
 };
 
@@ -94,16 +92,12 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
   },
 };
 
-/** Pool-board bosses fight the run's own roster in place of `def.ghostKinds`. */
 export function withBossRoster(def: BossDef, roster: readonly GhostKindId[]): BossDef {
-  return def.poolBoard && roster.length > 0
-    ? { ...def, ghostKinds: roster, startGhosts: roster.length }
-    : def;
+  return def.poolBoard ? { ...def, ghostKinds: roster, startGhosts: roster.length } : def;
 }
 
 export const BOSS_LEVEL = 9;
 
-/** The level whose board and modifiers a pool-board boss replays. */
 export const POOL_BOSS_BOARD_LEVEL = BOSS_LEVEL - 1;
 
 export function isBossLevel(levelIndex: number): boolean {
