@@ -8,10 +8,9 @@ const ECHO_MS = 420;
 const ECHO_THICKNESS_PX = 4;
 const ECHO_DRIFT_TILES = 0.6;
 
-export function playSonicBoomEcho(
-  scene: Phaser.Scene,
-  event: { x: number; y: number; dx: number; dy: number; tiles: number },
-): void {
+type EchoEvent = { x: number; y: number; dx: number; dy: number; tiles: number };
+
+export function playSonicBoomEcho(scene: Phaser.Scene, event: EchoEvent): void {
   const horizontal = event.dx !== 0;
   for (let i = 1; i <= event.tiles; i += 1) {
     const x = event.x + event.dx * TILE_SIZE * i;
@@ -38,4 +37,17 @@ export function playSonicBoomEcho(
       onComplete: () => wave.destroy(),
     });
   }
+}
+
+export function playSlipstreamEcho(scene: Phaser.Scene, event: EchoEvent): void {
+  playSonicBoomEcho(scene, event);
+  scene.time.delayedCall(event.tiles * ECHO_STAGGER_MS + ECHO_MS / 2, () =>
+    playSonicBoomEcho(scene, {
+      x: event.x + event.dx * TILE_SIZE * (event.tiles + 1),
+      y: event.y + event.dy * TILE_SIZE * (event.tiles + 1),
+      dx: -event.dx,
+      dy: -event.dy,
+      tiles: event.tiles,
+    }),
+  );
 }

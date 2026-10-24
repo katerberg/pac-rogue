@@ -712,6 +712,7 @@ export type RenderOptions = {
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   spriteOffsets?: Record<number, { x: number; y: number; rotation?: number }>;
   hauntedGhost?: HauntedGhost | null;
+  slipstreamGhostEids?: readonly number[];
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
@@ -1185,6 +1186,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     const speedTrail = opts?.playerSpeedTrail;
     const ghostWarpGlides = opts?.ghostWarpGlides;
     const frightenedEids = new Set(opts?.frightenedGhosts?.eids ?? []);
+    const slipstreamEids = new Set(opts?.slipstreamGhostEids ?? []);
     const wallPassOn = opts?.wallPassActive === true;
     const wallPassLoopOn = opts?.wallPassLoopActive === true;
     const twinSolids = wallPassLoopOn ? getActiveLayout().wallPassLoopPlayerSolids : undefined;
@@ -1478,8 +1480,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       const radius = Drawable.radius[eid] ?? size / 2;
       const ghostTint =
         ghostTexture !== undefined &&
-        frozenTintOn &&
-        eid === frozenEid &&
+        ((frozenTintOn && eid === frozenEid) || slipstreamEids.has(eid)) &&
         (GhostPhase.value[eid] ?? GHOST_PHASE.inHouse) !== GHOST_PHASE.inHouse
           ? GHOST_FROZEN_TINT
           : null;

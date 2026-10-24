@@ -48,6 +48,7 @@ export type SimRenderOptions = {
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
   spriteOffsets?: Record<number, { x: number; y: number; rotation?: number }>;
   hauntedGhost?: HauntedGhost | null;
+  slipstreamGhostEids?: readonly number[];
   frightenedGhosts?: FrightenedGhosts | null;
   bossChains?: ChainSegment[];
   timedTunnel?: TimedTunnelRenderState | null;
@@ -97,6 +98,7 @@ export type SimEvent =
     }
   | { type: "chaffBurst"; x: number; y: number }
   | { type: "sonicBoomEcho"; x: number; y: number; dx: number; dy: number; tiles: number }
+  | { type: "slipstreamEcho"; x: number; y: number; dx: number; dy: number; tiles: number }
   | { type: "peelCrack"; x: number; y: number }
   | { type: "learnPopup"; text: string; x: number; y: number }
   | { type: "streakPop"; value: number; x: number; y: number }

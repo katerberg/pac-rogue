@@ -93,7 +93,8 @@ export type CoreUpgradeId =
   | "passiveFloating"
   | "passiveGleaning"
   | "passiveSonicBoom"
-  | "passiveScarecrow";
+  | "passiveScarecrow"
+  | "passiveSlipstream";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -131,6 +132,8 @@ export type UpgradeEffects = {
   sonicBoomHitMs?: number;
   sonicBoomHallwayTiles?: number;
   sonicBoomStuns?: true;
+  slipstreamRangeTiles?: number;
+  slipstreamGhostSpeedMul?: number;
   pelletCellSpeedMul?: number;
   ghostSpeedMul?: number;
   fruitLifetimeMul?: number;
@@ -323,6 +326,12 @@ export const SONIC_BOOM_RADIUS_TILES = 2;
 export const SONIC_BOOM_TURN_COOLDOWN_MS = 1000;
 export const SONIC_BOOM_STUN_MS = 2000;
 export const SONIC_BOOM_HALLWAY_TILES = 4;
+export const SLIPSTREAM_RANGE_TILES = 1.5;
+export const SLIPSTREAM_ENHANCED_RANGE_TILES = 2;
+export const SLIPSTREAM_MS = 3000;
+export const SLIPSTREAM_GHOST_SPEED_MUL = 0.7;
+export const SLIPSTREAM_ENHANCED_GHOST_SPEED_MUL = 0;
+export const SLIPSTREAM_PLAYER_SPEED_MUL = 1.25;
 export const MOLE_ENHANCED_PELLET_MUL = 1.3;
 export const PLAYER_SPEED_BURST_ENHANCED_MUL = 1.5;
 export const GHOST_SLOW_ENHANCED_MUL = 0.65;
@@ -1205,6 +1214,23 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       scarecrowLingerMs: SCARECROW_LINGER_MS,
     },
   },
+  {
+    id: "passiveSlipstream",
+    label: "Slipstream",
+    school: "speed",
+    description:
+      "Crossing a ghost at a junction steals 30% of its speed for 3s and gives you +25% speed.",
+    storePrice: STORE_UPGRADE_PRICE,
+    slipstreamRangeTiles: SLIPSTREAM_RANGE_TILES,
+    slipstreamGhostSpeedMul: SLIPSTREAM_GHOST_SPEED_MUL,
+    enhanced: {
+      enhanceNote: "Slipstream reaches 2 tiles and holds the ghost still instead of slowing it.",
+      description:
+        "Crossing a ghost within 2 tiles at a junction holds it still for 3s and gives you +25% speed.",
+      slipstreamRangeTiles: SLIPSTREAM_ENHANCED_RANGE_TILES,
+      slipstreamGhostSpeedMul: SLIPSTREAM_ENHANCED_GHOST_SPEED_MUL,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1433,6 +1459,7 @@ export type RunUpgrades = {
   peelsBanked: number;
   pendingEchoes: PendingEcho[];
   sonicHits: readonly { eid: number; remainingMs: number }[];
+  slipstreams: readonly { eid: number; remainingMs: number }[];
   frightenedRemainingMs: number;
   frightenedGhostEids: number[];
   hunterHeldEids: number[];
@@ -1494,6 +1521,7 @@ export function createRunUpgrades(enabled: readonly UpgradeId[] = []): RunUpgrad
     peelsBanked: 0,
     pendingEchoes: [],
     sonicHits: [],
+    slipstreams: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,
@@ -1850,6 +1878,7 @@ export function clearStaleUpgradeTimers(
     peelsBanked: Math.min(state.peelsBanked, peelBankCap(owned)),
     pendingEchoes: echoEffects(owned) !== null ? state.pendingEchoes : [],
     sonicHits: hasUpgrade(owned, "passiveSonicBoom") ? state.sonicHits : [],
+    slipstreams: hasUpgrade(owned, "passiveSlipstream") ? state.slipstreams : [],
     wallDropArmed: hasField("armWallDrop") && state.wallDropArmed,
     mirrorActive: hasField("mirror") && state.mirrorActive,
     programmer: hasField("programmerSets") ? state.programmer : null,
@@ -1894,6 +1923,7 @@ export function clearUpgradeTimers(state: RunUpgrades): RunUpgrades {
     possessedGhostEid: null,
     pendingEchoes: [],
     sonicHits: [],
+    slipstreams: [],
     ...NO_FRIGHT,
     wallDropArmed: false,
     chaff: null,
