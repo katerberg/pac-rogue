@@ -8869,7 +8869,7 @@ describe("Simulacrum", () => {
   it("does nothing without the upgrade", () => {
     const sim = start([]);
     expect(copies(sim)).toEqual([]);
-    expect(sim.snapshot().simulacrum).toEqual({ copies: [], pops: 0 });
+    expect(sim.snapshot().simulacrum).toEqual({ copies: [], popsAnimating: 0 });
     expect(sim.renderOptions().simulacra).toEqual([]);
   });
 
@@ -8948,7 +8948,7 @@ describe("Simulacrum", () => {
     moveTo(activeGhost(sim), at(copies(sim)[0]!));
     runFrames(sim, 1);
     expect(copies(sim)).toEqual([]);
-    expect(sim.snapshot().simulacrum.pops).toBe(1);
+    expect(sim.snapshot().simulacrum.popsAnimating).toBe(1);
     expect(sim.renderOptions().simulacrumPops).toHaveLength(1);
     expect(sim.snapshot().dying).toBe(false);
     expect(sim.snapshot().lives).toBe(lives);
@@ -8965,7 +8965,7 @@ describe("Simulacrum", () => {
     expect(sim.snapshot().lives).toBe(lives);
     expect(at(player)).toEqual(copySpot);
     expect(copies(sim)).toEqual([]);
-    expect(sim.snapshot().simulacrum.pops).toBe(1);
+    expect(sim.snapshot().simulacrum.popsAnimating).toBe(1);
     expect(sim.runLogRecord().levels.at(-1)!.activations.simulacrum).toBe(1);
   });
 

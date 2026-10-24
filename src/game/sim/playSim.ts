@@ -1407,7 +1407,7 @@ export class PlaySim {
       },
       simulacrum: {
         copies: simulacrumBodies(this.world).map(({ col, row }) => ({ col, row })),
-        pops: this.simulacrumPops.length,
+        popsAnimating: this.simulacrumPops.length,
       },
       speedZones: this.speedZones,
       speedZonesShifting: this.speedZoneShift !== null,
