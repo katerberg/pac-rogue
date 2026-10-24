@@ -99,7 +99,7 @@ export function runJob(job: Job): EpisodeResult {
       const events = sim.step(bot.step(sim), FRAME_MS);
       simMs += FRAME_MS;
       levelMs += FRAME_MS;
-      while (causes.length < sim.deathCount()) {
+      while (job.experiment === "builds" && causes.length < sim.deathCount()) {
         causes.push(bot.deathCause(sim));
       }
       if (sim.currentLevel() !== level) {

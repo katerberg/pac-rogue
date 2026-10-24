@@ -10,7 +10,7 @@ import {
 } from "../../../domain/upgrades";
 import { isTrinketId } from "../../../domain/trinkets";
 import type { ExperimentId, Job } from "./episode";
-import { BUILD_PROFILE_IDS, EXPERT_PROFILE_IDS, PROFILE_IDS } from "./profiles";
+import { BUILD_PROFILE_IDS, EXPERT_PROFILE_IDS, NOVICE_PROFILE_IDS, PROFILE_IDS } from "./profiles";
 
 export type PresetId = "smoke" | "pilot" | "full";
 
@@ -180,7 +180,7 @@ export function presetArms(preset: PresetId): ArmSpec[] {
   const all = Array.from({ length: ROSTER_COUNT }, (_, i) => i);
   if (preset === "smoke") {
     return [
-      { experiment: "builds", arm: "build", profiles: [...SMOKE_PROFILES, "casual@novice"] },
+      { experiment: "builds", arm: "build", profiles: [...SMOKE_PROFILES, ...NOVICE_PROFILE_IDS] },
       ...singleArms(SMOKE_UPGRADES, [5], SMOKE_PROFILES, false),
       ...pairArms(SMOKE_PAIRS, SMOKE_PROFILES),
       ...schoolArms(["speed"], [5], SMOKE_PROFILES),
@@ -189,7 +189,11 @@ export function presetArms(preset: PresetId): ArmSpec[] {
   }
   if (preset === "pilot") {
     return [
-      { experiment: "builds", arm: "build", profiles: [...EXPERT_PROFILE_IDS, "casual@novice"] },
+      {
+        experiment: "builds",
+        arm: "build",
+        profiles: [...EXPERT_PROFILE_IDS, ...NOVICE_PROFILE_IDS],
+      },
       ...singleArms(TESTABLE_UPGRADES, [5], EXPERT_PROFILE_IDS, false),
       ...pairArms(pairsOf(SMOKE_UPGRADES), EXPERT_PROFILE_IDS),
       ...schoolArms(SCHOOLS, [5], EXPERT_PROFILE_IDS),

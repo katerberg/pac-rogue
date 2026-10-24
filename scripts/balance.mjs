@@ -13,23 +13,22 @@ const PROGRESS_MS = 30_000;
 const fruitArtPlugin = {
   name: "fruit-art",
   setup(api) {
-    api.onLoad({ filter: /[\\/]src[\\/]game[\\/]fruitArt\.ts$/ }, () => {
+    api.onLoad({ filter: /[\\/]src[\\/]game[\\/]fruitArt\.ts$/ }, (args) => {
       const paths = readdirSync(join(root, "src", "art", "fruit"))
         .filter((name) => name.endsWith(".png"))
         .map((name) => `../art/fruit/${name}`);
+      const source = readFileSync(args.path, "utf8");
+      const glob = /import\.meta\.glob\([\s\S]*?\}\)/;
+      if (!glob.test(source)) {
+        throw new Error(`${args.path} no longer uses import.meta.glob; drop the fruit-art plugin`);
+      }
       return {
         loader: "ts",
         resolveDir: join(root, "src", "game"),
-        contents: [
-          `import { fruitArtIdOfPath } from "../domain/fruitArt";`,
-          `const artUrlByPath: Record<string, string> = ${JSON.stringify(
-            Object.fromEntries(paths.map((path) => [path, path])),
-          )};`,
-          "export const FRUIT_ART_URLS = new Map(",
-          "  Object.entries(artUrlByPath).map(([path, url]) => [fruitArtIdOfPath(path), url]),",
-          ");",
-          "export const FRUIT_KINDS = Object.freeze([...FRUIT_ART_URLS.keys()].sort());",
-        ].join("\n"),
+        contents: source.replace(
+          glob,
+          JSON.stringify(Object.fromEntries(paths.map((path) => [path, path]))),
+        ),
       };
     });
   },

@@ -68,7 +68,7 @@ function wrap(grid: Grid, col: number, row: number): { col: number; row: number 
   };
 }
 
-function advanceGhost(
+export function advanceGhost(
   state: PlannerState,
   ghost: Ghost,
   amount: number,

@@ -10,13 +10,11 @@ import { GhostKind } from "../../components/GhostKind";
 import { GhostPhase } from "../../components/GhostPhase";
 import { DIRECTION } from "../../components/Input";
 import { Position } from "../../components/Position";
-import { NO_KEYS_HELD } from "../../systems/heldKeys";
+import { GHOST_AI_MODE } from "../../../domain/ghostMode";
 import { PlaySim } from "../playSim";
-import { IDLE_INPUT } from "../simInput";
-import { FRAME_MS } from "../simTesting";
 import { bestExit, cellIndex } from "./navigate";
-import { cellOf, Observer, playerEid, sampleGhosts } from "./observe";
-import { planExits, SURVIVABLE_SCORE, type PlannerWeights } from "./planner";
+import { Observer, playerEid, sampleGhosts } from "./observe";
+import { advanceGhost, planExits, SURVIVABLE_SCORE, type PlannerWeights } from "./planner";
 
 const WEIGHTS: PlannerWeights = {
   pellet: 1,
@@ -41,6 +39,27 @@ function corridorRun(length: number): { row: number; col: number } {
     }
   }
   throw new Error("no corridor");
+}
+
+function sideJunction(): { row: number; col: number } {
+  const solids = getActiveLayout().playerSolids;
+  const open = (col: number, row: number) => solids[row]?.[col] === false;
+  for (let row = 1; row < solids.length - 4; row += 1) {
+    for (let col = 2; col < solids[row]!.length - 2; col += 1) {
+      if (
+        open(col, row) &&
+        open(col - 1, row) &&
+        open(col + 1, row) &&
+        !open(col, row - 1) &&
+        open(col, row + 1) &&
+        open(col, row + 2) &&
+        open(col, row + 3)
+      ) {
+        return { row, col };
+      }
+    }
+  }
+  throw new Error("no side junction");
 }
 
 function place(eid: number, col: number, row: number, facing: number): void {
@@ -82,31 +101,37 @@ describe("planExits", () => {
     expect(bestExit(scores)).toBe(DIRECTION.left);
   });
 
-  it("plans against ghosts that keep their heading when the tier does not read them", () => {
+  it("keeps a ghost on its heading at a junction when the tier does not read targeting", () => {
     const sim = new PlaySim(
       { ...defaultPlayOptions(), level: 3, maze: "maze1", disableLevelUpgrades: true },
       "planner-naive",
     );
     sim.start();
-    for (let frame = 0; frame < 600; frame += 1) {
-      sim.step({ ...IDLE_INPUT, keys: { ...NO_KEYS_HELD, left: 1 } }, FRAME_MS);
-    }
-    const ghosts = sampleGhosts(sim.world);
-    expect(ghosts.some((ghost) => ghost.phase === GHOST_PHASE.active)).toBe(true);
-    const observer = new Observer();
-    const { grid } = observer.grid(false);
+    const { row, col } = sideJunction();
     const player = playerEid(sim.world)!;
-    const start = cellOf(grid, Position.x[player]!, Position.y[player]!)!;
-    const decision = { current: start, cell: start, distPx: 0, facing: DIRECTION.left };
-    const reading = planExits(
-      observer.plannerState(sim, ghosts, decision, { depth: 12, readsGhosts: true }),
-      WEIGHTS,
-    );
-    const naive = planExits(
-      observer.plannerState(sim, ghosts, decision, { depth: 12, readsGhosts: false }),
-      WEIGHTS,
-    );
-    expect(naive.map((e) => e.direction)).toEqual(reading.map((e) => e.direction));
-    expect(naive.map((e) => e.score)).not.toEqual(reading.map((e) => e.score));
+    place(player, col, row + 3, DIRECTION.up);
+    const blinky = [...query(sim.world, [Ghost, GhostKind])].find(
+      (eid) => GhostKind.kind[eid] === GHOST_KIND.blinky,
+    )!;
+    place(blinky, col - 1, row, DIRECTION.right);
+    GhostPhase.value[blinky] = GHOST_PHASE.active;
+    const observer = new Observer();
+    const start = cellIndex(observer.grid(false).grid, col, row + 3);
+    const decision = { current: start, cell: start, distPx: 0, facing: DIRECTION.up };
+    const walk = (readsGhosts: boolean) => {
+      const state = {
+        ...observer.plannerState(sim, sampleGhosts(sim.world), decision, {
+          depth: 12,
+          readsGhosts,
+        }),
+        mode: GHOST_AI_MODE.chase,
+      };
+      const ghost = { ...state.ghosts.find((g) => g.blinky)! };
+      const at = { col, row: row + 3, facing: DIRECTION.up };
+      advanceGhost(state, ghost, 1, at, ghost);
+      return ghost;
+    };
+    expect(walk(false)).toMatchObject({ col, row, dir: DIRECTION.right });
+    expect(walk(true)).toMatchObject({ col, row, dir: DIRECTION.down });
   });
 });

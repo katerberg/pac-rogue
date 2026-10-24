@@ -31,14 +31,37 @@ export const DEATH_CAUSES = [
 ] as const;
 export type DeathCause = (typeof DEATH_CAUSES)[number];
 
-type LastPlan = {
+export type PlanVerdict = {
+  survivable: boolean;
+  mistake: boolean;
+  missedTurn: boolean;
+  mode: GhostAiMode;
+  ghostKinds: ReadonlySet<string>;
+};
+
+export type DeathObservation = {
+  mode: GhostAiMode;
+  killer: string | null;
+  exactSurvives: () => boolean;
+};
+
+export function classifyDeath(plan: PlanVerdict, now: DeathObservation): DeathCause {
+  if (!plan.survivable) {
+    return plan.missedTurn ? "execution" : "cornered";
+  }
+  if (plan.mistake) {
+    return "execution";
+  }
+  if (now.mode !== plan.mode || (now.killer !== null && !plan.ghostKinds.has(now.killer))) {
+    return "horizon";
+  }
+  return now.exactSurvives() ? "model" : "reaction";
+}
+
+type LastPlan = PlanVerdict & {
   decision: Decision;
   exact: readonly GhostSample[];
-  survivable: boolean;
   choice: Direction | null;
-  mistake: boolean;
-  mode: GhostAiMode;
-  ghostEids: ReadonlySet<number>;
 };
 
 export function gaussianFrom(rng: () => number): () => number {
@@ -146,30 +169,25 @@ export class Bot {
 
   deathCause(sim: PlaySim): DeathCause {
     const plan = this.lastPlan;
-    const eid = playerEid(sim.world);
-    if (plan === null || eid === undefined) {
+    if (plan === null) {
       return "unknown";
     }
-    if (!plan.survivable) {
-      return "cornered";
-    }
-    if (plan.mistake || (plan.choice !== null && Facing.direction[eid] !== plan.choice)) {
-      return "execution";
-    }
-    const mode = GHOST_AI_MODE[sim.snapshot().ghostMode as keyof typeof GHOST_AI_MODE];
-    const x = Position.x[eid] ?? 0;
-    const y = Position.y[eid] ?? 0;
-    const killer = sampleGhosts(sim.world)
-      .filter((ghost) => ghost.phase === GHOST_PHASE.active)
-      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
-    if (mode !== plan.mode || (killer !== undefined && !plan.ghostEids.has(killer.eid))) {
-      return "horizon";
-    }
-    const exact = this.observer.plannerState(sim, plan.exact, plan.decision, this.profile.skill);
-    const chosen = planExits(exact, plannerWeights(this.profile.persona.weights, exact)).find(
-      (entry) => entry.direction === plan.choice,
-    );
-    return chosen !== undefined && chosen.score > SURVIVABLE_SCORE ? "model" : "reaction";
+    return classifyDeath(plan, {
+      mode: GHOST_AI_MODE[sim.snapshot().ghostMode as keyof typeof GHOST_AI_MODE],
+      killer: sim.runLogRecord().levels.at(-1)?.deaths.at(-1)?.ghost ?? null,
+      exactSurvives: () => {
+        const exact = this.observer.plannerState(
+          sim,
+          plan.exact,
+          plan.decision,
+          this.profile.skill,
+        );
+        const chosen = planExits(exact, plannerWeights(this.profile.persona.weights, exact)).find(
+          (entry) => entry.direction === plan.choice,
+        );
+        return chosen !== undefined && chosen.score > SURVIVABLE_SCORE;
+      },
+    });
   }
 
   step(sim: PlaySim): SimInput {
@@ -277,16 +295,23 @@ export class Bot {
     if (mistake) {
       choice = survivable[Math.floor(this.rng() * survivable.length)]!.direction;
     }
+    const previous = this.lastPlan;
+    const chasing = new Set(
+      state.ghosts.filter((ghost) => ghost.frightenedSteps <= 0).map((ghost) => ghost.eid),
+    );
     this.lastPlan = {
       decision,
       exact: this.history.at(-1) ?? [],
       survivable: survivable.length > 0,
       choice,
       mistake,
+      missedTurn:
+        previous !== null &&
+        previous.choice !== null &&
+        previous.decision.cell === decision.current &&
+        previous.choice !== decision.facing,
       mode: state.mode,
-      ghostEids: new Set(
-        state.ghosts.filter((ghost) => ghost.frightenedSteps <= 0).map((ghost) => ghost.eid),
-      ),
+      ghostKinds: new Set(delayed.filter((ghost) => chasing.has(ghost.eid)).map((g) => g.kind)),
     };
     if (choice === null || (choice === this.held && this.pending === null)) {
       this.pending = null;
