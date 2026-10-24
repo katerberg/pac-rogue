@@ -4,9 +4,9 @@
 
 ## Seen record
 
-All six ghosts are always selectable; only upgrades met in real play are listed. The record (`src/domain/seenRecord.ts`, stored by `seenRecordStorage.ts`) is written **only** by `PlayScene` / `PlaySim` (every spawned ghost kind, and every owned upgrade id whenever `owned` can grow, `?enableUpgrade` included). Learn reads it. A malformed or missing record is empty.
+Blinky is always selectable; every other ghost shows as a grey, locked slot named `???` (and does nothing when clicked or keyed) until it has spawned in real play. Only upgrades met in real play are listed. The record (`src/domain/seenRecord.ts`, stored by `seenRecordStorage.ts`) is written **only** by `PlayScene` / `PlaySim` (every spawned ghost kind, and every owned upgrade id whenever `owned` can grow, `?enableUpgrade` included). Learn reads it. A malformed or missing record is empty.
 
-`?learnAll=1|0` (without `?play=1`) boots straight into LEARN. `1` lists every upgrade without touching storage; `0` lists none, overriding real storage.
+`?learnAll=1|0` (without `?play=1`) boots straight into LEARN. `1` unlocks every ghost and lists every upgrade without touching storage; `0` unlocks only Blinky and lists no upgrades, overriding real storage.
 
 ## Screen and overlay
 
@@ -16,7 +16,7 @@ All six ghosts are always selectable; only upgrades met in real play are listed.
 - Hovering a label shows the level-clear picker card flush with the playfield bottom (overlapping BACK; `learnHoverPreviewCenter`). A `+` mark on a selected row toggles its enhanced form (`LearnSim.toggleEnhanced`).
 - Selecting an upgrade with no observable effect here (`LEARN_NO_EFFECT_UPGRADE_IDS` in `src/domain/upgrades.ts`) shows a "no visible effect" banner.
 - The overlay is drawn each frame from `resolveGhostTarget` (the same function `ghostAi` uses) and the pure helpers in `src/domain/learnOverlay.ts`: a target reticle, the ghost's predicted greedy path, and gray derivation lines per ghost (Pinky look-ahead, Inky pivot, Clyde shy circle, Spunky aggro circle, Wardy rim line). Targeting math stays tile-based.
-- Controls: arrows/WASD, `1`-`6` or click to pick a ghost, click to toggle an upgrade, wheel over a side list to scroll when it overflows, Esc or BACK to leave.
+- Controls: arrows/WASD, `1`-`6` or click to pick an unlocked ghost (locked slots ignore both), click to toggle an upgrade, wheel over a side list to scroll when it overflows, Esc or BACK to leave.
 
 ## Differences from play
 
