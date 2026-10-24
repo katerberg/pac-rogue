@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  SALVAGE_ALERT_BLINK_MS,
-  SALVAGE_ALERT_MS,
-  salvageAlertFrame,
+  salvageCardStep,
+  salvageCardTitle,
   salvageSelectionStep,
   TRINKET_TOAST_FADE_MS,
   TRINKET_TOAST_HOLD_MS,
@@ -48,12 +47,29 @@ describe("salvageSelectionStep", () => {
   });
 });
 
-describe("salvageAlertFrame", () => {
-  it("blinks the outline, then hands over to selection", () => {
-    expect(salvageAlertFrame(0)).toEqual({ phase: "alert", outlineVisible: true });
-    expect(salvageAlertFrame(SALVAGE_ALERT_BLINK_MS).outlineVisible).toBe(false);
-    expect(salvageAlertFrame(SALVAGE_ALERT_BLINK_MS * 2).outlineVisible).toBe(true);
-    expect(salvageAlertFrame(SALVAGE_ALERT_MS)).toEqual({ phase: "select", outlineVisible: true });
+describe("salvageCardStep", () => {
+  it("walks the six owned cards with up and down, wrapping", () => {
+    expect(salvageCardStep(0, "down", 6)).toEqual({ index: 1, outcome: null });
+    expect(salvageCardStep(5, "down", 6).index).toBe(0);
+    expect(salvageCardStep(0, "up", 6).index).toBe(5);
+  });
+
+  it("salvages the new card on left and the selected owned card on right or confirm", () => {
+    expect(salvageCardStep(3, "left", 6)).toEqual({ index: 3, outcome: "salvageNew" });
+    expect(salvageCardStep(3, "right", 6)).toEqual({ index: 3, outcome: "salvageOwned" });
+    expect(salvageCardStep(3, "confirm", 6).outcome).toBe("salvageOwned");
+  });
+
+  it("has no dismiss", () => {
+    expect(salvageCardStep(3, "cancel", 6)).toEqual({ index: 3, outcome: null });
+  });
+});
+
+describe("salvageCardTitle", () => {
+  it("calls a slot win a bonus", () => {
+    expect(salvageCardTitle("slots")).toBe("BONUS UPGRADE!");
+    expect(salvageCardTitle("offer")).toBe("NEW UPGRADE!");
+    expect(salvageCardTitle("store")).toBe("NEW UPGRADE!");
   });
 });
 

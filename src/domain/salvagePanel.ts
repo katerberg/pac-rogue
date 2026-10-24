@@ -1,6 +1,5 @@
-export const SALVAGE_ALERT_BLINKS = 3;
-export const SALVAGE_ALERT_BLINK_MS = 180;
-export const SALVAGE_ALERT_MS = SALVAGE_ALERT_BLINKS * 2 * SALVAGE_ALERT_BLINK_MS;
+import type { UpgradeSource } from "./runLog";
+
 export const TRINKET_TOAST_HOLD_MS = 1400;
 export const TRINKET_TOAST_FADE_MS = 400;
 
@@ -38,17 +37,26 @@ export function salvageSelectionStep(
   }
 }
 
-export function salvageAlertFrame(elapsedMs: number): {
-  phase: "alert" | "select";
-  outlineVisible: boolean;
-} {
-  if (elapsedMs >= SALVAGE_ALERT_MS) {
-    return { phase: "select", outlineVisible: true };
+export type SalvageCardStep = { index: number; outcome: "salvageNew" | "salvageOwned" | null };
+
+export function salvageCardStep(index: number, key: SalvageKey, count: number): SalvageCardStep {
+  switch (key) {
+    case "up":
+      return { index: (index + count - 1) % count, outcome: null };
+    case "down":
+      return { index: (index + 1) % count, outcome: null };
+    case "left":
+      return { index, outcome: "salvageNew" };
+    case "right":
+    case "confirm":
+      return { index, outcome: "salvageOwned" };
+    case "cancel":
+      return { index, outcome: null };
   }
-  return {
-    phase: "alert",
-    outlineVisible: Math.floor(elapsedMs / SALVAGE_ALERT_BLINK_MS) % 2 === 0,
-  };
+}
+
+export function salvageCardTitle(source: UpgradeSource): string {
+  return source === "slots" ? "BONUS UPGRADE!" : "NEW UPGRADE!";
 }
 
 export function trinketToastAlpha(elapsedMs: number): number {

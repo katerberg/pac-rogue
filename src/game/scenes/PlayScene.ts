@@ -104,6 +104,7 @@ import { createStartingUpgradeCard, type StartingUpgradeCard } from "./startingU
 import { playStreakPop } from "./streakPop";
 import { drawUpgradeDrain, pulseUpgradeMarks, type UpgradeMark } from "./upgradeTimerFx";
 import { createSlotOverlay, type SlotOverlay } from "./slotOverlay";
+import { createSalvageCard, type SalvageCard } from "./salvageCard";
 import {
   addTrinketCard,
   createSalvagePanel,
@@ -167,6 +168,7 @@ export class PlayScene extends Phaser.Scene {
   private upgradeIcons: UpgradeMark[] = [];
   private trinketCards: Phaser.GameObjects.Container[] = [];
   private salvageUi!: SalvagePanel;
+  private salvageCard!: SalvageCard;
   private keyT!: Phaser.Input.Keyboard.Key;
   private upgradeDrain!: Phaser.GameObjects.Graphics;
   private levelBannerText: Phaser.GameObjects.BitmapText | null = null;
@@ -240,6 +242,8 @@ export class PlayScene extends Phaser.Scene {
     this.slotOverlay = createSlotOverlay(this);
     this.salvageUi?.destroy();
     this.salvageUi = createSalvagePanel(this);
+    this.salvageCard?.destroy();
+    this.salvageCard = createSalvageCard(this);
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.repeat && event.key !== "Escape" && event.key.toLowerCase() !== "t") {
         this.keyPressed = true;
@@ -331,6 +335,7 @@ export class PlayScene extends Phaser.Scene {
       this.upgradeChoiceModal.destroy();
       this.startingUpgradeCard.destroy();
       this.salvageUi.destroy();
+      this.salvageCard.destroy();
       this.closeStoreUi();
       this.clearLevelBanner();
       this.knobsPanel?.destroy();
@@ -393,13 +398,14 @@ export class PlayScene extends Phaser.Scene {
     }
 
     const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
-    const salvaging = this.salvageUi.mode() !== null;
+    const salvaging = this.salvageUi.isOpen() || this.salvageCard.isOpen();
     if (escDown && !salvaging && this.runEndMenu === null && !this.sim.storeRouting()) {
       this.pauseForMenu();
       return;
     }
 
-    this.salvageUi.tick(delta, salvaging && escDown);
+    this.salvageUi.tick(delta, this.salvageUi.isOpen() && escDown);
+    this.salvageCard.tick(delta);
     if (salvaging) {
       this.keyPressed = false;
     } else if (this.startingUpgradeCard.isActive()) {
@@ -417,7 +423,8 @@ export class PlayScene extends Phaser.Scene {
         uiOpen:
           this.startingUpgradeCard.isActive() ||
           this.upgradeChoiceModal.isActive() ||
-          this.salvageUi.mode() !== null,
+          this.salvageUi.isOpen() ||
+          this.salvageCard.isOpen(),
         storeFocus: storeFocusForDir(keyDir),
         storeDir,
         storeConfirm:
@@ -479,7 +486,11 @@ export class PlayScene extends Phaser.Scene {
         texture: mark instanceof Phaser.GameObjects.Image ? mark.texture.key : null,
       })),
       upgradeModalOpen: this.upgradeChoiceModal.isActive(),
-      salvageUi: this.salvageUi.mode(),
+      salvageUi: this.salvageUi.isOpen(),
+      salvageCard: {
+        open: this.salvageCard.isOpen(),
+        selected: this.salvageCard.selected(),
+      },
       trinketPool: this.trinketCards.length,
       upgradeOffer: this.upgradeChoiceModal.offer()?.upgrades ?? null,
       upgradeOfferEnhanced: this.upgradeChoiceModal.offer()?.enhanced ?? null,
@@ -1089,7 +1100,7 @@ export class PlayScene extends Phaser.Scene {
     size: number;
   }[] {
     const { size, left } = this.hudIconGeometry();
-    return ownedUpgradeStacks(this.hudUpgradeIds())
+    return ownedUpgradeStacks(this.sim.hud().upgrades)
       .filter(({ id }) => !isTrinketId(id))
       .map(({ id, copies }, i) => ({
         id,
@@ -1107,12 +1118,6 @@ export class PlayScene extends Phaser.Scene {
     };
   }
 
-  private hudUpgradeIds(): UpgradeId[] {
-    const incoming = this.sim.salvagePrompt()?.incoming;
-    const owned = this.sim.hud().upgrades;
-    return incoming === undefined ? [...owned] : [...owned, incoming];
-  }
-
   public panelText(): { x: number; y: number } {
     const { size, left } = this.hudIconGeometry();
     return upgradeHudTextAnchor(
@@ -1125,7 +1130,7 @@ export class PlayScene extends Phaser.Scene {
 
   public trinketPoolCards() {
     const { size, left } = this.hudIconGeometry();
-    const stacks = ownedUpgradeStacks(this.hudUpgradeIds());
+    const stacks = ownedUpgradeStacks(this.sim.hud().upgrades);
     return trinketPoolLayout(
       stacks.filter(({ id }) => isTrinketId(id)),
       stacks.filter(({ id }) => !isTrinketId(id)).length,
@@ -1157,13 +1162,18 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private syncSalvageUi(): void {
-    if (this.salvageUi.mode() !== null) {
+    if (this.salvageUi.isOpen() || this.salvageCard.isOpen()) {
       return;
     }
     const prompt = this.sim.salvagePrompt();
     if (prompt !== null) {
       if (!this.upgradeChoiceModal.isActive() && this.sim.slotView() === null) {
-        this.openSalvageRequired();
+        this.salvageCard.open({
+          ...prompt,
+          owned: this.upgradeHudSlots(),
+          onSalvageNew: () => this.applyEvents(this.sim.salvageNew(), 0),
+          onSalvageOwned: (id) => this.applyEvents(this.sim.salvageReplace(id), 0),
+        });
       }
       return;
     }
@@ -1177,8 +1187,6 @@ export class PlayScene extends Phaser.Scene {
       this.salvageUi.open({
         items: this.upgradeHudSlots(),
         text: this.panelText(),
-        alert: false,
-        cancellable: true,
         onPick: (id) => {
           this.upgradeChoiceModal.rearmSelectionKeys();
           this.applyEvents(this.sim.salvageOwned(id), 0);
@@ -1186,17 +1194,6 @@ export class PlayScene extends Phaser.Scene {
         onClose: () => this.upgradeChoiceModal.rearmSelectionKeys(),
       });
     }
-  }
-
-  private openSalvageRequired(): void {
-    this.refreshUpgradesHud();
-    this.salvageUi.open({
-      items: this.upgradeHudSlots(),
-      text: this.panelText(),
-      alert: true,
-      cancellable: false,
-      onPick: (id) => this.applyEvents(this.sim.salvagePick(id), 0),
-    });
   }
 
   private refreshUpgradesHud(): void {

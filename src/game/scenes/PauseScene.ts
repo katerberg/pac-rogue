@@ -182,7 +182,7 @@ export class PauseScene extends Phaser.Scene {
     this.moveCooldownMs = Math.max(0, this.moveCooldownMs - delta);
 
     const escDown = Phaser.Input.Keyboard.JustDown(this.keyEsc);
-    const salvaging = this.salvageUi.mode() !== null;
+    const salvaging = this.salvageUi.isOpen();
     this.salvageUi.tick(delta, salvaging && escDown);
     if (salvaging) {
       return;
@@ -319,8 +319,6 @@ export class PauseScene extends Phaser.Scene {
     this.salvageUi.open({
       items: play.upgradeHudSlots(),
       text: play.panelText(),
-      alert: false,
-      cancellable: true,
       start,
       onPick: (id) => {
         const result = play.salvageFromPause(id);

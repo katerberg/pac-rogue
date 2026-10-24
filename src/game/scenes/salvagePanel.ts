@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import {
-  salvageAlertFrame,
   salvageSelectionStep,
   trinketToastAlpha,
   type SalvageKey,
@@ -22,22 +21,17 @@ import { MODAL_DEPTH, SCHOOL_COLORS } from "./upgradeChoiceModal";
 const DEPTH = MODAL_DEPTH + 10;
 const ALERT_RED = 0xff3030;
 const SELECT_PAD = 3;
-const DASH = 3;
 const TEXT_LINE = 14;
 const TEXT_LINE_SPACING = 3;
 const DESCRIPTION_CHARS = 20;
 
 export type PanelItem = { id: UpgradeId; x: number; y: number; size: number };
 export type PanelText = { x: number; y: number };
-export type SalvagePanelMode = "alert" | "select";
-
 export type SalvagePanel = {
-  mode: () => SalvagePanelMode | null;
+  isOpen: () => boolean;
   open: (options: {
     items: readonly PanelItem[];
     text: PanelText;
-    alert: boolean;
-    cancellable: boolean;
     start?: number;
     onPick: (id: UpgradeId, index: number) => void;
     onClose?: () => void;
@@ -62,21 +56,9 @@ export function addTrinketCard(
   return scene.add.container(x, y, [back, art]).setSize(size, size);
 }
 
-function dashedSquare(graphics: Phaser.GameObjects.Graphics, item: PanelItem): void {
-  const half = item.size / 2 + SELECT_PAD;
-  const left = item.x - half;
-  const top = item.y - half;
-  const span = half * 2;
-  for (let d = 0; d < span; d += DASH * 2) {
-    const len = Math.min(DASH, span - d);
-    graphics.fillRect(left + d, top, len, 2);
-    graphics.fillRect(left + d, top + span - 2, len, 2);
-    graphics.fillRect(left, top + d, 2, len);
-    graphics.fillRect(left + span - 2, top + d, 2, len);
-  }
-}
+export type SalvageKeys = { pressed: () => SalvageKey | null; anyHeld: () => boolean };
 
-export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
+export function createSalvageKeys(scene: Phaser.Scene): SalvageKeys {
   const keyboard = scene.input.keyboard;
   const { KeyCodes } = Phaser.Input.Keyboard;
   const codes: Record<Exclude<SalvageKey, "cancel">, number[]> = {
@@ -90,13 +72,21 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
     name: name as SalvageKey,
     keys: keyboard === null ? [] : list.map((code) => keyboard.addKey(code)),
   }));
+  return {
+    pressed: () =>
+      keys.find(({ keys: list }) => list.some((key) => Phaser.Input.Keyboard.JustDown(key)))
+        ?.name ?? null,
+    anyHeld: () => keys.some(({ keys: list }) => list.some((key) => key.isDown)),
+  };
+}
 
-  let mode: SalvagePanelMode | null = null;
+export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
+  const keys = createSalvageKeys(scene);
+  let open = false;
   let parts: Phaser.GameObjects.GameObject[] = [];
   let toastParts: Phaser.GameObjects.GameObject[] = [];
   let toastElapsed = 0;
   let armed = false;
-  let elapsed = 0;
   let index = 0;
   let redraw: () => void = () => {};
   let onKey: (key: SalvageKey) => void = () => {};
@@ -113,15 +103,13 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
   const clear = (): void => {
     parts.forEach((part) => part.destroy());
     parts = [];
-    mode = null;
+    open = false;
   };
 
   const clearToast = (): void => {
     toastParts.forEach((part) => part.destroy());
     toastParts = [];
   };
-
-  const anyHeld = (): boolean => keys.some(({ keys: list }) => list.some((key) => key.isDown));
 
   const text = (at: PanelText, line: number, content: string, color: number) => {
     const label = track(
@@ -133,16 +121,14 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
   };
 
   return {
-    mode: () => mode,
+    isOpen: () => open,
 
-    open: ({ items, text: at, alert, cancellable, start = 0, onPick, onClose }) => {
+    open: ({ items, text: at, start = 0, onPick, onClose }) => {
       clear();
       clearToast();
-      mode = alert ? "alert" : "select";
-      elapsed = 0;
-      armed = !anyHeld();
-      index = alert ? items.length - 1 : start;
-      const newest = alert ? items[items.length - 1] : undefined;
+      open = true;
+      armed = !keys.anyHeld();
+      index = start;
       items.forEach((item) => {
         const icon = track(
           parts,
@@ -152,72 +138,24 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
         );
         icon.setInteractive({ useHandCursor: true });
         icon.on("pointerover", () => {
-          if (mode === "select") {
-            index = items.indexOf(item);
-            redraw();
-          }
+          index = items.indexOf(item);
+          redraw();
         });
         icon.on("pointerdown", () => {
-          if (mode === "select") {
-            clear();
-            onPick(item.id, items.indexOf(item));
-          }
+          clear();
+          onPick(item.id, items.indexOf(item));
         });
       });
-      const outline = track(parts, scene.add.graphics());
       const selector = track(parts, scene.add.graphics());
-      const alertBand =
-        newest === undefined
-          ? null
-          : track(
-              parts,
-              scene.add.rectangle(newest.x, newest.y, newest.size + 8, 22, 0x000000, 0.85),
-            );
-      const alertLabel =
-        newest === undefined
-          ? null
-          : track(
-              parts,
-              addPixelText(
-                scene,
-                newest.x,
-                newest.y,
-                "SLOTS\nFULL",
-                UPGRADES_HUD_FONT_SIZE,
-                ALERT_RED,
-              ),
-            );
-      if (alertLabel !== null && newest !== undefined) {
-        placePixelText(alertLabel, newest.x, newest.y, 0.5, 0.5);
-      }
-      const header = text(at, 0, cancellable ? "SALVAGE WHICH?" : "SALVAGE REQUIRED", ALERT_RED);
+      text(at, 0, "SALVAGE WHICH?", ALERT_RED);
       const name = text(at, 2, "", TEXT_COLOR_YELLOW);
       const body = text(at, 3, "", TEXT_COLOR_WHITE);
-      const hint = text(
-        at,
-        8,
-        cancellable ? "ENTER: SALVAGE\nESC: BACK" : "ENTER: SALVAGE",
-        TEXT_COLOR_WHITE,
-      );
+      const hint = text(at, 8, "ENTER: SALVAGE\nESC: BACK", TEXT_COLOR_WHITE);
 
       redraw = () => {
-        const frame = salvageAlertFrame(alert ? elapsed : Number.POSITIVE_INFINITY);
-        mode = frame.phase;
-        outline.clear();
-        if (newest !== undefined && frame.outlineVisible) {
-          outline.fillStyle(ALERT_RED, 1);
-          dashedSquare(outline, newest);
-        }
-        alertLabel?.setVisible(frame.phase === "alert");
-        alertBand?.setVisible(frame.phase === "alert");
-        const selecting = frame.phase === "select";
         selector.clear();
-        header.setVisible(selecting);
-        hint.setVisible(selecting);
-        name.setVisible(selecting);
-        body.setVisible(selecting);
         const current = items[index];
-        if (!selecting || current === undefined) {
+        if (current === undefined) {
           return;
         }
         selector.lineStyle(2, TEXT_COLOR_YELLOW, 1);
@@ -232,13 +170,7 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
         placePixelText(hint, at.x, hintY, 0.5, 0);
       };
       onKey = (key) => {
-        const step = salvageSelectionStep(
-          index,
-          key,
-          items.length,
-          UPGRADE_HUD_COLUMNS,
-          cancellable,
-        );
+        const step = salvageSelectionStep(index, key, items.length, UPGRADE_HUD_COLUMNS, true);
         index = step.index;
         if (step.outcome === "salvage" && items[index] !== undefined) {
           const picked = items[index]!;
@@ -289,27 +221,20 @@ export function createSalvagePanel(scene: Phaser.Scene): SalvagePanel {
           clearToast();
         }
       }
-      if (mode === null) {
-        return;
-      }
-      elapsed += deltaMs;
-      if (mode === "alert") {
-        redraw();
+      if (!open) {
         return;
       }
       if (!armed) {
-        armed = !anyHeld();
+        armed = !keys.anyHeld();
         return;
       }
       if (escDown) {
         onKey("cancel");
         return;
       }
-      const pressed = keys.find(({ keys: list }) =>
-        list.some((key) => Phaser.Input.Keyboard.JustDown(key)),
-      );
-      if (pressed !== undefined) {
-        onKey(pressed.name);
+      const pressed = keys.pressed();
+      if (pressed !== null) {
+        onKey(pressed);
       }
     },
 

@@ -122,7 +122,7 @@ function placeSlotHint(
     .setDepth(MODAL_DEPTH + 3);
 }
 
-type CardCopy = {
+export type CardCopy = {
   label: string;
   description: string;
   school?: UpgradeSchool;
