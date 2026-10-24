@@ -5,23 +5,50 @@ import {
   pickBossPelletCells,
 } from "./bossBoard";
 import { GHOST_DIR } from "./ghostPath";
-import { activateAsciiLayout, activateLayout, getActiveLayout, pelletCellCenters } from "./maze";
-import { GENERATE_MAX_ATTEMPTS, generateMazeAsciiWithRetries } from "./mazeGenerate";
+import {
+  activateAsciiLayout,
+  activateLayout,
+  getActiveLayout,
+  getLayout,
+  pelletCellCenters,
+} from "./maze";
+import { SWARM_BOSS_MAZE_ASCII } from "./mazeLayouts";
 
 describe("bossTunnelMouths", () => {
-  it("rotates clockwise from the bottom-left mouth", () => {
-    expect(bossTunnelMouths([4, 16, 28], 28)).toEqual([
-      { col: 0, row: 28, facing: GHOST_DIR.right },
-      { col: 0, row: 16, facing: GHOST_DIR.right },
-      { col: 0, row: 4, facing: GHOST_DIR.right },
-      { col: 27, row: 4, facing: GHOST_DIR.left },
-      { col: 27, row: 16, facing: GHOST_DIR.left },
-      { col: 27, row: 28, facing: GHOST_DIR.left },
+  afterEach(() => {
+    activateLayout("maze1");
+  });
+
+  it("finds the side tunnel and both vertical tunnel ends on the swarm board", () => {
+    const { playerSolids, cols, rows } = activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
+    const mouths = bossTunnelMouths(playerSolids);
+    expect(mouths).toHaveLength(6);
+    expect(mouths).toEqual(
+      expect.arrayContaining([
+        { col: 0, row: 21, facing: GHOST_DIR.right },
+        { col: cols - 1, row: 21, facing: GHOST_DIR.left },
+        { col: 1, row: 0, facing: GHOST_DIR.down },
+        { col: cols - 2, row: 0, facing: GHOST_DIR.down },
+        { col: 1, row: rows - 1, facing: GHOST_DIR.up },
+        { col: cols - 2, row: rows - 1, facing: GHOST_DIR.up },
+      ]),
+    );
+  });
+
+  it("sends the first Blinkys from opposite vertical corners, keeping the side tunnel for later", () => {
+    const { playerSolids, cols, rows } = activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
+    const mouths = bossTunnelMouths(playerSolids);
+    expect(mouths.slice(0, 2)).toEqual([
+      { col: 1, row: 0, facing: GHOST_DIR.down },
+      { col: cols - 2, row: rows - 1, facing: GHOST_DIR.up },
     ]);
+    expect(mouths.slice(4).every((mouth) => mouth.row === 21)).toBe(true);
   });
 
   it("returns no mouths without tunnels", () => {
-    expect(bossTunnelMouths([], 28)).toEqual([]);
+    const { playerSolids } = getLayout("mazeSmall");
+    const sealed = playerSolids.map((row) => row.map((solid, col) => solid || col === 0));
+    expect(bossTunnelMouths(sealed)).toEqual([]);
   });
 });
 
@@ -30,26 +57,20 @@ describe("pickBossPelletCells", () => {
     activateLayout("maze1");
   });
 
-  it("spreads 8 pellets across a generated boss board, clear of the player spawn", () => {
-    for (let i = 0; i < 6; i += 1) {
-      const result = generateMazeAsciiWithRetries(`boss-pellets-${i}`, GENERATE_MAX_ATTEMPTS, {
-        tunnelCount: 3,
-      });
-      activateAsciiLayout(result!.ascii);
-      const spawn = getActiveLayout().playerSpawn;
-      const regular = pelletCellCenters().filter((cell) => cell.kind === "dot");
-      const picks = pickBossPelletCells(regular, spawn, 8);
-      expect(picks).toHaveLength(8);
-      for (const pick of picks) {
-        const fromSpawn = Math.abs(pick.col - spawn.col) + Math.abs(pick.row - spawn.row);
-        expect(fromSpawn).toBeGreaterThan(BOSS_PELLET_SPAWN_CLEARANCE_TILES);
-      }
-      for (let a = 0; a < picks.length; a += 1) {
-        for (let b = a + 1; b < picks.length; b += 1) {
-          const d =
-            Math.abs(picks[a]!.col - picks[b]!.col) + Math.abs(picks[a]!.row - picks[b]!.row);
-          expect(d).toBeGreaterThanOrEqual(5);
-        }
+  it("spreads the stage's boss pellets across the swarm board, clear of the player spawn", () => {
+    activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
+    const spawn = getActiveLayout().playerSpawn;
+    const regular = pelletCellCenters().filter((cell) => cell.kind === "dot");
+    const picks = pickBossPelletCells(regular, spawn, 3);
+    expect(picks).toHaveLength(3);
+    for (const pick of picks) {
+      const fromSpawn = Math.abs(pick.col - spawn.col) + Math.abs(pick.row - spawn.row);
+      expect(fromSpawn).toBeGreaterThan(BOSS_PELLET_SPAWN_CLEARANCE_TILES);
+    }
+    for (let a = 0; a < picks.length; a += 1) {
+      for (let b = a + 1; b < picks.length; b += 1) {
+        const d = Math.abs(picks[a]!.col - picks[b]!.col) + Math.abs(picks[a]!.row - picks[b]!.row);
+        expect(d).toBeGreaterThanOrEqual(5);
       }
     }
   });

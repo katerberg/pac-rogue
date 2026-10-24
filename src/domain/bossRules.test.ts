@@ -115,10 +115,13 @@ describe("chainPairForKind", () => {
 });
 
 describe("splitBossGhosts", () => {
-  it("fills up to 4 house seats and sends the rest to the tunnels", () => {
-    expect(splitBossGhosts(def, 2)).toEqual({ house: 2, tunnel: 0 });
-    expect(splitBossGhosts(def, 4)).toEqual({ house: 4, tunnel: 0 });
-    expect(splitBossGhosts(def, 8)).toEqual({ house: 4, tunnel: 4 });
+  it("sends every swarm Blinky to the tunnels, since the swarm board has no house", () => {
+    expect(splitBossGhosts(def, 2)).toEqual({ house: 0, tunnel: 2 });
+    expect(splitBossGhosts(def, 8)).toEqual({ house: 0, tunnel: 8 });
+  });
+
+  it("seats up to 4 chained ghosts in the house", () => {
+    expect(splitBossGhosts(chained, 4)).toEqual({ house: 4, tunnel: 0 });
   });
 });
 

@@ -1,6 +1,6 @@
 # Fixed level plan
 
-The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `levelRules.ts` is the source for speeds, schedules, thresholds and rosters). Level 1 is the hand-made `mazeSmall`; levels 2-8 replay one map from the committed pool (`mazePool.ts` / `mazePool.json`; rules in [maze-constraints.md](./maze-constraints.md); level 9 is a boss on its own generated board ([bosses.md](./bosses.md)).
+The run is a fixed 9-level plan (`MAX_LEVEL` in `src/domain/levelRules.ts`; `levelRules.ts` is the source for speeds, schedules, thresholds and rosters). Level 1 is the hand-made `mazeSmall`; levels 2-8 replay one map from the committed pool (`mazePool.ts` / `mazePool.json`; rules in [maze-constraints.md](./maze-constraints.md); level 9 is a boss on its own board ([bosses.md](./bosses.md)).
 
 ## Flow
 

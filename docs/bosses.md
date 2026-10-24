@@ -15,10 +15,12 @@ Flags (also on `parsePlayOptions`; all disable high scores): `level=9` rolls a b
 
 ## Blinky Swarm
 
-- Board: generated with exactly three tunnel rows (falls back to a regular board with a warning if none is found).
-- A few regular pellets are tagged `BossPellet` (`pickBossPelletCells`: farthest-point spread, away from the spawn). Each one eaten adds a Blinky at the next free tunnel mouth (`bossTunnelMouths`, skipping mouths with a Blinky nearby or on the player's row). The ghost count carries across the stage transition; capped by `maxBossGhosts` in `bossRules.ts`.
+- Board: the authored `SWARM_BOSS_MAZE_ASCII` (`mazeLayouts.ts`, layout id `swarmBoss`), a lattice of one-tile pillars with a few bars and Ls, **no ghost house**, a side wrap tunnel and two vertical wrap tunnels whose corridors run past the field so a Blinky has a lead-in. Dot-Man starts mid-field. `?maze=` still overrides it.
+- Blinkys enter only through tunnel mouths (`bossTunnelMouths`: vertical mouths first, then the side tunnel, alternating opposite sides). Starting Blinkys are placed on the mouths at once but held until Dot-Man's first input, like house ghosts.
+- A few regular pellets are tagged `BossPellet` (`pickBossPelletCells`: farthest-point spread, away from the spawn). Each one eaten adds a Blinky at the next free mouth (skipping mouths with a Blinky nearby or on the player's row). The ghost count carries across the stage transition; capped by `maxBossGhosts` in `bossRules.ts`.
 - Blinkys treat a corridor holding another active Blinky as closed (`corridorOccupied`), so head-on Blinkys turn around.
-- On death the first few Blinkys restart in the house and the rest come straight out of the tunnels.
+- On death (and at the stage refill) every Blinky restarts from a mouth.
+- With no house, "send to the house" (Hunter, Reactive Armor, Ghost Recall) puts the Blinky back at the mouth farthest from Dot-Man, and Haunting has nothing to cage a Blinky in, so it does nothing on this boss.
 
 ## Chained Ghosts
 
@@ -28,4 +30,4 @@ Flags (also on `parsePlayOptions`; all disable high scores): `level=9` rolls a b
 
 ## Code map
 
-`bossRules.ts`, `bossStageTransition.ts`, `bossChain.ts`, `bossBoard.ts`, `bossGhostBlocking.ts` (domain); `game/components/{BossGhost,BossPellet,ChainedGhost}.ts`; `game/systems/{bossGhosts,bossChain}.ts`. `ghostAi`, `ghostRelease` and `applyGhostSpeed` switch on the `BossGhost` component; `render.ts` draws bolts from `SimRenderOptions.bossChains`.
+`bossRules.ts`, `bossStageTransition.ts`, `bossChain.ts`, `bossBoard.ts`, `bossGhostBlocking.ts`, `mazeLayouts.ts` (domain); `game/components/{BossGhost,BossPellet,ChainedGhost}.ts`; `game/systems/{bossGhosts,bossChain}.ts`. `ghostAi`, `ghostRelease` and `applyGhostSpeed` switch on the `BossGhost` component; `render.ts` draws bolts from `SimRenderOptions.bossChains`.

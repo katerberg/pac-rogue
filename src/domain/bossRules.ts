@@ -34,7 +34,7 @@ export type BossDef = {
   startGhosts: number;
   stages: readonly BossStageDef[];
   maxHouseGhosts: number;
-  tunnelCount: number | null;
+  authoredBoard: boolean;
   houseReleaseStaggerMs: number;
   chained: boolean;
 };
@@ -48,9 +48,9 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
       { spawnPellets: 3, chainPairs: [] },
       { spawnPellets: 3, chainPairs: [] },
     ],
-    maxHouseGhosts: 4,
-    tunnelCount: 3,
-    houseReleaseStaggerMs: 600,
+    maxHouseGhosts: 0,
+    authoredBoard: true,
+    houseReleaseStaggerMs: 0,
     chained: false,
   },
   chainedGhosts: {
@@ -62,7 +62,7 @@ export const BOSS_DEFS: Record<BossId, BossDef> = {
       { spawnPellets: 0, chainPairs: [CHAIN_PAIR.blinkyClyde, CHAIN_PAIR.pinkyInky] },
     ],
     maxHouseGhosts: 4,
-    tunnelCount: null,
+    authoredBoard: false,
     houseReleaseStaggerMs: 1500,
     chained: true,
   },

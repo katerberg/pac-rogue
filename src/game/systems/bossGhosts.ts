@@ -1,9 +1,16 @@
 import { query, type World } from "bitecs";
-import type { BossTunnelMouth } from "../../domain/bossBoard";
+import { bossTunnelMouths, type BossTunnelMouth } from "../../domain/bossBoard";
 import { tileKey } from "../../domain/bossGhostBlocking";
 import { ghostDirStep, reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
 import { GHOST_PHASE } from "../../domain/ghostPhase";
-import { TILE_SIZE, worldToCol, worldToRow } from "../../domain/maze";
+import {
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
+  TILE_SIZE,
+  worldToCol,
+  worldToRow,
+} from "../../domain/maze";
 import { BossGhost } from "../components/BossGhost";
 import { BossPellet } from "../components/BossPellet";
 import { Facing } from "../components/Facing";
@@ -12,6 +19,7 @@ import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Velocity } from "../components/Velocity";
 
 const MOUTH_CLEARANCE_TILES = 2;
 const HEAD_ON_REACH_TILES = 1.25;
@@ -68,6 +76,36 @@ export function pickFreeBossMouth(
     }
   }
   return null;
+}
+
+export function placeGhostAtMouth(eid: number, mouth: BossTunnelMouth): void {
+  Position.x[eid] = cellCenterX(mouth.col);
+  Position.y[eid] = cellCenterY(mouth.row);
+  Velocity.x[eid] = 0;
+  Velocity.y[eid] = 0;
+  GhostPhase.value[eid] = GHOST_PHASE.active;
+  Facing.direction[eid] = mouth.facing;
+  Input.direction[eid] = mouth.facing;
+  Ghost.decidedCol[eid] = Number.NaN;
+  Ghost.decidedRow[eid] = Number.NaN;
+}
+
+export function sendGhostToFarthestMouth(world: World, eid: number): void {
+  const player = query(world, [Player, Position])[0];
+  const px = Position.x[player ?? eid] ?? 0;
+  const py = Position.y[player ?? eid] ?? 0;
+  let farthest: BossTunnelMouth | null = null;
+  let farthestDist = -1;
+  for (const mouth of bossTunnelMouths(getActiveLayout().playerSolids)) {
+    const dist = Math.hypot(cellCenterX(mouth.col) - px, cellCenterY(mouth.row) - py);
+    if (dist > farthestDist) {
+      farthest = mouth;
+      farthestDist = dist;
+    }
+  }
+  if (farthest !== null) {
+    placeGhostAtMouth(eid, farthest);
+  }
 }
 
 export function bossGhostBlock(world: World): void {

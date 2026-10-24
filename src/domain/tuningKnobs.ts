@@ -234,7 +234,7 @@ export const KNOB_HELP: Record<TuningKey, string> = {
     "Blinky's second, faster Elroy speed once even fewer dots remain, as a fraction of Maze-Man's base speed.",
   bossGhostRatio: "Speed of the level-9 boss ghosts as a fraction of Maze-Man's base speed.",
   bossSwarmStartGhosts:
-    "Blinkys the Blinky Swarm boss starts with (up to 4 in the house, the rest out of the side tunnels right away). Applies on the next board or Restart.",
+    "Blinkys the Blinky Swarm boss starts with, all entering through the tunnels once Dot-Man moves. Applies on the next board or Restart.",
   timerMax:
     "Starting value of the Time countdown on each board. Applies on the next board or Restart.",
   timerTickMs:

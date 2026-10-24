@@ -2,6 +2,7 @@ import { query, type World } from "bitecs";
 import { pickClosestGhostEid } from "../../domain/ghostRecall";
 import type { GhostReleaseAdds, GhostReleaseClock } from "../../domain/ghostRelease";
 import { GHOST_PHASE, type GhostPhaseValue } from "../../domain/ghostPhase";
+import { hasGhostHouse } from "../../domain/maze";
 import { Ghost } from "../components/Ghost";
 import { GhostPhase } from "../components/GhostPhase";
 import { DIRECTION, Input } from "../components/Input";
@@ -10,6 +11,7 @@ import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
+import { sendGhostToFarthestMouth } from "./bossGhosts";
 import { placeInHouseGhostsAtPredictedSeats } from "./ghostHouseSeating";
 
 export function recallClosestGhostToHouse(
@@ -54,6 +56,10 @@ export function sendGhostToHouse(
   afterLifeRelease = false,
   adds: GhostReleaseAdds = {},
 ): void {
+  if (!hasGhostHouse()) {
+    sendGhostToFarthestMouth(world, eid);
+    return;
+  }
   GhostPhase.value[eid] = GHOST_PHASE.inHouse;
   Velocity.x[eid] = 0;
   Velocity.y[eid] = 0;

@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { ghostHouseSeatCenters } from "./ghostHouseSeats";
 import {
+  activateAsciiLayout,
   activateLayout,
   getActiveLayout,
   getLayout,
+  hasGhostHouse,
+  horizontalTunnelRows,
   isTunnelMouth,
   isWalkable,
   MAZE_COLS,
@@ -13,7 +16,7 @@ import {
   pelletCellCenters,
   pickLayoutId,
 } from "./maze";
-import { CLASSIC_MAZE_ASCII } from "./mazeLayouts";
+import { CLASSIC_MAZE_ASCII, SWARM_BOSS_MAZE_ASCII } from "./mazeLayouts";
 import {
   blinkyScatterTarget,
   clydeScatterTarget,
@@ -157,5 +160,76 @@ describe("maze selection", () => {
     expect(pickLayoutId(() => 0.49, null, 2)).toBe("maze1");
     expect(pickLayoutId(() => 0.5, null, 2)).toBe("maze2");
     expect(pickLayoutId(() => 0.49, null, 5)).toBe("maze1");
+  });
+});
+
+describe("swarm boss board", () => {
+  afterEach(() => {
+    activateLayout("maze1");
+  });
+
+  it("is a houseless pillar lattice with a side tunnel and two vertical tunnels", () => {
+    const layout = activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
+    expect(layout.cols).toBe(17);
+    expect(layout.rows).toBe(33);
+    expect(hasGhostHouse(layout)).toBe(false);
+    expect(layout.ghostHouseExit).toEqual(layout.playerSpawn);
+    expect(horizontalTunnelRows(layout.playerSolids)).toEqual([21]);
+    const verticalCols = [...Array(layout.cols).keys()].filter(
+      (col) => !layout.playerSolids[0]![col] && !layout.playerSolids[layout.rows - 1]![col],
+    );
+    expect(verticalCols).toEqual([1, 15]);
+    expect(layout.ascii.match(/@/g)).toHaveLength(4);
+  });
+
+  it("starts Dot-Man mid-field, with every open cell reachable and no dead ends", () => {
+    const layout = activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
+    expect(layout.playerSpawn).toEqual({ col: 8, row: 17 });
+    const open = (col: number, row: number): boolean => !(layout.playerSolids[row]?.[col] ?? true);
+    const neighbors = (col: number, row: number): [number, number][] =>
+      (
+        [
+          [col, row - 1],
+          [col, row + 1],
+          [col - 1, row],
+          [col + 1, row],
+        ] as [number, number][]
+      )
+        .map(([c, r]): [number, number] => [
+          (c + layout.cols) % layout.cols,
+          (r + layout.rows) % layout.rows,
+        ])
+        .filter(([c, r]) => open(c, r));
+    const seen = new Set<string>([`${layout.playerSpawn.col},${layout.playerSpawn.row}`]);
+    const queue: [number, number][] = [[layout.playerSpawn.col, layout.playerSpawn.row]];
+    for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+      for (const [c, r] of neighbors(...next)) {
+        if (!seen.has(`${c},${r}`)) {
+          seen.add(`${c},${r}`);
+          queue.push([c, r]);
+        }
+      }
+    }
+    let openCells = 0;
+    for (let row = 0; row < layout.rows; row += 1) {
+      for (let col = 0; col < layout.cols; col += 1) {
+        if (open(col, row)) {
+          openCells += 1;
+          expect(neighbors(col, row).length, `cell ${col},${row}`).toBeGreaterThanOrEqual(2);
+        }
+      }
+    }
+    expect(seen.size).toBe(openCells);
+  });
+
+  it("keeps pellets out of the tunnels", () => {
+    activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
+    const pelletKeys = new Set(pelletCellCenters().map((cell) => `${cell.col},${cell.row}`));
+    for (const row of [...Array(6).keys(), ...[27, 28, 29, 30, 31, 32]]) {
+      expect(pelletKeys.has(`1,${row}`)).toBe(false);
+      expect(pelletKeys.has(`15,${row}`)).toBe(false);
+    }
+    expect(pelletKeys.has("0,21")).toBe(false);
+    expect(pelletKeys.has("16,21")).toBe(false);
   });
 });

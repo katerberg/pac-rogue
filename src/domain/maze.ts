@@ -8,7 +8,7 @@ export { pickLayoutId, parseMazeParam, MAZE_LAYOUT_IDS } from "./mazeLayouts";
 export const CLASSIC_MAZE_COLS = 28;
 export const CLASSIC_MAZE_ROWS = 31;
 
-export const MAZE_COLS_MIN = 20;
+export const MAZE_COLS_MIN = 17;
 export const MAZE_COLS_MAX = 32;
 export const MAZE_ROWS_MIN = 21;
 export const MAZE_ROWS_MAX = 36;
@@ -112,7 +112,7 @@ export type SolidGrid = readonly (readonly boolean[])[];
 
 export type MazeTile = { col: number; row: number };
 
-export type AsciiLayoutId = MazeLayoutId | "generated" | "store";
+export type AsciiLayoutId = MazeLayoutId | "generated" | "store" | "swarmBoss";
 
 export type MazeLayout = {
   id: AsciiLayoutId;
@@ -682,6 +682,7 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const { cols, rows } = readAsciiGrid(ascii);
   const geometry = computeMazeGeometry(cols, rows);
   const isStore = id === "store";
+  const houseless = isStore || id === "swarmBoss";
   const playerSpawn = resolvePlayerSpawn(ascii, cols, rows);
   const walls = parseMaze(ascii, !isStore);
   const exterior = buildExterior(walls, playerSpawn);
@@ -692,11 +693,11 @@ function buildLayoutFromAscii(id: AsciiLayoutId, ascii: string): MazeLayout {
   const wallPassPlayerSolids = buildWallPassPlayerSolids(walls);
   const wallPassLoopPlayerSolids = emptyFlagGrid(cols, rows);
   assertHorizontalTunnels(playerSolids, cols, rows);
-  const ghostHouseSpawn = isStore ? playerSpawn : deriveGhostHouseSpawn(ascii, cols, rows);
-  const ghostHouseExit = isStore
+  const ghostHouseSpawn = houseless ? playerSpawn : deriveGhostHouseSpawn(ascii, cols, rows);
+  const ghostHouseExit = houseless
     ? playerSpawn
     : deriveGhostHouseExit(ascii, cols, rows, playerSolids);
-  const fruitSpawn = isStore
+  const fruitSpawn = houseless
     ? playerSpawn
     : deriveFruitSpawn(ascii, cols, rows, playerSolids, ghostHouseSpawn.col);
   const pelletCount = isStore ? 0 : countPelletsInAscii(ascii, cols, rows, playerSolids);
@@ -800,11 +801,15 @@ export function setActiveLayout(layout: MazeLayout): void {
 
 export function activateAsciiLayout(
   ascii: string,
-  id: "generated" | "store" = "generated",
+  id: "generated" | "store" | "swarmBoss" = "generated",
 ): MazeLayout {
   activeLayout = buildLayoutFromAscii(id, ascii);
   syncActiveGeometry(activeLayout);
   return activeLayout;
+}
+
+export function hasGhostHouse(layout: MazeLayout = getActiveLayout()): boolean {
+  return layout.house.some((row) => row.some(Boolean));
 }
 
 export function isHouse(
