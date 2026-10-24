@@ -53,6 +53,17 @@ function isFreshPress(prev: HeldKeys, keys: HeldKeys, direction: Direction): boo
   return key !== undefined && keys[key] !== null && keys[key] !== prev[key];
 }
 
+export function mergeHeldKeys(a: HeldKeys, b: HeldKeys): HeldKeys {
+  const latest = (x: number | null, y: number | null): number | null =>
+    x === null ? y : y === null ? x : Math.max(x, y);
+  return {
+    up: latest(a.up, b.up),
+    down: latest(a.down, b.down),
+    left: latest(a.left, b.left),
+    right: latest(a.right, b.right),
+  };
+}
+
 export function anyKeyHeld(keys: HeldKeys): boolean {
   return keys.up !== null || keys.down !== null || keys.left !== null || keys.right !== null;
 }

@@ -18,7 +18,7 @@ const outDir = join(root, "artifacts");
 const WAIT_FOR_DEFAULT_MS = 10_000;
 const WAIT_FOR_POLL_MS = 50;
 
-const USAGE = `Usage: node scripts/play-probe.mjs --query "<url query>" --steps "<steps>" [--name <prefix>] [--viewport WxH] [--dpr N]
+const USAGE = `Usage: node scripts/play-probe.mjs --query "<url query>" --steps "<steps>" [--name <prefix>] [--viewport WxH] [--dpr N] [--touch]
 
 Drives the game on the agent dev port (${ports.agentDev}) with real keyboard input and
 saves canvas screenshots under artifacts/. Fails on page errors or console errors.
@@ -32,6 +32,11 @@ Steps (comma-separated):
   click:<x>:<y>          click at game coordinates (800x600), scaled onto the canvas
   wheel:<x>:<y>:<deltaY> move to game coords then mouse-wheel (positive deltaY = scroll down)
   hover:<x>:<y>          move the mouse to game coordinates, scaled onto the canvas
+  tap:<x>:<y>            touch down and up at game coordinates (needs --touch)
+  touchDown:<x>:<y>      start a touch at game coordinates and leave it down (needs --touch);
+                         coordinates outside 0..800 / 0..600 land in the page margin
+  touchMove:<x>:<y>      move the held touch to game coordinates
+  touchUp                lift the held touch
   shot:<label>           screenshot to artifacts/<name>-<label>.png
   pageShot:<label>       full-viewport screenshot (includes DOM overlays such as ?knobs=1 panels)
   goto:<path>            navigate to another page on the agent dev port (e.g. goto:/data); use
@@ -47,6 +52,7 @@ Steps (comma-separated):
 Options:
   --viewport WxH         browser viewport (default 900x700); odd sizes give fractional render scales
   --dpr N                device pixel ratio (default 1); at 2+ headless screenshots get slow
+  --touch                emulate a touchscreen (hasTouch) so the touch steps work, as on a phone
 
 Conditions read window.__PAC_ROGUE_DEBUG__.snapshot() (agent ports only):
   <path><op><value>, op one of == != < <= > >=, value a number, true/false/null or bare string.
@@ -68,6 +74,7 @@ function readArgs() {
       name: { type: "string", default: "probe" },
       viewport: { type: "string", default: "900x700" },
       dpr: { type: "string", default: "1" },
+      touch: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
   });
@@ -94,6 +101,30 @@ async function worldSize(page) {
     const g = globalThis.__PAC_ROGUE_GAME__;
     const zoom = g.scene.getScenes(true)[0]?.cameras.main.zoom ?? 1;
     return { width: g.scale.gameSize.width / zoom, height: g.scale.gameSize.height / zoom };
+  });
+}
+
+async function toPagePoint(page, canvas, x, y) {
+  const box = await canvas.boundingBox();
+  if (box === null) {
+    throw new Error("canvas has no bounding box");
+  }
+  const game = await worldSize(page);
+  return {
+    x: box.x + (Number(x) / game.width) * box.width,
+    y: box.y + (Number(y) / game.height) * box.height,
+  };
+}
+
+const touchSessions = new WeakMap();
+
+async function dispatchTouch(page, type, point) {
+  if (!touchSessions.has(page)) {
+    touchSessions.set(page, await page.context().newCDPSession(page));
+  }
+  await touchSessions.get(page).send("Input.dispatchTouchEvent", {
+    type,
+    touchPoints: point === null ? [] : [{ x: point.x, y: point.y, id: 1 }],
   });
 }
 
@@ -146,23 +177,11 @@ async function runStep(page, canvas, step, name) {
       await page.keyboard.press(a, { delay: 50 });
       break;
     case "click": {
-      const box = await canvas.boundingBox();
-      if (box === null) {
-        throw new Error("canvas has no bounding box");
-      }
-      const game = await worldSize(page);
-      await page.mouse.click(
-        box.x + (Number(a) / game.width) * box.width,
-        box.y + (Number(b) / game.height) * box.height,
-      );
+      const point = await toPagePoint(page, canvas, a, b);
+      await page.mouse.click(point.x, point.y);
       break;
     }
     case "wheel": {
-      const box = await canvas.boundingBox();
-      if (box === null) {
-        throw new Error("canvas has no bounding box");
-      }
-      const game = await worldSize(page);
       const parts = step.split(":");
       const wx = Number(parts[1]);
       const wy = Number(parts[2]);
@@ -170,25 +189,35 @@ async function runStep(page, canvas, step, name) {
       if (![wx, wy, deltaY].every(Number.isFinite)) {
         throw new Error(`Bad wheel step "${step}"; use wheel:<x>:<y>:<deltaY>`);
       }
-      await page.mouse.move(
-        box.x + (wx / game.width) * box.width,
-        box.y + (wy / game.height) * box.height,
-      );
+      const point = await toPagePoint(page, canvas, wx, wy);
+      await page.mouse.move(point.x, point.y);
       await page.mouse.wheel(0, deltaY);
       break;
     }
     case "hover": {
-      const box = await canvas.boundingBox();
-      if (box === null) {
-        throw new Error("canvas has no bounding box");
-      }
-      const game = await worldSize(page);
-      await page.mouse.move(
-        box.x + (Number(a) / game.width) * box.width,
-        box.y + (Number(b) / game.height) * box.height,
-      );
+      const point = await toPagePoint(page, canvas, a, b);
+      await page.mouse.move(point.x, point.y);
       break;
     }
+    case "tap": {
+      const point = await toPagePoint(page, canvas, a, b);
+      await dispatchTouch(page, "touchStart", point);
+      await sleep(50);
+      await dispatchTouch(page, "touchEnd", null);
+      break;
+    }
+    case "touchDown": {
+      const point = await toPagePoint(page, canvas, a, b);
+      await dispatchTouch(page, "touchStart", point);
+      break;
+    }
+    case "touchMove": {
+      await dispatchTouch(page, "touchMove", await toPagePoint(page, canvas, a, b));
+      break;
+    }
+    case "touchUp":
+      await dispatchTouch(page, "touchEnd", null);
+      break;
     case "shot": {
       const path = join(outDir, `${name}-${a}.png`);
       await canvas.screenshot({ path });
@@ -295,7 +324,7 @@ async function saveFailureEvidence(page, canvas, name) {
 }
 
 async function main() {
-  const { query, steps, name, viewport, deviceScaleFactor } = readArgs();
+  const { query, steps, name, viewport, deviceScaleFactor, touch } = readArgs();
   const baseUrl = `http://127.0.0.1:${ports.agentDev}/`;
   mkdirSync(outDir, { recursive: true });
 
@@ -323,7 +352,7 @@ async function main() {
       throw new Error(problems.join("\n"));
     }
     browser = await chromium.launch({ headless: true, ...chromiumLaunchOptions() });
-    const page = await browser.newPage({ viewport, deviceScaleFactor });
+    const page = await browser.newPage({ viewport, deviceScaleFactor, hasTouch: touch });
     page.on("pageerror", (error) => problems.push(`pageerror: ${error.message}`));
     page.on("console", (message) => {
       if (message.type() === "error") {

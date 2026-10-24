@@ -154,7 +154,7 @@ import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import { ghostName } from "./runRecorder";
 import type { SimEvent } from "./simEvents";
 import { IDLE_INPUT, type SimInput } from "./simInput";
-import { NO_KEYS_HELD } from "../systems/heldKeys";
+import { mergeHeldKeys, NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 import { openGhostDirsAt, reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
@@ -11144,5 +11144,20 @@ describe("Scarecrow", () => {
     eatFruit(sim, placeFruit(sim));
     sim["runUpgrades"] = clearUpgradeTimers(sim["runUpgrades"]);
     expect(sim.snapshot().timers.scarecrowScentMs).toBe(0);
+  });
+});
+
+describe("PlaySim touch stick input", () => {
+  it("steers with the stick's keys merged over the keyboard, the later press winning", () => {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 2, maze: "maze1", disableLevelUpgrades: true },
+      "touch",
+    );
+    sim.start();
+    const keyboardUp = { ...NO_KEYS_HELD, up: 5 };
+    const stickLeft = { ...NO_KEYS_HELD, left: 10 };
+    runFrames(sim, 30, { ...IDLE_INPUT, keys: mergeHeldKeys(keyboardUp, stickLeft) });
+    expect(sim.snapshot().player?.facing).toBe("left");
+    expect(sim.snapshot().boardCollected).toBeGreaterThan(0);
   });
 });

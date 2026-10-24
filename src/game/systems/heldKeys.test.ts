@@ -2,7 +2,13 @@ import { addComponent, addEntity, createWorld } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { DIRECTION, Input } from "../components/Input";
 import { Player } from "../components/Player";
-import { anyKeyHeld, applyHeldKeys, combineAxisDirections, NO_KEYS_HELD } from "./heldKeys";
+import {
+  anyKeyHeld,
+  applyHeldKeys,
+  combineAxisDirections,
+  mergeHeldKeys,
+  NO_KEYS_HELD,
+} from "./heldKeys";
 
 const none = { direction: DIRECTION.none, time: -1 };
 
@@ -80,5 +86,17 @@ describe("anyKeyHeld", () => {
   it("is true when any direction has a press time", () => {
     expect(anyKeyHeld(NO_KEYS_HELD)).toBe(false);
     expect(anyKeyHeld({ ...NO_KEYS_HELD, right: 0 })).toBe(true);
+  });
+});
+
+describe("mergeHeldKeys", () => {
+  it("keeps either source's held keys and the later press when both hold one", () => {
+    const keyboard = { ...NO_KEYS_HELD, up: 10, left: 30 };
+    const touch = { ...NO_KEYS_HELD, left: 20, right: 40 };
+    expect(mergeHeldKeys(keyboard, touch)).toEqual({ up: 10, down: null, left: 30, right: 40 });
+  });
+
+  it("holds nothing when neither source does", () => {
+    expect(anyKeyHeld(mergeHeldKeys(NO_KEYS_HELD, NO_KEYS_HELD))).toBe(false);
   });
 });
