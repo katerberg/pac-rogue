@@ -16,7 +16,8 @@ import type { BoreJunk } from "../../domain/boreJunk";
 import type { CollapseRenderState } from "../../domain/collapseRubble";
 import type { SinkholeRenderState } from "../../domain/sinkholeArt";
 import type { LavaRenderState } from "../../domain/lavaZone";
-import type { SpeedZone, SpeedZoneEffect } from "../../domain/speedZones";
+import type { SpeedZone } from "../../domain/speedZones";
+import type { WakeRider } from "../../domain/speedZoneWater";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { ScentSprite } from "../systems/scarecrow";
 import type { ChaffSprite } from "../../domain/chaff";
@@ -25,14 +26,6 @@ import type { ProgrammerQueueSlot } from "../../domain/programmer";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type { TimedTunnelRenderState };
-
-export type SpeedZoneRider = {
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
-  effect: SpeedZoneEffect;
-};
 
 export type SimRenderOptions = {
   frozenGhostEid: number | null;
@@ -62,7 +55,7 @@ export type SimRenderOptions = {
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
-  speedZoneRider?: SpeedZoneRider | null;
+  speedZoneRider?: WakeRider | null;
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
   scent?: ScentSprite[];

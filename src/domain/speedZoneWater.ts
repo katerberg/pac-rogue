@@ -18,8 +18,6 @@ export const SPEED_ZONE_WATER_STYLE = {
   mid: 0x64a5ff,
   light: 0xb2d2ff,
   foam: 0xb8cfff,
-  bedAlpha: 1,
-  ripples: 1,
   rippleHz: 3,
   rippleDuty: 0.25,
   chevron: 0.6,
@@ -27,7 +25,6 @@ export const SPEED_ZONE_WATER_STYLE = {
   swell: 0.15,
   streaksPerTile: 0.5,
   streakBlurSec: 0.015,
-  streakAlpha: 1,
   sprayPerSec: 57,
   sprayReachTiles: 1.8,
   spraySpreadDeg: 35,
@@ -50,9 +47,11 @@ export type WaterCanvas = {
   rgba: Uint8ClampedArray<ArrayBuffer>;
 };
 
-export type WaterBoard = Pick<MazeLayout, "walls" | "house" | "door">;
-
-export function waterCellOpen(board: WaterBoard, col: number, row: number): boolean {
+export function waterCellOpen(
+  board: Pick<MazeLayout, "walls" | "house" | "door">,
+  col: number,
+  row: number,
+): boolean {
   return (
     board.walls[row]?.[col] === false &&
     board.house[row]?.[col] !== true &&
@@ -85,22 +84,15 @@ function mix(a: number, b: number, t: number): number {
   return ch(16) | ch(8) | ch(0);
 }
 
-export type FlowProfile = {
-  speed: (along: number) => number;
-  timeTo: (along: number) => number;
-  alongAt: (seconds: number) => number;
-  crossingSec: number;
-};
-
-export function flowProfile(length: number, entry: number, exit: number): FlowProfile {
+export function flowProfile(length: number, entry: number, exit: number) {
   const growth = (exit - entry) / length;
   const flat = Math.abs(growth) < 1e-9;
   const timeTo = (along: number) =>
     flat ? along / entry : Math.log1p((growth * along) / entry) / growth;
   return {
-    speed: (along) => entry + growth * along,
+    speed: (along: number) => entry + growth * along,
     timeTo,
-    alongAt: (seconds) =>
+    alongAt: (seconds: number) =>
       flat ? entry * seconds : (entry / growth) * Math.expm1(growth * seconds),
     crossingSec: timeTo(length),
   };
@@ -207,15 +199,14 @@ export function paintSpeedZoneWater(
       const progress = along / length;
       const centred = Math.abs(across) / halfW;
       let color: number = S.deep;
-      let alpha =
-        (S.bedAlpha + swell * Math.max(0, 1 - along / 2.2)) * clamp01(along / 0.35 + 0.35);
+      let alpha = (1 + swell * Math.max(0, 1 - along / 2.2)) * clamp01(along / 0.35 + 0.35);
       const lead = S.chevron * (1 - centred * centred) * 0.22;
       const phase =
         (s - profile.timeTo(along) + lead) * S.rippleHz +
         (noise1((across * ART) / 3.5, seed + 3) - 0.5) * 0.5;
       if (phase - Math.floor(phase) < S.rippleDuty) {
         color = mix(S.mid, S.light, clamp01(progress * 1.2 - 0.1));
-        alpha = Math.max(alpha, S.ripples * (0.55 + 0.45 * progress));
+        alpha = Math.max(alpha, 0.55 + 0.45 * progress);
       }
       if (hash3(x, y, glintTick) < S.sparkle * 0.025 * (0.3 + progress)) {
         color = S.foam;
@@ -240,7 +231,7 @@ export function paintSpeedZoneWater(
     const fade = clamp01(along / 0.6);
     for (let q = 0; q < trail && along - q / ART >= 0; q += 1) {
       const [px, py] = lanePoint(frame, along - q / ART, across);
-      plot(px, py, color, S.streakAlpha * fade * (1 - (q / trail) * 0.65));
+      plot(px, py, color, fade * (1 - (q / trail) * 0.65));
     }
   }
 

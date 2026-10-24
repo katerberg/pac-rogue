@@ -55,9 +55,9 @@ import {
   wakePixels,
   type SpeedZoneFlowSpeeds,
   type WakeDroplet,
+  type WakeRider,
   type WaterCanvas,
 } from "../../domain/speedZoneWater";
-import type { SpeedZoneRider } from "../sim/simEvents";
 import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import {
   CHAFF_ALPHA,
@@ -704,7 +704,7 @@ export type RenderOptions = {
   sinkhole?: SinkholeRenderState | null;
   boreJunk?: readonly BoreJunk[];
   speedZones?: readonly SpeedZone[];
-  speedZoneRider?: SpeedZoneRider | null;
+  speedZoneRider?: WakeRider | null;
   droppedWall?: DroppedWall | null;
   chaff?: ChaffSprite[];
   scent?: ScentSprite[];
