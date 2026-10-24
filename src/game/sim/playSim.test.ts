@@ -13,6 +13,7 @@ import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghost
 import { GHOST_ROSTERS, rosterIdForSeed } from "../../domain/ghostRoster";
 import { CHAIN_PAIR } from "../../domain/bossRules";
 import { SLIME_TRAIL_MAX_LEN } from "../../domain/slimeTrail";
+import { DOTMAN_DEATH_FRAME_COUNT } from "../../domain/dotManDeath";
 import {
   BOSS_STAGE_BLACK_HOLD_MS,
   BOSS_STAGE_ENTITY_FADE_MS,
@@ -1219,6 +1220,42 @@ describe("PlaySim", () => {
     expect(events).toContainEqual({ type: "sfx", id: "death" });
     runUntil(sim, () => !sim.snapshot().dying, 240);
     expect(sim.snapshot().player).toMatchObject({ col: spawn.col, row: spawn.row });
+  });
+
+  it("plays the Dot-Man death frames through the hold, then draws him normally again", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 20, { keys: held("left") });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().deathFrame).toBe(0);
+    const events = runUntil(sim, () => !sim.snapshot().dying, 240);
+    const frames = events.flatMap((event) =>
+      event.type === "draw" ? [event.options.playerDeathFrame] : [],
+    );
+    const dyingFrames = frames.filter((frame) => frame !== undefined);
+    expect(new Set(dyingFrames)).toEqual(
+      new Set(Array.from({ length: DOTMAN_DEATH_FRAME_COUNT }, (_, frame) => frame)),
+    );
+    expect(dyingFrames).toEqual([...dyingFrames].sort((a, b) => a - b));
+    expect(frames.at(-1)).toBeUndefined();
+    expect(sim.snapshot().deathFrame).toBeNull();
+  });
+
+  it("hides banked shields while the death frames play", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 20, { keys: held("left") });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], shieldsBanked: 2 };
+    const holdDraws = runFrames(sim, 2).filter((event) => event.type === "draw");
+    expect(holdDraws.length).toBeGreaterThan(0);
+    for (const draw of holdDraws) {
+      expect(draw.type === "draw" && draw.options.shields).toBe(0);
+    }
+    const after = runUntil(sim, () => !sim.snapshot().dying, 240).filter(
+      (event) => event.type === "draw",
+    );
+    expect(after.at(-1)?.type === "draw" && after.at(-1)?.options.shields).toBe(2);
   });
 
   it("ignores ghost contact in god mode", () => {

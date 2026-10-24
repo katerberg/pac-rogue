@@ -95,6 +95,7 @@ import {
   type HeadingStep,
   type VisorPose,
 } from "../../domain/dotManHeading";
+import { DOTMAN_DEATH_ART_FRAMES } from "../../domain/dotManDeath";
 import { MIRROR_ALPHA, MIRROR_TINT, mirrorDust, mirrorPopLook } from "../../domain/mirror";
 import { padTextureWithGutter, renderScaleOf } from "../renderScale";
 import { crispWorldPx, snapToDevicePx } from "../../domain/pixelArt";
@@ -227,6 +228,7 @@ const BOSS_PELLET_PULSE_MS = 1000;
 const BOSS_PELLET_MIN_ALPHA = 0.6;
 export const DOTMAN_BODY_TEXTURE_KEY = "dotman-body";
 export const DOTMAN_VISOR_TEXTURE_KEY = "dotman-visor";
+const dotManDeathTextureKey = (frame: number): string => `dotman-death-${frame}`;
 const DOTMAN_ART_SIZE_PX = 16;
 type PlayerVisual = {
   targetAngle: number;
@@ -611,6 +613,9 @@ export function preloadPlayArt(scene: Phaser.Scene): void {
   });
   scene.load.image(DOTMAN_BODY_TEXTURE_KEY, "art/dot-man/body.png");
   scene.load.image(DOTMAN_VISOR_TEXTURE_KEY, "art/dot-man/visor.png");
+  for (let frame = 0; frame < DOTMAN_DEATH_ART_FRAMES; frame++) {
+    scene.load.image(dotManDeathTextureKey(frame), `art/dot-man/death/${frame}.png`);
+  }
   scene.load.image(BUBBLE_SHIELD_SINGLE_KEY, BUBBLE_SHIELD_SINGLE_PATH);
   scene.load.image(BUBBLE_SHIELD_MULTI_KEY, BUBBLE_SHIELD_MULTI_PATH);
   scene.load.image(BANANA_PEEL_TEXTURE_KEY, BANANA_PEEL_PATH);
@@ -703,6 +708,7 @@ export type RenderOptions = {
   wallAlpha?: number;
   mazeColorInverted?: boolean;
   playerReviveProgress?: number;
+  playerDeathFrame?: number;
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
@@ -1686,15 +1692,30 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         visual.lastX = x;
         visual.lastY = y;
 
-        applyPlayerTint(go, playerTintNow);
-        go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
-        go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha * (glideHead?.alpha ?? 1));
-        if (reviveProgress !== undefined) {
-          const look = reviveSplashLook(reviveProgress, size);
-          go.setDisplaySize(look.size, look.size);
-          go.setAlpha(look.alpha);
+        const deathFrame = opts?.playerDeathFrame;
+        const bodyTexture =
+          deathFrame === undefined
+            ? DOTMAN_BODY_TEXTURE_KEY
+            : dotManDeathTextureKey(Math.min(deathFrame, DOTMAN_DEATH_ART_FRAMES - 1));
+        if (go.texture.key !== bodyTexture) {
+          go.setTexture(bodyTexture);
         }
-        drawVisor(primaryKey, pose, visorLift);
+        go.setFlipX(deathFrame !== undefined && pose.flipX);
+        if (deathFrame !== undefined) {
+          go.clearTint();
+          go.setDisplaySize(size, size);
+          go.setAlpha(deathFrame < DOTMAN_DEATH_ART_FRAMES ? playerAlpha : 0);
+        } else {
+          applyPlayerTint(go, playerTintNow);
+          go.setDisplaySize(size * turnFlash.scale, size * turnFlash.scale);
+          go.setAlpha((playerAlpha ?? 1) * turnFlash.alpha * (glideHead?.alpha ?? 1));
+          if (reviveProgress !== undefined) {
+            const look = reviveSplashLook(reviveProgress, size);
+            go.setDisplaySize(look.size, look.size);
+            go.setAlpha(look.alpha);
+          }
+          drawVisor(primaryKey, pose, visorLift);
+        }
         const shields = opts?.shields ?? 0;
         if (!charmLook.enabled) {
           visual.tail = [];
@@ -1736,6 +1757,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           glide === undefined &&
           playerAlphaOpt === undefined &&
           reviveProgress === undefined &&
+          deathFrame === undefined &&
           hasComponent(world, eid, Player)
         ) {
           const twin = wrappedTwinPosition(x, y, radius, twinSolids, blockTunnelRow);

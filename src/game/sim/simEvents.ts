@@ -43,6 +43,7 @@ export type SimRenderOptions = {
   wallAlpha?: number;
   mazeColorInverted?: boolean;
   playerReviveProgress?: number;
+  playerDeathFrame?: number;
   playerWarpGlide?: WarpGlideSprite[];
   playerSpeedTrail?: WarpGlideSprite[];
   ghostWarpGlides?: Record<number, WarpGlideSprite[]>;
