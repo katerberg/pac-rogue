@@ -41,7 +41,13 @@ export function pulseUpgradeMarks(
 ): void {
   if (cause !== undefined) {
     pulseUpgradeMarks(scene, marks, [cause]);
-    scene.time.delayedCall(PULSE_MS * 2, () => pulseUpgradeMarks(scene, marks, ids));
+    scene.time.delayedCall(PULSE_MS * 2, () =>
+      pulseUpgradeMarks(
+        scene,
+        marks.filter(({ mark }) => mark.active),
+        ids,
+      ),
+    );
     return;
   }
   for (const { id, mark } of marks) {
