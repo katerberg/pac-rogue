@@ -285,6 +285,7 @@ export class LearnScene extends Phaser.Scene {
       rightExtent: number;
     };
     hoverPreview: { x: number; y: number } | null;
+    player: { x: number; y: number } | null;
     owned: readonly UpgradeId[];
     tunnelBoring: ReturnType<LearnSim["tunnelBoringDebug"]>;
     haunt: ReturnType<LearnSim["hauntDebug"]>;
@@ -298,6 +299,7 @@ export class LearnScene extends Phaser.Scene {
         rightExtent: this.scrollExtent.right,
       },
       hoverPreview: preview === null ? null : { x: preview.root.x, y: preview.root.y },
+      player: this.sim.playerWorldPosition(),
       owned: this.sim.ownedUpgrades,
       tunnelBoring: this.sim.tunnelBoringDebug(),
       haunt: this.sim.hauntDebug(),

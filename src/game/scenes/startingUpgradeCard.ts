@@ -81,6 +81,12 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
   let dim: Phaser.GameObjects.Rectangle | null = null;
   let card: Phaser.GameObjects.Container | null = null;
   let onKeyDown: ((event: KeyboardEvent) => void) | null = null;
+  const onTouchStart = (): void => {
+    if (card !== null) {
+      beginFade();
+    }
+  };
+  window.addEventListener("touchstart", onTouchStart, { passive: true });
 
   const clearViews = (): void => {
     if (onKeyDown !== null) {
@@ -153,6 +159,9 @@ export function createStartingUpgradeCard(scene: Phaser.Scene): StartingUpgradeC
         clearViews();
       }
     },
-    destroy: clearViews,
+    destroy: () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      clearViews();
+    },
   };
 }

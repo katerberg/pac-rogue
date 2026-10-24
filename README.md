@@ -76,7 +76,7 @@ Start with [AGENTS.md](./AGENTS.md). Code is the reference for values and shapes
 
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md), [docs/VERIFICATION.md](./docs/VERIFICATION.md)
 - Gameplay: [levels](./docs/levels.md), [upgrades](./docs/upgrades.md), [upgrade list](./docs/upgrade-list.md), [pennies](./docs/pennies.md), [store](./docs/store.md), [bosses](./docs/bosses.md), [learn](./docs/learn.md), [new player](./docs/new-player.md), [maze constraints](./docs/maze-constraints.md)
-- Presentation and data: [rendering](./docs/rendering.md), [run log](./docs/RUN_LOG.md), [balance bots](./docs/BALANCE_BOTS.md), [privacy](./docs/PRIVACY.md), [worker](./worker/README.md), [sim harness](./src/game/sim/README.md)
+- Presentation and data: [rendering](./docs/rendering.md), [touch play](./docs/touch.md), [run log](./docs/RUN_LOG.md), [balance bots](./docs/BALANCE_BOTS.md), [privacy](./docs/PRIVACY.md), [worker](./worker/README.md), [sim harness](./src/game/sim/README.md)
 - Agent workflows: `.agents/skills/*/SKILL.md`
 
 ## Art

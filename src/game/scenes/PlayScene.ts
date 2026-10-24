@@ -246,6 +246,10 @@ export class PlayScene extends Phaser.Scene {
       }
     };
     this.input.keyboard?.on("keydown", onKeyDown);
+    const onTouchStart = (): void => {
+      this.keyPressed = true;
+    };
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
     this.closeStoreUi();
     this.runEndMenu = null;
     this.upgradeHoverPreview = null;
@@ -316,6 +320,7 @@ export class PlayScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.keyboard?.off("keydown", onKeyDown);
+      window.removeEventListener("touchstart", onTouchStart);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", onPageHide);
       this.applyEvents(this.sim.finishRun("quit"), 0);

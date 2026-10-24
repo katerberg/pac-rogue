@@ -62,6 +62,7 @@ A change in shared code (movement, input, render, systems) can reach every `Play
 - Pause / Settings / Resume: `press:Escape`, then `click:` menu rows
 - Knobs panel: `play=1&knobs=1` (DOM: `domFill:` / `domClick:` / `pageShot:`)
 - `/data` page: `runLogFill=120`, then `goto:/data`; assert `data.*`
+- Touch (phone): `--touch --viewport 844x390` with `tap:` / `touchDown:` / `touchMove:` steps ([touch.md](./touch.md#verifying))
 - LEARN sandbox: menu, Learn, or `learnAll=1` (assert `learn.*` when the check needs state; screenshots for visuals). Probe it for any change that has a main-game counterpart ([parity](./learn.md#parity))
 
 ## Seeded runs
