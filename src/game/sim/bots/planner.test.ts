@@ -136,6 +136,17 @@ describe("planExits with upgrades", () => {
     );
   });
 
+  it("applies the player's per-cell speed multiplier while fleeing", () => {
+    const { state } = headOn();
+    const fleeing = { ...state, facing: DIRECTION.left };
+    const left = (s: PlannerState) =>
+      planExits(s, WEIGHTS).find((entry) => entry.direction === DIRECTION.left)!.score;
+    expect(left(fleeing)).toBeGreaterThan(SURVIVABLE_SCORE);
+    expect(left({ ...fleeing, cellSpeedMul: { pellet: 0.4, empty: 0.4 } })).toBeLessThan(
+      SURVIVABLE_SCORE,
+    );
+  });
+
   it("is still caught when Shield Break swallows the pellet's effect", () => {
     const { state, pelletCell } = headOn();
     expect(

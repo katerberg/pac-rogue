@@ -60,6 +60,7 @@ export type PlannerState = {
   shields: number;
   speedMul: number;
   speedSteps: number;
+  cellSpeedMul: { pellet: number; empty: number };
   pellets: Uint8Array;
   power: Uint8Array;
   fruit: number | null;
@@ -262,7 +263,10 @@ function stepWorld(
   weights: PlannerWeights,
 ): boolean {
   const grid = state.grid;
-  const slow = state.pellets[to] === 1 && !walk.eaten.has(to) ? 1 / 0.9 : 1;
+  const pelletAhead = state.pellets[to] === 1 && !walk.eaten.has(to);
+  const slow =
+    (pelletAhead ? 1 / 0.9 : 1) /
+    (pelletAhead ? state.cellSpeedMul.pellet : state.cellSpeedMul.empty);
   const playerTile = { col: colOf(grid, to), row: rowOf(grid, to), facing };
   const blinky = walk.ghosts.find((ghost) => ghost.blinky) ?? playerTile;
   const fromPoint = { x: colOf(grid, from), y: rowOf(grid, from) };

@@ -29,6 +29,7 @@ import { PowerPellet } from "../../components/PowerPellet";
 import { playerSpeed as playerSpeedPx } from "../../../domain/playfield";
 import { speedLevelMultiplier } from "../../../domain/tuning";
 import {
+  cellSpeedMultiplier,
   ghostSpeedMultiplier,
   ghostTunnelSpeedRatio,
   playerSpeedMultiplier,
@@ -226,6 +227,10 @@ export class Observer {
       shields: sim.hud().shields + (timers.hyperspeedShieldMs > 0 ? 1 : 0),
       speedMul: timers.speedBurstMs > 0 ? speedBurstMultiplier(owned) : 1,
       speedSteps: timers.speedBurstMs / stepMs,
+      cellSpeedMul: {
+        pellet: cellSpeedMultiplier(owned, false),
+        empty: cellSpeedMultiplier(owned, true),
+      },
       speedOf,
       affordance: powerPelletAffordance(owned, level, stepMs),
       pellets: mark(pellets),
