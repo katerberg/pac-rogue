@@ -119,10 +119,8 @@ function createTouchStick(scene: Phaser.Scene): () => HeldKeys {
   };
 
   const onTouchEnd = (event: TouchEvent): void => {
-    if (
-      stick !== null &&
-      Array.from(event.changedTouches).some((t) => t.identifier === stick?.touchId)
-    ) {
+    const touchId = stick?.touchId;
+    if (Array.from(event.changedTouches).some((touch) => touch.identifier === touchId)) {
       stick = null;
       draw();
     }
