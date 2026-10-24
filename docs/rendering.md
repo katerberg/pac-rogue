@@ -17,7 +17,7 @@ Collision never depends on the drawing: every ghost catches with the same body c
 
 Dot-Man is a round body PNG that never rotates, with a right-facing visor PNG drawn on top (like ghost pupils). The visor eases to each new heading over a short turn (`dotManHeading.ts`); leftward headings mirror it instead of turning it upside down. It bobs smoothly up and down on a chomp beat tied to distance travelled (`dotManMouth.ts`). Afterimages and the wrap twin copy the head's visor pose. Icons (`addDotManIcon`, `addQuarterIcon` in `render.ts`) are plain images of the same textures. Chomp speed comes from the Visuals knobs.
 
-When caught, Dot-Man plays `public/art/dot-man/dot-man-death.gif` (exported as one PNG per frame under `death/`) in place of body and visor, stretched over the death hold and mirrored when he was heading left (`dotManDeath.ts`). He stays gone through the Game Over fade.
+When caught, Dot-Man plays `public/art/dot-man/dot-man-death.gif` (exported as one PNG per frame under `death/`; its last frame is empty, so Dot-Man ends the hold gone) in place of body and visor, stretched over the death hold and mirrored when he was heading left (`dotManDeath.ts`). He stays gone through the Game Over fade.
 
 ## Bubble shield
 
