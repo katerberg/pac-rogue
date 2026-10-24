@@ -92,8 +92,11 @@ export function placeGhostAtMouth(eid: number, mouth: BossTunnelMouth): void {
 
 export function sendGhostToFarthestMouth(world: World, eid: number): void {
   const player = query(world, [Player, Position])[0];
-  const px = Position.x[player ?? eid] ?? 0;
-  const py = Position.y[player ?? eid] ?? 0;
+  if (player === undefined) {
+    return;
+  }
+  const px = Position.x[player] ?? 0;
+  const py = Position.y[player] ?? 0;
   let farthest: BossTunnelMouth | null = null;
   let farthestDist = -1;
   for (const mouth of bossTunnelMouths(getActiveLayout().playerSolids)) {
