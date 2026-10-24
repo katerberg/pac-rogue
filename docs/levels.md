@@ -33,7 +33,7 @@ Speed lane, lava, collapse and sinkhole levels are **level modifiers**: `?levelM
 
 ## Scatter and chase
 
-`ghostModeWavesForLevel` builds each level's waves. Level 1 and the boss are chase-only; scatter windows shrink with level so scatter is not a late escape hatch, and the last chase lasts forever. Scatter never runs below a pellet-count floor (`effectiveGhostMode`): ghosts reverse and chase for the rest of the board while the wave clock keeps running underneath.
+`ghostModeWavesForLevel` builds each level's waves. Level 1 and the boss are chase-only; scatter windows shrink with level so scatter is not a late escape hatch, and the last chase lasts forever. Scatter never runs below a pellet-count floor (`effectiveGhostMode`): ghosts chase for the rest of the board (they keep their heading until the next junction; ghosts never reverse unless it is their only way) while the wave clock keeps running underneath.
 
 ## Ghost roster
 

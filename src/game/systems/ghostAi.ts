@@ -6,6 +6,7 @@ import {
   ghostDirStep,
   openGhostDirsAt,
   pickGhostDirection,
+  reverseGhostDir,
   type GhostCanEnter,
   type GhostDir,
 } from "../../domain/ghostPath";
@@ -239,6 +240,7 @@ export function scentRouteDir(
   target: GhostTarget,
   rules: ReturnType<typeof ghostMovementRules>,
   field: ScentField,
+  facing: GhostDir,
 ): Direction | null {
   const col = worldToCol(x);
   const row = worldToRow(y);
@@ -261,7 +263,16 @@ export function scentRouteDir(
   const dir = ([GHOST_DIR.up, GHOST_DIR.left, GHOST_DIR.down, GHOST_DIR.right] as const).find(
     (d) => ghostDirStep(d).dx === step.dx && ghostDirStep(d).dy === step.dy,
   );
-  return (dir ?? null) as Direction | null;
+  if (dir === undefined) {
+    return null;
+  }
+  if (dir === reverseGhostDir(facing)) {
+    const forward = openGhostDirsAt(x, y, rules.solids, rules.canEnter).filter((d) => d !== dir);
+    if (forward.length > 0) {
+      return null;
+    }
+  }
+  return dir as Direction;
 }
 
 export function ghostAi(
@@ -329,7 +340,7 @@ export function ghostAi(
         : bossCanEnter;
     const routed =
       scent !== null && scent.zones.length > 0 && phase === GHOST_PHASE.active
-        ? scentRouteDir(x, y, target, { ...rules, canEnter: bossCanEnter }, scent)
+        ? scentRouteDir(x, y, target, { ...rules, canEnter: bossCanEnter }, scent, facing)
         : null;
     const next =
       routed ??

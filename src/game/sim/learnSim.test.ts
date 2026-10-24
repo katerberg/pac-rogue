@@ -61,6 +61,7 @@ import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
 import { defaultPlayOptions } from "../../domain/playOptions";
+import { reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
 import { LearnSim } from "./learnSim";
 import { PlaySim } from "./playSim";
 import type { SimEvent, SimRenderOptions } from "./simEvents";
@@ -236,6 +237,25 @@ describe("LearnSim", () => {
       events.push(...sim.step(held("left"), FRAME_MS));
     }
     expect(events.some((event) => event.type === "releaseDrawable")).toBe(true);
+  });
+
+  it("keeps the ghost going the same way when a power pellet frightens it", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    sim.selectGhost(GHOST_KIND.blinky);
+    sim.toggleUpgrade("powerPelletHunter");
+    const ghost = sim.ghostEid!;
+    for (let i = 0; i < 20; i += 1) {
+      sim.step(held("right"), FRAME_MS);
+    }
+    const before = Facing.direction[ghost] as GhostDir;
+    expect(before).not.toBe(DIRECTION.none);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    const player = query(sim.world, [Player, Position])[0]!;
+    Position.x[player] = Position.x[power]!;
+    Position.y[player] = Position.y[power]!;
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    expect(Facing.direction[ghost]).not.toBe(reverseGhostDir(before));
   });
 
   it("regenerates every power pellet once the last one is eaten", () => {

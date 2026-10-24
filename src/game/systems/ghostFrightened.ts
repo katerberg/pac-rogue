@@ -13,14 +13,8 @@ import { DIRECTION, type Direction, Input } from "../components/Input";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { bossAwareCanEnter } from "./ghostAi";
-import { forceGhostReverse } from "./ghostReverse";
 
-export function frightenGhosts(
-  world: World,
-  limit: number | null,
-  blockTunnels = false,
-  blockTunnelRow: number | null = null,
-): number[] {
+export function frightenGhosts(world: World, limit: number | null): number[] {
   const playerEid = query(world, [Player, Position])[0];
   if (playerEid === undefined) {
     return [];
@@ -28,13 +22,11 @@ export function frightenGhosts(
   const candidates = [...query(world, [Ghost, GhostPhase, Position])]
     .filter((eid) => GhostPhase.value[eid] !== GHOST_PHASE.inHouse)
     .map((eid) => ({ eid, x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 }));
-  const targets = pickFrightenTargets(
+  return pickFrightenTargets(
     candidates,
     { x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 },
     limit,
   );
-  forceGhostReverse(world, blockTunnels, new Set(targets), blockTunnelRow);
-  return targets;
 }
 
 export function frightenedGhostAi(

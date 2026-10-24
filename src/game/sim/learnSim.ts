@@ -1273,11 +1273,7 @@ export class LearnSim {
     if (powerEffects.frightenGhosts) {
       this.learnUpgrades = {
         ...this.learnUpgrades,
-        frightenedGhostEids: frightenGhosts(
-          this.world,
-          null,
-          ghostsBlockedFromTunnels(this.learnUpgrades.owned),
-        ),
+        frightenedGhostEids: frightenGhosts(this.world, null),
       };
     }
     if (powerEffects.freezeClosestMs !== null) {
