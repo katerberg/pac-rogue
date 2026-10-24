@@ -1,6 +1,7 @@
 import {
   SCARECROW_COLOR,
   scentCells,
+  scentCenterPixels,
   scentLingerAlphaMul,
   scentPixels,
 } from "../../domain/scarecrow";
@@ -1822,16 +1823,19 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
         const zone = { col: scent.col, row: scent.row };
         const blink = scentLingerAlphaMul(scent.remainingMs ?? Infinity, scene.time.now);
         const cells = scentCells(zone, scent.radiusTiles, isWalkable);
-        for (const px of scentPixels(
-          zone,
-          cells,
-          scent.radiusTiles,
-          tileSize,
-          originX,
-          originY,
-          scene.time.now,
-          isWalkable,
-        )) {
+        for (const px of [
+          ...scentPixels(
+            zone,
+            cells,
+            scent.radiusTiles,
+            tileSize,
+            originX,
+            originY,
+            scene.time.now,
+            isWalkable,
+          ),
+          ...scentCenterPixels(zone, tileSize, originX, originY),
+        ]) {
           scentGraphics.fillStyle(SCARECROW_COLOR, px.alpha * blink);
           scentGraphics.fillRect(px.x, px.y, px.size, px.size);
         }

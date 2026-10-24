@@ -11,6 +11,9 @@ import {
   scentCells,
   scentRouteStep,
   scentPixels,
+  scentLineWidth,
+  scentCenterPixels,
+  SCARECROW_CENTER_ALPHA,
   tickScentLingers,
 } from "./scarecrow";
 
@@ -80,6 +83,36 @@ describe("scent corridors", () => {
     const near = a.find((px) => px.x > 10 * 16 && px.x < 11 * 16)!;
     const far = a.find((px) => px.x < 7 * 16)!;
     expect(far.alpha).toBeLessThan(near.alpha);
+  });
+});
+
+describe("scent core", () => {
+  it("tapers the line from 5 wide at the source to 1 wide two tiles out", () => {
+    expect(scentLineWidth(0, 16)).toBe(5);
+    expect(scentLineWidth(16, 16)).toBe(3);
+    expect(scentLineWidth(32, 16)).toBe(1);
+    expect(scentLineWidth(60, 16)).toBe(1);
+  });
+
+  it("tapers by distance from the origin, not from crossing corridors", () => {
+    const cross = (col: number, row: number) => (row === 10 && col >= 6 && col <= 14) || col === 12;
+    const cells = scentCells(zone, R, (col, row) => cross(col, row) && row >= 6 && row <= 14);
+    const px = scentPixels(zone, cells, R, 16, 0, 0, 0, cross);
+    const side = px.filter(
+      (p) => p.x >= 12 * 16 && p.x < 13 * 16 && p.y >= 9 * 16 && p.y < 10 * 16,
+    );
+    const rows = new Set(side.map((p) => p.y));
+    expect(rows.size).toBeGreaterThan(0);
+    const column = side.filter((p) => p.y === side[0]!.y);
+    expect(column.length).toBeLessThanOrEqual(1);
+  });
+
+  it("marks the center point brighter than the surrounding scent", () => {
+    const marker = scentCenterPixels(zone, 16, 0, 0);
+    expect(marker).toHaveLength(9);
+    expect(marker.every((px) => px.alpha === SCARECROW_CENTER_ALPHA)).toBe(true);
+    const xs = marker.map((px) => px.x);
+    expect((Math.min(...xs) + Math.max(...xs) + SCARECROW_PIXEL_PX) / 2).toBe(zone.col * 16 + 8);
   });
 });
 
