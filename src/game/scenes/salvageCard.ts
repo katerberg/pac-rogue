@@ -77,15 +77,6 @@ function arrow(graphics: Phaser.GameObjects.Graphics, dir: Dir, x: number, y: nu
   }
 }
 
-function arrowAt(iconX: number): Record<Dir, { x: number; y: number }> {
-  return {
-    up: { x: iconX, y: ROW_Y - ARROW_GAP },
-    down: { x: iconX, y: ROW_Y + ARROW_GAP },
-    left: { x: iconX - CHEVRON_GAP, y: ROW_Y },
-    right: { x: iconX + CHEVRON_GAP, y: ROW_Y },
-  };
-}
-
 function rowIconX(names: readonly string[]): number {
   const widest = (lines: string) => Math.max(...lines.split("\n").map((line) => line.length));
   const rightChars = Math.max(SALVAGE_LABEL.length, ...names.map((label) => widest(label)));
@@ -192,7 +183,12 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
       centered(TAG_TOP + 32, "CHOOSE 1 TO SALVAGE:", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
       const names = owned.map(({ id }) => wrapText(getUpgradeDef(id).label, NAME_CHARS));
       const iconX = rowIconX(names);
-      const at = arrowAt(iconX);
+      const at: Record<Dir, { x: number; y: number }> = {
+        up: { x: iconX, y: ROW_Y - ARROW_GAP },
+        down: { x: iconX, y: ROW_Y + ARROW_GAP },
+        left: { x: iconX - CHEVRON_GAP, y: ROW_Y },
+        right: { x: iconX + CHEVRON_GAP, y: ROW_Y },
+      };
       const icon = track(scene.add.image(iconX, ROW_Y, ""));
       const name = track(
         addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, ALERT_RED).setLineSpacing(
