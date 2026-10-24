@@ -48,14 +48,21 @@ export function strayPixelsBelowText({ data, width, height }) {
   return stray;
 }
 
+// Returns the RGBA bytes as one base64 string: a plain number array of a hi-DPI frame
+// costs gigabytes of node heap in Playwright's per-value serializer.
 export async function readPixels(page, pngBuffer) {
-  return page.evaluate(async (base64) => {
-    const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  const { base64, width, height } = await page.evaluate(async (png) => {
+    const bytes = Uint8Array.from(atob(png), (char) => char.charCodeAt(0));
     const bitmap = await globalThis.createImageBitmap(new Blob([bytes], { type: "image/png" }));
     const canvas = new globalThis.OffscreenCanvas(bitmap.width, bitmap.height);
     const context = canvas.getContext("2d");
     context.drawImage(bitmap, 0, 0);
     const { data, width, height } = context.getImageData(0, 0, bitmap.width, bitmap.height);
-    return { data: Array.from(data), width, height };
+    const chunks = [];
+    for (let start = 0; start < data.length; start += 0x8000) {
+      chunks.push(String.fromCharCode(...data.subarray(start, start + 0x8000)));
+    }
+    return { base64: btoa(chunks.join("")), width, height };
   }, pngBuffer.toString("base64"));
+  return { data: new Uint8Array(Buffer.from(base64, "base64")), width, height };
 }
