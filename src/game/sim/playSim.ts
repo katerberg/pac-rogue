@@ -68,6 +68,7 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
+import { dotManDeathFrame } from "../../domain/dotManDeath";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
 import { respawnCenter } from "../../domain/reanimation";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
@@ -1199,6 +1200,7 @@ export class PlaySim {
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
       possessedGhostEid: possessedGhostEid(this.runUpgrades),
       ...(possessionActive(this.runUpgrades) ? { playerAlpha: 0 } : {}),
+      playerDeathFrame: this.deathFrame(),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       fruitRemainingMs: this.flickerFruitMs(),
       wallPassActive: wallPassActive(this.runUpgrades),
@@ -1421,6 +1423,7 @@ export class PlaySim {
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
+      deathFrame: this.deathFrame() ?? null,
       reviveProgress:
         this.reviveSplashElapsedMs === null
           ? null
@@ -1505,6 +1508,12 @@ export class PlaySim {
     this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
   }
 
+  private deathFrame(): number | undefined {
+    return this.death === null
+      ? undefined
+      : dotManDeathFrame(this.death, this.currentTuning.deathHoldMs);
+  }
+
   private emitDraw(overrides: Partial<SimRenderOptions> = {}): void {
     this.emit({ type: "draw", options: { ...this.renderOptions(), ...overrides } });
   }
@@ -1535,6 +1544,9 @@ export class PlaySim {
       this.death = tick.state;
       for (const event of tick.events) {
         this.handleDeathEvent(event);
+      }
+      if (this.death?.phase === "hold" || this.death?.phase === "fadeToGameOver") {
+        this.emitDraw();
       }
       this.tickReviveSplash(delta);
       this.tickMoneyTalks(delta);

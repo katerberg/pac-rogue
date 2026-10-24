@@ -2349,6 +2349,7 @@ const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
   "wallAlpha",
   "mazeColorInverted",
   "playerReviveProgress",
+  "playerDeathFrame",
   "bossChains",
   "timedTunnel",
   "lava",
