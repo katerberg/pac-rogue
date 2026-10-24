@@ -13,11 +13,12 @@ export const DEFAULT_SPEED_ZONE_FLOW_SPEEDS: SpeedZoneFlowSpeeds = {
 };
 
 export const SPEED_ZONE_WATER_STYLE = {
-  widthPx: 13,
+  wallGapPx: 2,
   deep: 0x0163c6,
   mid: 0x64a5ff,
   light: 0xb2d2ff,
   foam: 0xb8cfff,
+  wake: 0xffffff,
   rippleHz: 3,
   rippleDuty: 0.25,
   chevron: 0.6,
@@ -47,7 +48,7 @@ export type WaterCanvas = {
   rgba: Uint8ClampedArray<ArrayBuffer>;
 };
 
-export function waterCellOpen(
+function waterCellOpen(
   board: Pick<MazeLayout, "walls" | "house" | "door">,
   col: number,
   row: number,
@@ -72,6 +73,34 @@ function noise1(x: number, seed: number): number {
   const f = x - i;
   const a = hash3(i, seed, 7);
   return a + (hash3(i + 1, seed, 7) - a) * f * f * (3 - 2 * f);
+}
+
+export type WaterMask = { halfWidthPx: number; isOpen: (x: number, y: number) => boolean };
+
+export function speedZoneWaterMask(
+  board: Pick<MazeLayout, "walls" | "house" | "door">,
+  wallInsetPx: number,
+): WaterMask {
+  const reach = Math.max(0, wallInsetPx - S.wallGapPx);
+  const open = (col: number, row: number) => waterCellOpen(board, col, row);
+  return {
+    halfWidthPx: ART / 2 + reach,
+    isOpen: (x, y) => {
+      const col = Math.floor(x / ART);
+      const row = Math.floor(y / ART);
+      if (open(col, row)) {
+        return true;
+      }
+      const fx = x - col * ART;
+      const fy = y - row * ART;
+      return (
+        (fx < reach && open(col - 1, row)) ||
+        (fx >= ART - reach && open(col + 1, row)) ||
+        (fy < reach && open(col, row - 1)) ||
+        (fy >= ART - reach && open(col, row + 1))
+      );
+    },
+  };
 }
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
@@ -153,7 +182,7 @@ export function paintSpeedZoneWater(
   zone: SpeedZone,
   nowMs: number,
   flow: SpeedZoneFlowSpeeds,
-  isOpen: (col: number, row: number) => boolean,
+  mask: WaterMask,
 ): void {
   canvas.rgba.fill(0);
   const plot = (bx: number, by: number, color: number, alpha: number): void => {
@@ -162,7 +191,7 @@ export function paintSpeedZoneWater(
     if (alpha <= 0 || x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) {
       return;
     }
-    if (!isOpen(Math.floor(bx / ART), Math.floor(by / ART))) {
+    if (!mask.isOpen(Math.floor(bx), Math.floor(by))) {
       return;
     }
     const a = Math.min(1, alpha);
@@ -180,13 +209,13 @@ export function paintSpeedZoneWater(
   const length = zone.length;
   const frame = laneFrame(zone);
   const profile = flowProfile(length, flow.entryTilesPerSec, flow.exitTilesPerSec);
-  const halfW = S.widthPx / 2 / ART;
+  const halfW = mask.halfWidthPx / ART;
   const seed = zone.col * 31 + zone.row * 17;
   const horizontal = zone.axis === "horizontal";
-  const x0 = zone.col * ART;
-  const y0 = zone.row * ART;
-  const x1 = x0 + (horizontal ? length : 1) * ART;
-  const y1 = y0 + (horizontal ? 1 : length) * ART;
+  const x0 = (zone.col - (horizontal ? 0 : 1)) * ART;
+  const y0 = (zone.row - (horizontal ? 1 : 0)) * ART;
+  const x1 = (zone.col + (horizontal ? length : 2)) * ART;
+  const y1 = (zone.row + (horizontal ? 2 : length)) * ART;
 
   const swell = S.swell * 0.35 * (0.5 + 0.5 * Math.sin(s * Math.PI * 2 * 1.1));
   const glintTick = Math.floor(nowMs / 110);
@@ -295,7 +324,7 @@ export function paintSpeedZoneWater(
     const [px, py] = lanePoint(
       frame,
       start + profile.speed(start) * 0.25 * age,
-      side * (halfW + out),
+      side * (halfW * 0.7 + out),
     );
     plot(px, py, f < 0.4 ? S.foam : S.light, 1 - f);
   });
@@ -314,21 +343,27 @@ export type WakeDroplet = {
 
 export type WakePixel = { x: number; y: number; size: number; color: number; alpha: number };
 
-function spawnWakeDroplet(k: number, bornMs: number, rider: WakeRider): WakeDroplet {
+function spawnWakeDroplet(
+  k: number,
+  bornMs: number,
+  rider: WakeRider,
+  riderRadiusPx: number,
+): WakeDroplet {
   const side = hash3(k, 1, 41) < 0.5 ? -1 : 1;
   const withFlow = rider.effect === "fast";
-  const angle = (withFlow ? 0.15 + hash3(k, 2, 41) * 0.3 : 1.5 + hash3(k, 2, 41) * 0.8) * side;
+  const facing = withFlow ? -1 : 1;
+  const angle = (withFlow ? 0.15 + hash3(k, 2, 41) * 0.3 : 0.2 + hash3(k, 2, 41) * 0.9) * side;
   const perpX = -rider.dy;
   const perpY = rider.dx;
-  const dirX = -rider.dx * Math.cos(angle) + perpX * Math.sin(angle);
-  const dirY = -rider.dy * Math.cos(angle) + perpY * Math.sin(angle);
-  const speed = withFlow ? 50 + hash3(k, 3, 41) * 40 : 22 + hash3(k, 3, 41) * 18;
-  const lead = withFlow ? -6 : 5;
-  const offset = withFlow ? 0 : 2;
+  const dirX = facing * rider.dx * Math.cos(angle) + perpX * Math.sin(angle);
+  const dirY = facing * rider.dy * Math.cos(angle) + perpY * Math.sin(angle);
+  const speed = withFlow ? 50 + hash3(k, 3, 41) * 40 : 40 + hash3(k, 3, 41) * 40;
+  const lead = withFlow ? 2 - riderRadiusPx : riderRadiusPx + 1;
+  const across = (hash3(k, 5, 41) - 0.5) * riderRadiusPx * (withFlow ? 0.8 : 1.2);
   return {
     bornMs,
-    x: rider.x + rider.dx * lead + dirX * offset,
-    y: rider.y + rider.dy * lead + dirY * offset,
+    x: rider.x + rider.dx * lead + perpX * across,
+    y: rider.y + rider.dy * lead + perpY * across,
     vx: dirX * speed,
     vy: dirY * speed,
     big: hash3(k, 4, 41) < 0.7,
@@ -340,6 +375,7 @@ export function stepWakeDroplets(
   rider: WakeRider | null,
   previousMs: number,
   nowMs: number,
+  riderRadiusPx: number,
 ): WakeDroplet[] {
   const kept = droplets.filter((d) => d.bornMs <= nowMs && nowMs - d.bornMs < S.wakeLifeMs);
   if (rider === null || nowMs <= previousMs) {
@@ -348,7 +384,9 @@ export function stepWakeDroplets(
   const slot = (ms: number) => Math.floor((ms * S.wakePerSec) / 1000);
   const first = slot(Math.max(previousMs, nowMs - S.wakeLifeMs)) + 1;
   for (let k = first; k <= slot(nowMs); k += 1) {
-    kept.push(spawnWakeDroplet(k, Math.min(nowMs, (k * 1000) / S.wakePerSec), rider));
+    kept.push(
+      spawnWakeDroplet(k, Math.min(nowMs, (k * 1000) / S.wakePerSec), rider, riderRadiusPx),
+    );
   }
   return kept;
 }
@@ -356,7 +394,7 @@ export function stepWakeDroplets(
 export function wakePixels(
   droplets: readonly WakeDroplet[],
   nowMs: number,
-  isOpen: (col: number, row: number) => boolean,
+  isOpen: (x: number, y: number) => boolean,
 ): WakePixel[] {
   return droplets.flatMap((d) => {
     const age = (nowMs - d.bornMs) / 1000;
@@ -364,11 +402,11 @@ export function wakePixels(
     const travel = (1 - Math.exp(-WAKE_DRAG * age)) / WAKE_DRAG;
     const x = Math.floor(d.x + d.vx * travel);
     const y = Math.floor(d.y + d.vy * travel);
-    if (f < 0 || f >= 1 || !isOpen(Math.floor(x / ART), Math.floor(y / ART))) {
+    if (f < 0 || f >= 1 || !isOpen(x, y)) {
       return [];
     }
     return [
-      { x, y, size: f < 0.6 && d.big ? 2 : 1, color: mix(S.foam, S.light, f), alpha: 1 - f * f },
+      { x, y, size: f < 0.6 && d.big ? 2 : 1, color: mix(S.wake, S.foam, f), alpha: 1 - f * f },
     ];
   });
 }

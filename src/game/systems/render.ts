@@ -14,6 +14,7 @@ import {
   cellCenterY,
   cellOriginX,
   cellOriginY,
+  clampedWallInset,
   getActiveLayout,
   isWalkable,
   isSolid,
@@ -51,7 +52,7 @@ import {
   SPEED_ZONE_WATER_ART_TILE,
   speedZoneWaterCanvas,
   stepWakeDroplets,
-  waterCellOpen,
+  speedZoneWaterMask,
   wakePixels,
   type SpeedZoneFlowSpeeds,
   type WakeDroplet,
@@ -1862,14 +1863,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       drawnSpeedZones = speedZones;
     }
     const waterLayout = getActiveLayout();
-    const waterOpen = (col: number, row: number) => waterCellOpen(waterLayout, col, row);
+    const artPx = waterLayout.tileSize / SPEED_ZONE_WATER_ART_TILE;
+    const waterMask = speedZoneWaterMask(waterLayout, clampedWallInset() / artPx);
     for (const water of speedZoneWater) {
-      paintSpeedZoneWater(water.canvas, water.zone, scene.time.now, speedZoneFlowSpeeds, waterOpen);
+      paintSpeedZoneWater(water.canvas, water.zone, scene.time.now, speedZoneFlowSpeeds, waterMask);
       const texture = water.image.texture as Phaser.Textures.CanvasTexture;
       texture.getContext().putImageData(water.pixels, 0, 0);
       texture.refresh();
     }
-    const artPx = waterLayout.tileSize / SPEED_ZONE_WATER_ART_TILE;
     const rider = opts?.speedZoneRider ?? null;
     wakeDroplets = stepWakeDroplets(
       wakeDroplets,
@@ -1882,10 +1883,11 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
           },
       wakeDropletsAtMs,
       scene.time.now,
+      playerDisplaySize() / 2 / artPx,
     );
     wakeDropletsAtMs = scene.time.now;
     speedZoneWakeGraphics.clear();
-    for (const px of wakePixels(wakeDroplets, scene.time.now, waterOpen)) {
+    for (const px of wakePixels(wakeDroplets, scene.time.now, waterMask.isOpen)) {
       speedZoneWakeGraphics.fillStyle(px.color, px.alpha);
       speedZoneWakeGraphics.fillRect(
         cellOriginX(0) + px.x * artPx,
