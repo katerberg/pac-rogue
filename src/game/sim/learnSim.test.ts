@@ -2328,6 +2328,7 @@ const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
   "collapse",
   "sinkhole",
   "speedZones",
+  "speedZoneRider",
   "pupilTarget",
 ];
 

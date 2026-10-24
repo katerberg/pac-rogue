@@ -1215,6 +1215,7 @@ export class PlaySim {
       sinkhole: this.sinkholeRenderState(),
       boreJunk: this.tunnelBore.junk,
       speedZones: this.speedZones,
+      speedZoneRider: this.speedZoneRider(),
       droppedWall: this.runUpgrades.droppedWall,
       chaff: chaffSprites(this.runUpgrades.chaff),
       scent: scentSprites(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
@@ -2528,6 +2529,24 @@ export class PlaySim {
     if (step >= speedZoneShiftSteps(this.speedZoneShift)) {
       this.speedZoneShift = null;
     }
+  }
+
+  private speedZoneRider(): SimRenderOptions["speedZoneRider"] {
+    const effect =
+      this.death === null
+        ? floatingZoneEffect(this.effectiveUpgrades(), this.playerSpeedZone())
+        : null;
+    const eid = query(this.world, [Player, Velocity])[0];
+    if (effect === null || eid === undefined) {
+      return null;
+    }
+    return {
+      x: Position.x[eid] ?? 0,
+      y: Position.y[eid] ?? 0,
+      dx: Math.sign(Velocity.x[eid] ?? 0),
+      dy: Math.sign(Velocity.y[eid] ?? 0),
+      effect,
+    };
   }
 
   private playerSpeedZone(): SpeedZoneEffect | null {
