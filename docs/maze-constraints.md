@@ -14,14 +14,14 @@ The playfield is fixed; every layout uses one fixed tile size (`TILE_SIZE_PX`), 
 
 ## Ghost house, tunnels
 
-- Every layout except the store has a house: 2-wide door on top, a floor meeting `HOUSE_FLOOR_MIN_*` / `HOUSE_SPAWN_ROW_MIN_FLOORS` in `maze.ts` (seat count and in-house ghost cap come from spawn-row width via `houseSeatCount` in `ghostHouseSeats.ts`; seats interpolate across that width), an exit above the door and a fruit cell below the house, all **derived** from the ASCII.
-- Tunnels are horizontal only, at least one per board, never adjacent. The slow band is a fraction of columns, so it scales with width. Scatter targets and pellet-based thresholds also scale with the layout.
+- Every layout except the store and the swarm boss board has a house: 2-wide door on top, a floor meeting `HOUSE_FLOOR_MIN_*` / `HOUSE_SPAWN_ROW_MIN_FLOORS` in `maze.ts` (seat count and in-house ghost cap come from spawn-row width via `houseSeatCount` in `ghostHouseSeats.ts`; seats interpolate across that width), an exit above the door and a fruit cell below the house, all **derived** from the ASCII. Houseless layouts (`houseless` in `buildLayoutFromAscii`) point the house anchors and the fruit cell at the player spawn, and ghost code must go through `hasGhostHouse` before seating anyone.
+- Tunnels are horizontal, at least one per board, never adjacent. The authored swarm boss board also has vertical wrap tunnels (the wrap code already supports them; the generator never makes them). The slow band is a fraction of columns, so it scales with width. Scatter targets and pellet-based thresholds also scale with the layout.
 
 ## Play boards
 
 - Level 1: curated `mazeSmall`.
 - Levels 2–8: one map drawn from the committed pool (`src/domain/mazePool.json`, `pickPoolIndex(runSeed)`); the same base is reused for the run. Inversion (6–7) and timed tunnels (7–8) still apply on top. Layout label: `pool-<index>`.
-- Level 9 (boss): still live-generated from `boardMazeSeed` (tunnel count can be forced); fallback `maze2` with a `console.warn` on failure.
+- Level 9 (boss): Blinky Swarm plays the authored houseless `SWARM_BOSS_MAZE_ASCII` ([bosses.md](./bosses.md#blinky-swarm)); Chained Ghosts is live-generated from `boardMazeSeed`, falling back to `maze2` with a `console.warn` on failure.
 - `?maze=maze1|maze2|mazeSmall` forces that fixture for the first board; `?maze=<n>` forces pool index `n` (dense `0..count-1`).
 
 ## Generator (offline / boss)
@@ -30,4 +30,4 @@ Solved on a mirrored polyomino tiling with a fixed centre house and rasterized t
 
 To expand the pool later: `npm run maze:generate` writes `artifacts/mazes/candidates.json` (gitignored). Curate offline (the old `/mazes/` Yes/No page remains in git history), renumber kept maps to dense ids, and replace `src/domain/mazePool.json`.
 
-Out of scope: vertical tunnels, non-rectangular grids, multi-house, canvas resize or scroll.
+Out of scope: generated vertical tunnels, non-rectangular grids, multi-house, canvas resize or scroll.

@@ -26,6 +26,7 @@ import {
   cellCenterY,
   getActiveLayout,
   ghostHouseSpawnCenter,
+  hasGhostHouse,
   horizontalTunnelRows,
   isWalkable,
   MAZE_OFFSET_X,
@@ -44,6 +45,7 @@ import {
 } from "../../domain/tunnelBoring";
 import { ghostBaseSpeedRatio, speedLevelMultiplier } from "../../domain/levelRules";
 import { GHOST_AI_MODE } from "../../domain/ghostMode";
+import { bossTunnelMouths } from "../../domain/bossBoard";
 import { CLASSIC_MAZE_ASCII, STORE_MAZE_ASCII, tinyHouseMazeAscii } from "../../domain/mazeLayouts";
 import { parseQueryParams } from "../../domain/queryParams";
 import { defaultPlayOptions, parsePlayOptions, type PlayOptions } from "../../domain/playOptions";
@@ -2432,9 +2434,11 @@ describe("PlaySim", () => {
     teleportPlayer(sim, Position.x[pellet]!, Position.y[pellet]!);
     runUntil(sim, () => sim.snapshot().boss?.ghostCount === 3, 30);
     const spawned = query(sim.world, [BossGhost, Position]).find((eid) => !before.has(eid))!;
-    const startX = Position.x[spawned]!;
-    runFrames(sim, 180);
-    expect(Math.abs(Position.x[spawned]! - startX)).toBeGreaterThan(20);
+    const start = { x: Position.x[spawned]!, y: Position.y[spawned]! };
+    runFrames(sim, 180, { keys: held("left") });
+    expect(
+      Math.hypot(Position.x[spawned]! - start.x, Position.y[spawned]! - start.y),
+    ).toBeGreaterThan(20);
   });
 
   describe("boss pick", () => {
@@ -2616,6 +2620,81 @@ describe("PlaySim", () => {
     });
   });
 
+  describe("Blinky Swarm board", () => {
+    const swarm = (overrides: Partial<PlayOptions> = {}): PlaySim =>
+      startSim({ level: 9, boss: "blinkySwarm", infiniteLives: true, ...overrides });
+    const blinkys = (sim: PlaySim): number[] => [...query(sim.world, [BossGhost, Position])];
+    const cellOf = (eid: number): string =>
+      `${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`;
+    const mouthCells = (): string[] =>
+      bossTunnelMouths(getActiveLayout().playerSolids).map((mouth) => `${mouth.col},${mouth.row}`);
+
+    it("plays on the houseless lattice board", () => {
+      swarm();
+      expect(getActiveLayout().id).toBe("swarmBoss");
+      expect(hasGhostHouse()).toBe(false);
+    });
+
+    it("brings every starting Blinky out of a tunnel mouth, held until Dot-Man moves", () => {
+      const sim = swarm();
+      const eids = blinkys(sim);
+      expect(eids).toHaveLength(2);
+      expect(new Set(eids.map(cellOf)).size).toBe(2);
+      for (const eid of eids) {
+        expect(mouthCells()).toContain(cellOf(eid));
+        expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.active);
+      }
+      const before = eids.map((eid) => ({ x: Position.x[eid], y: Position.y[eid] }));
+      runFrames(sim, 30);
+      expect(eids.map((eid) => ({ x: Position.x[eid], y: Position.y[eid] }))).toEqual(before);
+      runFrames(sim, 30, { keys: held("left") });
+      expect(
+        eids.every(
+          (eid, i) => Position.x[eid] === before[i]!.x && Position.y[eid] === before[i]!.y,
+        ),
+      ).toBe(false);
+    });
+
+    it("restarts every Blinky from a tunnel mouth after a death", () => {
+      const sim = swarm();
+      runFrames(sim, 60, { keys: held("left") });
+      ghostOntoPlayer(sim);
+      runFrames(sim, 1);
+      expect(sim.snapshot().dying).toBe(true);
+      runUntil(sim, () => !sim.snapshot().dying, 400);
+      const eids = blinkys(sim);
+      expect(eids).toHaveLength(2);
+      for (const eid of eids) {
+        expect(mouthCells()).toContain(cellOf(eid));
+        expect(GhostPhase.value[eid]).toBe(GHOST_PHASE.active);
+      }
+    });
+
+    it("sends a recalled Blinky back out of the tunnel mouth farthest from Dot-Man", () => {
+      const sim = swarm({ enableUpgrades: ["powerPelletGhostRecall"] });
+      const power = query(sim.world, [PowerPellet, Position])[0]!;
+      const [near] = blinkys(sim);
+      Position.x[near!] = Position.x[power]! + TILE_SIZE;
+      Position.y[near!] = Position.y[power]!;
+      teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+      runFrames(sim, 1);
+      expect(GhostPhase.value[near!]).toBe(GHOST_PHASE.active);
+      const reach = (mouth: { col: number; row: number }): number =>
+        Math.hypot(
+          cellCenterX(mouth.col) - Position.x[power]!,
+          cellCenterY(mouth.row) - Position.y[power]!,
+        );
+      const farthest = Math.max(...bossTunnelMouths(getActiveLayout().playerSolids).map(reach));
+      expect(
+        Math.hypot(
+          Position.x[near!]! - Position.x[power]!,
+          Position.y[near!]! - Position.y[power]!,
+        ),
+      ).toBeCloseTo(farthest, 5);
+      expect(mouthCells()).toContain(cellOf(near!));
+    });
+  });
+
   describe("boss second stage", () => {
     function waitStage2(sim: PlaySim): void {
       runUntil(
@@ -2659,6 +2738,19 @@ describe("PlaySim", () => {
       expect(worldToCol(Position.x[player]!)).toBe(col);
       expect(worldToRow(Position.y[player]!)).toBe(row);
       expect(sim.snapshot().runComplete).toBe(false);
+    });
+
+    it("brings the swarm back out of the tunnels when stage 2 begins", () => {
+      const sim = startSim({ level: 9, boss: "blinkySwarm", bossStageAdvance: true });
+      waitStage2(sim);
+      const mouths = bossTunnelMouths(getActiveLayout().playerSolids).map(
+        (mouth) => `${mouth.col},${mouth.row}`,
+      );
+      const eids = [...query(sim.world, [BossGhost, Position])];
+      expect(eids).toHaveLength(2);
+      for (const eid of eids) {
+        expect(mouths).toContain(`${worldToCol(Position.x[eid]!)},${worldToRow(Position.y[eid]!)}`);
+      }
     });
 
     it("ends the run only after the final boss stage clear", () => {
@@ -4432,7 +4524,7 @@ describe("PlaySim enhanced upgrades", () => {
     const [a, b] = bosses as [number, number];
     expect({ x: Position.x[a], y: Position.y[a] }).toEqual({ x: Position.x[b], y: Position.y[b] });
 
-    runFrames(sim, Math.ceil((WARP_GLIDE_MS + 3000) / FRAME_MS));
+    runFrames(sim, Math.ceil((WARP_GLIDE_MS + 3000) / FRAME_MS), { keys: held("left") });
     expect(
       Math.hypot(Position.x[a]! - Position.x[b]!, Position.y[a]! - Position.y[b]!),
     ).toBeGreaterThan(TILE_SIZE);
@@ -5898,7 +5990,23 @@ describe("Haunting", () => {
     expect(sim.snapshot().hauntedGhost).toBeNull();
   });
 
-  it.each(["blinkySwarm", "chainedGhosts"] as const)(
+  it("cages no ghost on the Blinky Swarm, which has no house to cage one in", () => {
+    const sim = startSim({
+      level: 9,
+      boss: "blinkySwarm",
+      infiniteLives: true,
+      enableUpgrades: ["passiveHaunting"],
+    });
+    runFrames(sim, 20, LEFT);
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    expect(sim.renderOptions().hauntedGhost).toBeNull();
+    expect(sim.snapshot().timers.hauntMs).toBe(0);
+  });
+
+  it.each(["chainedGhosts"] as const)(
     "cages the ghost that caught you in the %s boss fight",
     (boss) => {
       const sim = startSim({

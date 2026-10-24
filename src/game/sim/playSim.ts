@@ -135,6 +135,8 @@ import {
 } from "../../domain/lives";
 import {
   activateAsciiLayout,
+  ghostHouseSpawnCenter,
+  hasGhostHouse,
   setActiveLayout,
   withSinkholes,
   activateLayout,
@@ -223,7 +225,7 @@ import {
   generateMazeAsciiWithRetries,
   resolveBoardSelection,
 } from "../../domain/mazeGenerate";
-import { STORE_MAZE_ASCII } from "../../domain/mazeLayouts";
+import { STORE_MAZE_ASCII, SWARM_BOSS_MAZE_ASCII } from "../../domain/mazeLayouts";
 import { mazePoolMap } from "../../domain/mazePool";
 import {
   addPelletsToProgress,
@@ -466,7 +468,12 @@ import { PowerPellet } from "../components/PowerPellet";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
 import { bossChains, chainCatch } from "../systems/bossChain";
-import { bossGhostBlock, countBossPellets, pickFreeBossMouth } from "../systems/bossGhosts";
+import {
+  bossGhostBlock,
+  countBossPellets,
+  pickFreeBossMouth,
+  placeGhostAtMouth,
+} from "../systems/bossGhosts";
 import {
   catchPlayer,
   edibleGhostsTouchingEid,
@@ -1819,6 +1826,7 @@ export class PlaySim {
         ...heldGhostEids(this.ghostCornerWarps),
         ...shieldBounceHeldGhosts(this.shieldBounce),
         ...sonicStunnedEids(this.runUpgrades, this.effectiveUpgrades()),
+        ...this.bossGhostsAwaitingStart(),
       ]),
       frightenedGhostEids: frightenedGhostEids(this.runUpgrades),
       tunnelSpeedRatio: ghostTunnelSpeedRatio(this.effectiveUpgrades()),
@@ -3162,8 +3170,10 @@ export class PlaySim {
         console.warn(`unknown pool index ${selection.index}; falling back to maze2`);
         activateLayout("maze2");
       }
+    } else if (boss?.authoredBoard === true) {
+      layoutLabel = this.activateRunAscii(SWARM_BOSS_MAZE_ASCII, "swarmBoss", null, "swarmBoss");
     } else {
-      const generated = this.generateBoard(selection.seed, boss);
+      const generated = generateMazeAsciiWithRetries(selection.seed);
       if (generated) {
         layoutLabel = this.activateRunAscii(generated.ascii, `gen:${generated.seedUsed}`);
       } else {
@@ -3416,13 +3426,14 @@ export class PlaySim {
     ascii: string,
     label: string,
     chains: readonly CollapseChain[] | null = null,
+    layoutId: "generated" | "swarmBoss" = "generated",
   ): string {
     try {
       const sinkhole = chains === null ? null : this.sinkholeChainFor();
       const collapsed = applySinkhole(applyCollapse(ascii, chains ?? []), sinkhole);
       const boredCells = this.boredCellsForMap(label);
       const bored = applyTunnelBoringAscii(collapsed, boredCells);
-      activateAsciiLayout(bored);
+      activateAsciiLayout(bored, layoutId);
       openBoredCellsOnLayout(getActiveLayout(), boredCells);
       if (sinkhole !== null) {
         this.setSinkholeLayouts(sinkhole);
@@ -3508,28 +3519,8 @@ export class PlaySim {
     this.recorder.activation("tunnelBoring");
   }
 
-  private generateBoard(
-    seed: string,
-    boss: BossDef | null,
-  ): ReturnType<typeof generateMazeAsciiWithRetries> {
-    if (boss?.tunnelCount == null) {
-      return generateMazeAsciiWithRetries(seed);
-    }
-    const bossBoard = generateMazeAsciiWithRetries(seed, GENERATE_MAX_ATTEMPTS, {
-      tunnelCount: boss.tunnelCount,
-    });
-    if (bossBoard !== null) {
-      return bossBoard;
-    }
-    console.warn(
-      `boss maze with ${boss.tunnelCount} tunnels failed for seed ${seed}; using a regular board`,
-    );
-    return generateMazeAsciiWithRetries(seed);
-  }
-
   private startBoss(boss: BossDef): void {
-    const { cols } = getActiveLayout();
-    this.bossMouths = bossTunnelMouths(horizontalTunnelRows(), cols);
+    this.bossMouths = bossTunnelMouths(getActiveLayout().playerSolids);
     this.bossState = createBossState(boss, bossStartGhosts(boss, this.currentTuning));
     this.spawnBossGhostsForLife();
   }
@@ -3547,6 +3538,7 @@ export class PlaySim {
       );
     }
     this.bossState = { ...this.bossState, pendingSpawns: tunnel };
+    this.spawnPendingBossGhosts();
   }
 
   private tagBossPellets(state: BossState): void {
@@ -3570,11 +3562,25 @@ export class PlaySim {
     this.bossState = { ...state, bossPelletsRemaining: picks.length };
   }
 
+  private bossGhostsAwaitingStart(): readonly number[] {
+    return this.bossState === null || this.ghostReleaseClock.started
+      ? []
+      : [...query(this.world, [BossGhost, Ghost])];
+  }
+
   private tickBoss(): void {
     if (this.bossState === null) {
       return;
     }
-    let state = recordBossPelletsEaten(this.bossState, countBossPellets(this.world));
+    this.bossState = recordBossPelletsEaten(this.bossState, countBossPellets(this.world));
+    this.spawnPendingBossGhosts();
+  }
+
+  private spawnPendingBossGhosts(): void {
+    if (this.bossState === null) {
+      return;
+    }
+    let state = this.bossState;
     while (state.pendingSpawns > 0) {
       const kind = bossGhostKind(state.def, state.ghostCount - state.pendingSpawns);
       if (this.bossMouths.length === 0) {
@@ -4903,15 +4909,9 @@ export class PlaySim {
       });
       this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
     } else {
-      for (const eid of query(this.world, [
-        Ghost,
-        GhostPhase,
-        Position,
-        Velocity,
-        Input,
-        Facing,
-        Speed,
-      ])) {
+      for (const eid of hasGhostHouse()
+        ? query(this.world, [Ghost, GhostPhase, Position, Velocity, Input, Facing, Speed])
+        : []) {
         Velocity.x[eid] = 0;
         Velocity.y[eid] = 0;
         Input.direction[eid] = DIRECTION.none;
@@ -5079,11 +5079,7 @@ export class PlaySim {
   private spawnBossGhostAtMouth(kind: GhostKindId, mouth: BossTunnelMouth): void {
     const eid = this.spawnBossGhost(kind);
     BossGhost.releaseDelayMs[eid] = 0;
-    Position.x[eid] = cellCenterX(mouth.col);
-    Position.y[eid] = cellCenterY(mouth.row);
-    GhostPhase.value[eid] = GHOST_PHASE.active;
-    Facing.direction[eid] = mouth.facing;
-    Input.direction[eid] = mouth.facing;
+    placeGhostAtMouth(eid, mouth);
   }
 
   private spawnBossGhost(kind: GhostKindId): number {
@@ -5123,7 +5119,7 @@ export class PlaySim {
     addComponent(this.world, eid, GhostPhase);
     addComponent(this.world, eid, Drawable);
 
-    const seats = ghostHouseSeatCenters();
+    const seats = hasGhostHouse() ? ghostHouseSeatCenters() : [ghostHouseSpawnCenter()];
     const mid = seats[Math.floor(seats.length / 2)] ?? seats[0]!;
     Position.x[eid] = mid.x;
     Position.y[eid] = mid.y;
