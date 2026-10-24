@@ -1,5 +1,6 @@
 import { decoyTile } from "../../domain/chaff";
 import { formatPennies } from "../../domain/pennies";
+import { fruitKindsOnBoard, fruitPositions } from "../systems/collectFruit";
 import { hasComponent, query, removeEntity } from "bitecs";
 import { describe, expect, it } from "vitest";
 import { CORNUCOPIA_SPAWN_DEBOUNCE_MS } from "../../domain/fruit";
@@ -662,6 +663,27 @@ describe("LearnSim upgrade demos", () => {
     const before = query(sim.world, [Pellet]).length;
     expect(popups(catchByGhost(sim, player))[0]).toMatch(/^HARVEST [1-9]/);
     expect(query(sim.world, [Pellet]).length).toBeLessThan(before);
+  });
+
+  it("Grave Lilies leave one watermelon per charge, recharged by power pellets when enhanced", () => {
+    const { sim, player } = setup("passiveGraveLilies");
+    const melons = () => fruitKindsOnBoard(sim.world).filter((kind) => kind === "watermelon");
+    expect(melons()).toEqual([]);
+    catchByGhost(sim, player);
+    expect(melons()).toEqual(["watermelon"]);
+    runMs(sim, 1_600);
+    const first = fruitPositions(sim.world);
+    moveTo(player, { x: first[0]!.x + 60, y: first[0]!.y });
+    catchByGhost(sim, player);
+    expect(fruitPositions(sim.world)).toEqual(first);
+    sim.toggleUpgrade("passiveGraveLilies");
+    sim.toggleUpgrade("passiveGraveLiliesPlus");
+    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
+    sim.step(NO_KEYS_HELD, FRAME_MS);
+    runMs(sim, 1_600);
+    moveTo(player, { x: first[0]!.x + 60, y: first[0]!.y });
+    catchByGhost(sim, player);
+    expect(fruitPositions(sim.world)).not.toEqual(first);
   });
 
   it("Death's Bounty earns pennies with decaying payouts", () => {

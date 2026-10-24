@@ -93,7 +93,8 @@ export type CoreUpgradeId =
   | "passiveFloating"
   | "passiveGleaning"
   | "passiveSonicBoom"
-  | "passiveScarecrow";
+  | "passiveScarecrow"
+  | "passiveGraveLilies";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -219,6 +220,7 @@ export type UpgradeEffects = {
     chaffMs?: number;
     chaffCorners?: true;
     tunnelBoringRecharge?: true;
+    graveLiliesRecharge?: true;
   };
 };
 
@@ -1205,6 +1207,18 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       scarecrowLingerMs: SCARECROW_LINGER_MS,
     },
   },
+  {
+    id: "passiveGraveLilies",
+    label: "Grave Lilies",
+    school: "death",
+    description: "Dying leaves a fruit where you fell, once per level.",
+    storePrice: STORE_UPGRADE_PRICE,
+    enhanced: {
+      enhanceNote: "Grave Lilies recharge on every power pellet instead of once per level.",
+      description: "Dying leaves a fruit where you fell. Power pellets recharge the lilies.",
+      onPowerPellet: { graveLiliesRecharge: true },
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1460,6 +1474,7 @@ export type PowerPelletApplyResult = {
   programmerStarted: boolean;
   mirrorStarted: boolean;
   tunnelBoringRecharge: boolean;
+  graveLiliesRecharge: boolean;
 };
 
 export const NO_FRIGHT: Pick<
@@ -2203,6 +2218,7 @@ export function applyPowerPelletEffects(
       programmerStarted: false,
       mirrorStarted: false,
       tunnelBoringRecharge: false,
+      graveLiliesRecharge: false,
     };
   }
 
@@ -2228,6 +2244,7 @@ export function applyPowerPelletEffects(
   let chaffMs: number | null = null;
   let chaffCorners = false;
   let tunnelBoringRecharge = false;
+  let graveLiliesRecharge = false;
 
   const owned = effectiveOwned(state.owned);
   for (const id of firingPowerUpgrades(state.owned, onlyBases)) {
@@ -2307,6 +2324,9 @@ export function applyPowerPelletEffects(
     }
     if (onPower.tunnelBoringRecharge) {
       tunnelBoringRecharge = true;
+    }
+    if (onPower.graveLiliesRecharge) {
+      graveLiliesRecharge = true;
     }
     if (onPower.programmerSets !== undefined) {
       programmerSets = Math.max(programmerSets, onPower.programmerSets);
@@ -2408,6 +2428,7 @@ export function applyPowerPelletEffects(
     programmerStarted: programmerSets > 0,
     mirrorStarted,
     tunnelBoringRecharge,
+    graveLiliesRecharge,
   };
 }
 

@@ -85,6 +85,11 @@ import {
   type FruitPresence,
   type FruitSequenceState,
 } from "../../domain/fruit";
+import {
+  GRAVE_FRUIT_KIND,
+  GRAVE_LILIES_CHARGES_PER_LEVEL,
+  takeGraveLiliesCharge,
+} from "../../domain/graveLilies";
 import { FRUIT_KINDS } from "../fruitArt";
 import { ghostHouseSeatCenters, houseSeatCount } from "../../domain/ghostHouseSeats";
 import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
@@ -744,6 +749,8 @@ export class PlaySim {
   private pendingPowerPelletRespawns: PendingPowerPelletRespawn[] = [];
   private secondChompUsed = 0;
   private tunnelBoringCharges = 0;
+  private graveLiliesCharges = 0;
+  private graveFruit: number[] = [];
   private tunnelBored: { mapKey: string; cells: MazeTile[] } | null = null;
   private tunnelBore: TunnelBore = NO_TUNNEL_BORE;
   private timedTunnelGatedRow: number | null = null;
@@ -1409,6 +1416,7 @@ export class PlaySim {
                 passable: upgrades.droppedWall.passable,
               },
       },
+      graveLilies: { charges: this.graveLiliesCharges },
       tunnelBoring: {
         charges: this.tunnelBoringCharges,
         cells: this.tunnelBored?.cells.map((cell) => ({ ...cell })) ?? [],
@@ -2218,6 +2226,9 @@ export class PlaySim {
         caughtBy,
       });
       const bountyPaid = !result.gameOver && this.payDeathsBounty();
+      if (!saved && !result.gameOver) {
+        this.dropGraveFruit(fellAt);
+      }
       this.replayRecorder.death(this.world);
       this.recorder.death({
         col: deathCell?.col ?? -1,
@@ -3182,8 +3193,12 @@ export class PlaySim {
     this.fruitPresence = createFruitPresence();
     this.fruitSequence = { ...this.fruitSequence, spawnIndex: 0 };
     this.resetCornucopiaFruit();
+    this.graveFruit = [];
     this.pendingPowerPelletRespawns = [];
     this.secondChompUsed = 0;
+    this.graveLiliesCharges = hasUpgrade(this.effectiveUpgrades(), "passiveGraveLilies")
+      ? GRAVE_LILIES_CHARGES_PER_LEVEL
+      : 0;
     this.tunnelBoringCharges = hasUpgrade(this.effectiveUpgrades(), "passiveTunnelBoring")
       ? TUNNEL_BORING_CHARGES_PER_LEVEL
       : 0;
@@ -4394,6 +4409,9 @@ export class PlaySim {
     if (baseIdOf(id) === "passiveTunnelBoring") {
       this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
     }
+    if (baseIdOf(id) === "passiveGraveLilies") {
+      this.graveLiliesCharges = GRAVE_LILIES_CHARGES_PER_LEVEL;
+    }
     if (id === "fruitFecundity") {
       this.fruitPresence = extendFruitLifetime(this.fruitPresence, FRUIT_FECUNDITY_MUL);
     }
@@ -4643,6 +4661,9 @@ export class PlaySim {
     }
     if (powerEffects.tunnelBoringRecharge) {
       this.tunnelBoringCharges = TUNNEL_BORING_CHARGES_PER_LEVEL;
+    }
+    if (powerEffects.graveLiliesRecharge) {
+      this.graveLiliesCharges = GRAVE_LILIES_CHARGES_PER_LEVEL;
     }
     return powerEffects;
   }
@@ -4906,7 +4927,7 @@ export class PlaySim {
         this.afterLifeRelease,
         { heldGhostEids: hauntEid === null ? [] : [hauntEid] },
       );
-      this.clearFruitEntities();
+      this.clearFruitEntities(false, true);
       this.fruitPresence = {
         ...this.fruitPresence,
         active: false,
@@ -4936,14 +4957,37 @@ export class PlaySim {
     return inHouse.find((eid) => GhostKind.kind[eid] === caughtKind) ?? inHouse[0] ?? null;
   }
 
-  private clearFruitEntities(keepCornucopia = false): void {
-    const keep = new Set(keepCornucopia ? this.cornucopiaFruit.map((fruit) => fruit.eid) : []);
+  private clearFruitEntities(keepCornucopia = false, keepGrave = keepCornucopia): void {
+    const keep = new Set([
+      ...(keepCornucopia ? this.cornucopiaFruit.map((fruit) => fruit.eid) : []),
+      ...(keepGrave ? this.graveFruit : []),
+    ]);
     for (const eid of removeAllFruit(this.world, keep)) {
       this.releaseDrawable(eid);
     }
     if (!keepCornucopia) {
       this.resetCornucopiaFruit();
     }
+    if (!keepGrave) {
+      this.graveFruit = [];
+    }
+  }
+
+  private dropGraveFruit(at: Point | null): void {
+    if (at === null || !hasUpgrade(this.effectiveUpgrades(), "passiveGraveLilies")) {
+      return;
+    }
+    const taken = takeGraveLiliesCharge(this.graveLiliesCharges);
+    this.graveLiliesCharges = taken.charges;
+    if (!taken.drop) {
+      return;
+    }
+    for (const eid of this.graveFruit) {
+      removeEntity(this.world, eid);
+      this.releaseDrawable(eid);
+    }
+    this.graveFruit = [spawnFruit(this.world, GRAVE_FRUIT_KIND, at)];
+    this.recorder.fruitSpawned(GRAVE_FRUIT_KIND);
   }
 
   private resetCornucopiaFruit(): void {
@@ -4962,10 +5006,11 @@ export class PlaySim {
 
   private noteFruitRemoved(eids: readonly number[]): void {
     this.cornucopiaFruit = this.cornucopiaFruit.filter((fruit) => !eids.includes(fruit.eid));
+    this.graveFruit = this.graveFruit.filter((eid) => !eids.includes(eid));
   }
 
   private regularFruitRemains(): boolean {
-    return fruitPositions(this.world).length > this.cornucopiaFruit.length;
+    return fruitPositions(this.world).length > this.cornucopiaFruit.length + this.graveFruit.length;
   }
 
   private flickerFruitMs(): number {
