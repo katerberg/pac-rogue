@@ -468,7 +468,7 @@ describe("maze", () => {
   });
 
   it("rejects out-of-band and oversized-fit sizes", () => {
-    expect(() => computeMazeGeometry(16, 31)).toThrow(/cols/);
+    expect(() => computeMazeGeometry(19, 31)).toThrow(/cols/);
     expect(() => computeMazeGeometry(28, 20)).toThrow(/rows/);
     expect(() => computeMazeGeometry(28, 36)).toThrow(/height/i);
   });

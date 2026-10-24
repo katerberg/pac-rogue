@@ -8,7 +8,7 @@ export { pickLayoutId, parseMazeParam, MAZE_LAYOUT_IDS } from "./mazeLayouts";
 export const CLASSIC_MAZE_COLS = 28;
 export const CLASSIC_MAZE_ROWS = 31;
 
-export const MAZE_COLS_MIN = 17;
+export const MAZE_COLS_MIN = 20;
 export const MAZE_COLS_MAX = 32;
 export const MAZE_ROWS_MIN = 21;
 export const MAZE_ROWS_MAX = 36;

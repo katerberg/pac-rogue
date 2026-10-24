@@ -168,23 +168,23 @@ describe("swarm boss board", () => {
     activateLayout("maze1");
   });
 
-  it("is a houseless pillar lattice with a side tunnel and two vertical tunnels", () => {
+  it("is a houseless 2x2-pillar lattice with a side tunnel and two vertical tunnels", () => {
     const layout = activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
-    expect(layout.cols).toBe(17);
-    expect(layout.rows).toBe(33);
+    expect(layout.cols).toBe(24);
+    expect(layout.rows).toBe(34);
     expect(hasGhostHouse(layout)).toBe(false);
     expect(layout.ghostHouseExit).toEqual(layout.playerSpawn);
     expect(horizontalTunnelRows(layout.playerSolids)).toEqual([21]);
     const verticalCols = [...Array(layout.cols).keys()].filter(
       (col) => !layout.playerSolids[0]![col] && !layout.playerSolids[layout.rows - 1]![col],
     );
-    expect(verticalCols).toEqual([1, 15]);
+    expect(verticalCols).toEqual([1, 22]);
     expect(layout.ascii.match(/@/g)).toHaveLength(4);
   });
 
   it("starts Dot-Man mid-field, with every open cell reachable and no dead ends", () => {
     const layout = activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
-    expect(layout.playerSpawn).toEqual({ col: 8, row: 17 });
+    expect(layout.playerSpawn).toEqual({ col: 10, row: 18 });
     const open = (col: number, row: number): boolean => !(layout.playerSolids[row]?.[col] ?? true);
     const neighbors = (col: number, row: number): [number, number][] =>
       (
@@ -225,11 +225,11 @@ describe("swarm boss board", () => {
   it("keeps pellets out of the tunnels", () => {
     activateAsciiLayout(SWARM_BOSS_MAZE_ASCII, "swarmBoss");
     const pelletKeys = new Set(pelletCellCenters().map((cell) => `${cell.col},${cell.row}`));
-    for (const row of [...Array(6).keys(), ...[27, 28, 29, 30, 31, 32]]) {
+    for (const row of [...Array(5).keys(), 29, 30, 31, 32, 33]) {
       expect(pelletKeys.has(`1,${row}`)).toBe(false);
-      expect(pelletKeys.has(`15,${row}`)).toBe(false);
+      expect(pelletKeys.has(`22,${row}`)).toBe(false);
     }
     expect(pelletKeys.has("0,21")).toBe(false);
-    expect(pelletKeys.has("16,21")).toBe(false);
+    expect(pelletKeys.has("23,21")).toBe(false);
   });
 });
