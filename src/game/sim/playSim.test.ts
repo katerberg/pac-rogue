@@ -157,6 +157,7 @@ import type { SimEvent } from "./simEvents";
 import { IDLE_INPUT, type SimInput } from "./simInput";
 import { mergeHeldKeys, NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
+import { fruitPositions } from "../systems/collectFruit";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
 import { openGhostDirsAt, reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
 import { scentAwareCanEnter } from "../systems/ghostAi";
@@ -4570,6 +4571,97 @@ describe("PlaySim enhanced upgrades", () => {
     runFrames(sim, 1);
     expect(sim.snapshot().dying).toBe(true);
     expect(query(sim.world, [PowerPellet])).toHaveLength(powerCount);
+  });
+});
+
+describe("Grave Lilies", () => {
+  function startLilies(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", infiniteLives: true, enableUpgrades, ...overrides });
+  }
+
+  function die(sim: PlaySim): { x: number; y: number } {
+    const eid = playerEid(sim);
+    const at = { x: Position.x[eid]!, y: Position.y[eid]! };
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    runUntil(sim, () => !sim.snapshot().dying, 240);
+    settleSlots(sim);
+    return at;
+  }
+
+  function eatPowerPellet(sim: PlaySim): void {
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+  }
+
+  it("leaves a watermelon where you fell", () => {
+    const sim = startLilies(["passiveGraveLilies"]);
+    const at = die(sim);
+    expect(sim.snapshot().fruitKinds).toEqual(["watermelon"]);
+    expect(fruitPositions(sim.world)).toEqual([at]);
+  });
+
+  it("drops only once per level, then moves the uneaten fruit to the new death site", () => {
+    const sim = startLilies(["passiveGraveLilies"]);
+    die(sim);
+    expect(sim.snapshot().graveLilies.charges).toBe(0);
+    const first = fruitPositions(sim.world);
+    teleportPlayer(sim, first[0]!.x + 40, first[0]!.y);
+    const second = die(sim);
+    expect(sim.snapshot().fruitKinds).toEqual(["watermelon"]);
+    expect(fruitPositions(sim.world)).toEqual([second]);
+    expect(second).not.toEqual(first[0]);
+  });
+
+  it("leaves no fruit on a later death once the first was eaten", () => {
+    const sim = startLilies(["passiveGraveLilies"]);
+    const at = die(sim);
+    teleportPlayer(sim, at.x, at.y);
+    runFrames(sim, 2);
+    die(sim);
+    expect(sim.snapshot().fruitKinds).toEqual([]);
+  });
+
+  it("drops nothing when not owned", () => {
+    const sim = startLilies([]);
+    die(sim);
+    expect(sim.snapshot().fruitKinds).toEqual([]);
+  });
+
+  it("drops nothing on a Defy Death save", () => {
+    const sim = startLilies(["passiveGraveLilies", "passiveDefyDeath"], { infiniteLives: false });
+    eatPowerPellet(sim);
+    die(sim);
+    expect(sim.snapshot().fruitKinds).toEqual([]);
+    expect(sim.snapshot().graveLilies.charges).toBe(1);
+  });
+
+  it("is eaten as ordinary fruit", () => {
+    const sim = startLilies(["passiveGraveLilies"]);
+    const at = die(sim);
+    teleportPlayer(sim, at.x, at.y);
+    runFrames(sim, 2);
+    expect(sim.snapshot().fruitKinds).toEqual([]);
+  });
+
+  it("recharges on a power pellet when enhanced", () => {
+    const sim = startLilies(["passiveGraveLiliesPlus"]);
+    die(sim);
+    expect(sim.snapshot().graveLilies.charges).toBe(0);
+    eatPowerPellet(sim);
+    expect(sim.snapshot().graveLilies.charges).toBe(1);
+    const eid = playerEid(sim);
+    const second = { x: Position.x[eid]!, y: Position.y[eid]! };
+    die(sim);
+    expect(fruitPositions(sim.world)).toEqual([second]);
+  });
+
+  it("does not recharge on a power pellet in base form", () => {
+    const sim = startLilies(["passiveGraveLilies"]);
+    die(sim);
+    eatPowerPellet(sim);
+    expect(sim.snapshot().graveLilies.charges).toBe(0);
   });
 });
 
