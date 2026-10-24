@@ -41,8 +41,7 @@ export function collectSlotMachines(
 
 export function collectSlotMachinesForBodies(
   world: World,
-  twin: { x: number; y: number } | null,
+  bodies: readonly { x: number; y: number }[],
 ): CollectedSlotMachine[] {
-  const own = collectSlotMachines(world);
-  return twin === null ? own : [...own, ...collectSlotMachines(world, twin)];
+  return [collectSlotMachines(world), ...bodies.map((at) => collectSlotMachines(world, at))].flat();
 }

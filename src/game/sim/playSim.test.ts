@@ -149,7 +149,9 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
+import { Simulacrum } from "../components/Simulacrum";
 import { Speed } from "../components/Speed";
+import { removeSimulacra } from "../systems/simulacrum";
 import { Velocity } from "../components/Velocity";
 import { PlaySim, RUN_END_MENU_ARM_MS } from "./playSim";
 import { ghostName } from "./runRecorder";
@@ -8866,6 +8868,225 @@ describe("Mirror", () => {
     takeFirstOffered(sim);
     runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 1200);
     expect(sim.snapshot().mirror.active).toBe(false);
+  });
+});
+
+describe("Simulacrum", () => {
+  const RIGHT = { keys: held("right") };
+
+  function start(enableUpgrades: UpgradeId[], overrides: Partial<PlayOptions> = {}): PlaySim {
+    return startSim({ level: 2, maze: "maze1", enableUpgrades, ...overrides }, "simulacrum");
+  }
+
+  function clearGhosts(sim: PlaySim): void {
+    for (const eid of query(sim.world, [Ghost])) {
+      removeEntity(sim.world, eid);
+    }
+  }
+
+  function copies(sim: PlaySim): number[] {
+    return [...query(sim.world, [Simulacrum, Position])];
+  }
+
+  function activeGhost(sim: PlaySim): number {
+    const ghost = query(sim.world, [Ghost, Position])[0]!;
+    GhostPhase.value[ghost] = GHOST_PHASE.active;
+    return ghost;
+  }
+
+  function moveTo(eid: number, at: { x: number; y: number }): void {
+    Position.x[eid] = at.x;
+    Position.y[eid] = at.y;
+  }
+
+  function at(eid: number): { x: number; y: number } {
+    return { x: Position.x[eid]!, y: Position.y[eid]! };
+  }
+
+  it("does nothing without the upgrade", () => {
+    const sim = start([]);
+    expect(copies(sim)).toEqual([]);
+    expect(sim.snapshot().simulacrum).toEqual({ copies: [], popsAnimating: 0 });
+    expect(sim.renderOptions().simulacra).toEqual([]);
+  });
+
+  it("starts a level with one copy above the ghost house, two with Plus", () => {
+    const exit = getActiveLayout().ghostHouseExit;
+    expect(start(["passiveSimulacrum"]).snapshot().simulacrum.copies).toEqual([exit]);
+    const plus = start(["passiveSimulacrumPlus"]).snapshot().simulacrum.copies;
+    expect(plus).toHaveLength(2);
+    expect(plus[0]).toEqual(exit);
+    expect(plus[1]!.row).toBeGreaterThan(exit.row);
+    expect(isWalkable(plus[1]!.col, plus[1]!.row)).toBe(true);
+  });
+
+  it("moves as you do, at your speed", () => {
+    const sim = start(["passiveSimulacrum"]);
+    clearGhosts(sim);
+    const copy = copies(sim)[0]!;
+    const before = at(copy);
+    runFrames(sim, 20, RIGHT);
+    expect(Position.x[copy]!).toBeGreaterThan(before.x);
+    expect(Position.y[copy]!).toBeCloseTo(before.y);
+    expect(Speed.px[copy]).toBe(Speed.px[playerEid(sim)]);
+    expect(sim.renderOptions().simulacra).toEqual([
+      { ...at(copy), facing: Facing.direction[copy] },
+    ]);
+  });
+
+  it("eats pellets and fruit it touches", () => {
+    const sim = start(["passiveSimulacrum"]);
+    clearGhosts(sim);
+    const copy = copies(sim)[0]!;
+    const pellet = regularPelletEids(sim)[0]!;
+    const before = sim.snapshot().boardCollected;
+    moveTo(copy, at(pellet));
+    runFrames(sim, 1);
+    expect(query(sim.world, [Pellet]).includes(pellet)).toBe(false);
+    expect(sim.snapshot().boardCollected).toBe(before + 1);
+
+    sim["spawnFruitEntity"](false);
+    const fruit = query(sim.world, [Fruit, Position])[0]!;
+    moveTo(copy, at(fruit));
+    runFrames(sim, 1);
+    expect(sim.snapshot().fruit).toBe(false);
+  });
+
+  it("crosses a slot machine for you", () => {
+    const sim = start(["passiveSimulacrum"], {
+      slotMachine: true,
+      slot: { quarters: 0, upgrades: 0, lives: 0 },
+    });
+    clearGhosts(sim);
+    const cell = sim.snapshot().slotPickup.cells[0]!;
+    moveTo(copies(sim)[0]!, { x: cellCenterX(cell.col), y: cellCenterY(cell.row) });
+    runFrames(sim, 1);
+    expect(sim.snapshot().slotPickup.count).toBe(0);
+    expect(sim.snapshot().slot.active || sim.snapshot().slot.queued > 0).toBe(true);
+  });
+
+  it("eats a frightened ghost it touches", () => {
+    const sim = start(["passiveSimulacrum", "powerPelletHunter"]);
+    const ghost = activeGhost(sim);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(sim.snapshot().frightenedGhosts.length).toBeGreaterThan(0);
+    moveTo(ghost, at(copies(sim)[0]!));
+    runFrames(sim, 1);
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    expect(copies(sim)).toHaveLength(1);
+    expect(sim.runLogRecord().levels.at(-1)!.activations.ghostEaten).toBe(1);
+  });
+
+  it("pops a copy a ghost catches, without costing a life", () => {
+    const sim = start(["passiveSimulacrum"]);
+    const lives = sim.snapshot().lives;
+    moveTo(activeGhost(sim), at(copies(sim)[0]!));
+    runFrames(sim, 1);
+    expect(copies(sim)).toEqual([]);
+    expect(sim.snapshot().simulacrum.popsAnimating).toBe(1);
+    expect(sim.renderOptions().simulacrumPops).toHaveLength(1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lives).toBe(lives);
+  });
+
+  it("when you are caught, the copy becomes you instead", () => {
+    const sim = start(["passiveSimulacrum"]);
+    const lives = sim.snapshot().lives;
+    const copySpot = at(copies(sim)[0]!);
+    const player = playerEid(sim);
+    moveTo(activeGhost(sim), at(player));
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().lives).toBe(lives);
+    expect(at(player)).toEqual(copySpot);
+    expect(copies(sim)).toEqual([]);
+    expect(sim.snapshot().simulacrum.popsAnimating).toBe(1);
+    expect(sim.runLogRecord().levels.at(-1)!.activations.simulacrum).toBe(1);
+  });
+
+  it("promotes the copy nearest you by path", () => {
+    const sim = start(["passiveSimulacrumPlus"]);
+    const [, bottom] = copies(sim);
+    const bottomSpot = at(bottom!);
+    const player = playerEid(sim);
+    teleportPlayer(sim, bottomSpot.x + 2 * TILE_SIZE, bottomSpot.y);
+    moveTo(activeGhost(sim), at(player));
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(at(player)).toEqual(bottomSpot);
+    expect(copies(sim)).toHaveLength(1);
+  });
+
+  it("is a normal death once no copies are left", () => {
+    const sim = start(["passiveSimulacrum"]);
+    removeSimulacra(sim.world);
+    const lives = sim.snapshot().lives;
+    moveTo(activeGhost(sim), at(playerEid(sim)));
+    runFrames(sim, 1);
+    expect(sim.snapshot().dying).toBe(true);
+    expect(sim.snapshot().lives).toBe(lives - 1);
+  });
+
+  it("a banked shield breaks before a copy takes over", () => {
+    const sim = start(["passiveSimulacrum", "passiveStartingShield"]);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(1);
+    moveTo(activeGhost(sim), at(playerEid(sim)));
+    runFrames(sim, 1);
+    expect(sim.snapshot().timers.shieldsBanked).toBe(0);
+    expect(copies(sim)).toHaveLength(1);
+  });
+
+  it("ghosts chase whichever of you is nearer by path", () => {
+    const sim = start(["passiveSimulacrum"]);
+    const copy = copies(sim)[0]!;
+    const ghost = activeGhost(sim);
+    moveTo(ghost, { x: Position.x[copy]! - 3 * TILE_SIZE, y: Position.y[copy]! });
+    Facing.direction[ghost] = DIRECTION.none;
+    sim["ghostModeClock"] = { ...sim["ghostModeClock"], mode: GHOST_AI_MODE.chase };
+    sim["previousEffectiveGhostMode"] = GHOST_AI_MODE.chase;
+    const gap = (): number => Math.abs(Position.x[ghost]! - Position.x[copy]!);
+    const before = gap();
+    runFrames(sim, 10);
+    expect(gap()).toBeLessThan(before);
+  });
+
+  it("does not follow a warp of your body", () => {
+    const sim = start(["passiveSimulacrum", "powerPelletWarpFarthest"]);
+    clearGhosts(sim);
+    const copy = copies(sim)[0]!;
+    const before = at(copy);
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    expect(at(copy)).toEqual(before);
+  });
+
+  it("walks through walls with you under Wall Pass and snaps out when it ends", () => {
+    const sim = start(["passiveSimulacrum", "powerPelletWallPass"]);
+    clearGhosts(sim);
+    const copy = copies(sim)[0]!;
+    const power = query(sim.world, [PowerPellet, Position])[0]!;
+    teleportPlayer(sim, Position.x[power]!, Position.y[power]!);
+    runFrames(sim, 1);
+    const exit = getActiveLayout().ghostHouseExit;
+    moveTo(copy, { x: cellCenterX(exit.col), y: cellCenterY(exit.row - 1) });
+    expect(isWalkable(exit.col, exit.row - 1)).toBe(false);
+    runFrames(sim, 1);
+    expect(worldToRow(Position.y[copy]!)).toBe(exit.row - 1);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], wallPassRemainingMs: 1 };
+    runFrames(sim, 1);
+    expect(isWalkable(worldToCol(Position.x[copy]!), worldToRow(Position.y[copy]!))).toBe(true);
+  });
+
+  it("comes back for the next level", () => {
+    const sim = start(["passiveSimulacrum"], { disableLevelUpgrades: true, jumpToUpgrade: true });
+    removeSimulacra(sim.world);
+    runUntil(sim, () => sim.snapshot().level === 3 && !sim.snapshot().levelTransition, 900, {
+      acknowledge: true,
+    });
+    expect(copies(sim)).toHaveLength(1);
   });
 });
 

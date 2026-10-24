@@ -67,6 +67,8 @@ export type SimRenderOptions = {
   programmerPath?: ProgrammerPathMark[];
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
+  simulacra?: { x: number; y: number; facing: number }[];
+  simulacrumPops?: { x: number; y: number; progress: number }[];
 };
 
 export type MoneyTalksSpend = {

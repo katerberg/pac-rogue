@@ -148,21 +148,29 @@ function straightLineSq(a: MazeTile, b: MazeTile): number {
   return (a.col - b.col) ** 2 + (a.row - b.row) ** 2;
 }
 
+export function nearestIndex(
+  from: MazeTile,
+  tiles: readonly MazeTile[],
+  solids: SolidGrid,
+): number {
+  const paths = tiles.map((tile) => pathLength(solids, from, tile));
+  const cost = paths.some(Number.isFinite)
+    ? paths
+    : tiles.map((tile) => straightLineSq(from, tile));
+  return cost.reduce((best, value, index) => (value < cost[best]! ? index : best), 0);
+}
+
 export function nearestBody(
   ghost: MazeTile,
   player: BodyTile,
-  twin: BodyTile | null,
+  others: readonly BodyTile[],
   solids: SolidGrid,
 ): BodyTile {
-  if (twin === null) {
+  if (others.length === 0) {
     return player;
   }
-  const viaPlayer = pathLength(solids, ghost, player);
-  const viaTwin = pathLength(solids, ghost, twin);
-  if (viaPlayer === viaTwin && !Number.isFinite(viaPlayer)) {
-    return straightLineSq(ghost, twin) < straightLineSq(ghost, player) ? twin : player;
-  }
-  return viaTwin < viaPlayer ? twin : player;
+  const bodies = [player, ...others];
+  return bodies[nearestIndex(ghost, bodies, solids)]!;
 }
 
 export function tickMirrorPop(pop: MirrorPop | null, deltaMs: number): MirrorPop | null {

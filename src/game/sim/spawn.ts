@@ -1,9 +1,14 @@
 import { addComponent, addEntity, type World } from "bitecs";
 import { fruitDrawableId, fruitSpawnCenter, type FruitKind } from "../../domain/fruit";
+import { simulacrumSpawnTiles } from "../../domain/simulacrum";
 import {
+  cellCenterX,
+  cellCenterY,
+  getActiveLayout,
   pelletCellCenters,
   playerSpawnCenter,
   wallCellCenters,
+  type MazeTile,
   type PelletKind,
 } from "../../domain/maze";
 import {
@@ -26,6 +31,7 @@ import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
 import { PowerPellet } from "../components/PowerPellet";
+import { Simulacrum } from "../components/Simulacrum";
 import { SlotMachine } from "../components/SlotMachine";
 import { Speed } from "../components/Speed";
 import { Velocity } from "../components/Velocity";
@@ -82,6 +88,33 @@ export function spawnPlayer(world: World): void {
   Speed.px[eid] = PLAYER_SPEED;
   Drawable.id[eid] = PLAYER_DRAWABLE_ID;
   Drawable.radius[eid] = playerRadius();
+}
+
+export function spawnSimulacra(
+  world: World,
+  copies: number,
+  blocked: readonly MazeTile[] = [],
+): void {
+  for (const tile of simulacrumSpawnTiles(getActiveLayout(), copies, blocked)) {
+    spawnSimulacrum(world, { x: cellCenterX(tile.col), y: cellCenterY(tile.row) });
+  }
+}
+
+function spawnSimulacrum(world: World, at: { x: number; y: number }): void {
+  const eid = addEntity(world);
+  addComponent(world, eid, Position);
+  addComponent(world, eid, Velocity);
+  addComponent(world, eid, Input);
+  addComponent(world, eid, Facing);
+  addComponent(world, eid, Speed);
+  addComponent(world, eid, Simulacrum);
+  Position.x[eid] = at.x;
+  Position.y[eid] = at.y;
+  Velocity.x[eid] = 0;
+  Velocity.y[eid] = 0;
+  Input.direction[eid] = DIRECTION.none;
+  Facing.direction[eid] = DIRECTION.none;
+  Speed.px[eid] = 0;
 }
 
 export function spawnFruit(

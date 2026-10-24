@@ -167,6 +167,7 @@ import {
   type CornucopiaMode,
   endMirror,
   mirrorSavesLife,
+  simulacrumCopies,
 } from "../../domain/upgrades";
 import { shouldFireMartyr, shouldStartPossession } from "../../domain/possession";
 import {
@@ -282,6 +283,14 @@ import {
   edibleGhostsTouchingPlayer,
   type CatchOptions,
 } from "../systems/catchPlayer";
+import {
+  popCaughtSimulacra,
+  promoteNearestSimulacrum,
+  removeSimulacra,
+  simulacrumBodies,
+  simulacrumPoints,
+  syncSimulacra,
+} from "../systems/simulacrum";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
 import { stepNearMisses } from "../systems/nearMiss";
 import { crumbGhostCells, pelletCells, takeCrumbsAt } from "../systems/gleaning";
@@ -302,7 +311,7 @@ import {
 import { forceGhostReverse } from "../systems/ghostReverse";
 import { SonicBoomEchoes, movingOverClearedTile, stepSonicBoom } from "../systems/sonicBoom";
 import { applyPlayerSpeed } from "../systems/playerSpeed";
-import { snapPlayerToNearestWalkable } from "../systems/playerWallPassSnap";
+import { snapBodiesToNearestWalkable } from "../systems/playerWallPassSnap";
 import {
   startWarpGlide,
   tickWarpGlide,
@@ -339,6 +348,7 @@ import {
   spawnFruit,
   spawnPellet,
   spawnPlayer,
+  spawnSimulacra,
   spawnWalls,
 } from "./spawn";
 
@@ -376,6 +386,7 @@ const LEARN_CATCH_DEMO_UPGRADES: readonly BaseUpgradeId[] = [
   "passiveBananaShield",
   "passiveMartyr",
   "passivePossession",
+  "passiveSimulacrum",
 ];
 
 export class LearnSim {
@@ -420,6 +431,7 @@ export class LearnSim {
   private pendingPowerRespawns: PendingPowerPelletRespawn[] = [];
   private readonly runState = new LearnRunState();
   private mirrorPop: MirrorPop | null = null;
+  private simulacrumPops: MirrorPop[] = [];
   private readonly houseHold = new LearnHouseHold();
   private readonly recalled = new LearnRecall();
   private houseHoldEaten = 0;
@@ -459,25 +471,22 @@ export class LearnSim {
     }
     const chaff = this.learnUpgrades.chaff;
     const baseCtx = ghostAiContext(this.world, undefined, chaff?.decoys);
-    const twin = this.twinBody();
+    const bodies = this.extraBodies();
     const ghostX = Position.x[eid] ?? 0;
     const ghostY = Position.y[eid] ?? 0;
-    const ctx =
-      twin === null
-        ? baseCtx
-        : {
-            ...baseCtx,
-            player: nearestBody(
-              { col: worldToCol(ghostX), row: worldToRow(ghostY) },
-              baseCtx.player,
-              twin,
-              getActiveLayout().playerSolids,
-            ),
-          };
+    const ctx = {
+      ...baseCtx,
+      player: nearestBody(
+        { col: worldToCol(ghostX), row: worldToRow(ghostY) },
+        baseCtx.player,
+        bodies,
+        getActiveLayout().playerSolids,
+      ),
+    };
     const target = resolveGhostTarget(eid, GHOST_AI_MODE.chase, NO_ELROY_PELLETS, ctx);
     const playerEid = query(this.world, [Player, Position])[0];
     const helper = this.helperBlinky;
-    const twinPosition = ctx.player === twin ? this.twinPosition() : null;
+    const twinPosition = this.bodyPoints()[bodies.indexOf(ctx.player)] ?? null;
     const decoy = nearestDecoy(chaff?.decoys ?? [], worldToCol(ghostX), worldToRow(ghostY));
     const ghostFacing = (Facing.direction[eid] ?? DIRECTION.none) as GhostDir;
     return {
@@ -590,7 +599,7 @@ export class LearnSim {
     const wasWallPass = wallPassActive(this.learnUpgrades);
     this.learnUpgrades = tickWallPass(this.learnUpgrades, delta);
     if (wasWallPass && !wallPassActive(this.learnUpgrades)) {
-      snapPlayerToNearestWalkable(this.world);
+      snapBodiesToNearestWalkable(this.world);
     }
     this.learnUpgrades = tickInvuln(this.learnUpgrades, delta);
     this.turnCatchGraceMs = tickTurnCatchGrace(this.turnCatchGraceMs, delta);
@@ -690,6 +699,7 @@ export class LearnSim {
       droppedWall: this.learnUpgrades.droppedWall,
     });
     const moveFrame = (frameDelta: number): void => {
+      syncSimulacra(this.world);
       movement(
         this.world,
         frameDelta,
@@ -811,6 +821,7 @@ export class LearnSim {
     this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
       this.spawnPellets();
+      this.respawnSimulacra();
       this.onBoardRefill();
     } else {
       this.regenPowerPellets();
@@ -833,7 +844,7 @@ export class LearnSim {
       ]),
       null,
       this.learnUpgrades.droppedWall,
-      this.twinBody(),
+      this.extraBodies(),
       this.learnUpgrades.chaff?.decoys,
       scentFieldFor(this.learnUpgrades.owned, this.world, this.learnUpgrades.scentLingers),
     );
@@ -851,6 +862,9 @@ export class LearnSim {
     this.stepPeelTail(delta);
     if (!this.tryBreakPeel(catchOptions)) {
       const demo = this.catchDemoOwned();
+      if (demo) {
+        this.popCaughtSimulacra(catchOptions);
+      }
       const playerCaught = demo ? catchPlayer(this.world, catchOptions) : null;
       const twinAt = this.twinPosition();
       const twinCaught =
@@ -908,6 +922,8 @@ export class LearnSim {
         ),
         mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
+        simulacra: simulacrumPoints(this.world),
+        simulacrumPops: this.simulacrumPops.map((pop) => mirrorPopRender(pop)!),
       },
     });
     const { timers, pulses } = advanceUpgradeTimers(
@@ -952,6 +968,7 @@ export class LearnSim {
     }
     this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
     this.mirrorPop = null;
+    this.simulacrumPops = [];
     this.hyperspeedDirection = null;
     this.turnCatchGraceMs = 0;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
@@ -1053,6 +1070,9 @@ export class LearnSim {
     this.runState.addLives(sumGrantedLives(after) - sumGrantedLives(before));
     this.syncHouseHold(this.houseHoldWanted(before));
     this.syncFruitMode(wasScheduled, fruitLifetimeMultiplier(after) / lifetimeBefore);
+    if (simulacrumCopies(after) !== simulacrumCopies(before)) {
+      this.respawnSimulacra();
+    }
   }
 
   private houseHoldWanted(owned: readonly UpgradeId[]): boolean {
@@ -1433,7 +1453,7 @@ export class LearnSim {
     const possessed = possessedGhostEid(this.learnUpgrades);
     const eaten =
       possessed === null
-        ? edibleGhostsTouchingPlayer(this.world, edible)
+        ? edibleGhostsTouchingPlayer(this.world, edible, simulacrumPoints(this.world))
         : edibleGhostsTouchingEid(this.world, possessed, edible);
     for (const eid of eaten) {
       if (eid === frozenGhostEid(this.learnUpgrades)) {
@@ -1576,6 +1596,36 @@ export class LearnSim {
     return player === null ? null : twinPoint(player, getActiveLayout());
   }
 
+  private bodyPoints(): { x: number; y: number }[] {
+    const twin = this.twinPosition();
+    return [...(twin === null ? [] : [twin]), ...simulacrumPoints(this.world)];
+  }
+
+  private extraBodies(): BodyTile[] {
+    const twin = this.twinBody();
+    return [...(twin === null ? [] : [twin]), ...simulacrumBodies(this.world)];
+  }
+
+  private respawnSimulacra(): void {
+    removeSimulacra(this.world);
+    const ghostTiles = [...query(this.world, [Ghost, Position])].map((eid) => ({
+      col: worldToCol(Position.x[eid] ?? 0),
+      row: worldToRow(Position.y[eid] ?? 0),
+    }));
+    spawnSimulacra(this.world, simulacrumCopies(this.learnUpgrades.owned), ghostTiles);
+  }
+
+  private popCaughtSimulacra(options: CatchOptions): void {
+    const popped = popCaughtSimulacra(
+      this.world,
+      (at) => catchPlayer(this.world, { ...options, at }) !== null,
+    );
+    this.simulacrumPops.push(...popped.map((at) => ({ ...at, elapsedMs: 0 })));
+    if (popped.length > 0) {
+      this.popup("COPY POPPED");
+    }
+  }
+
   private twinBody(): BodyTile | null {
     const position = this.twinPosition();
     return position === null
@@ -1597,6 +1647,7 @@ export class LearnSim {
 
   private tickMirror(delta: number): void {
     this.mirrorPop = tickMirrorPop(this.mirrorPop, delta);
+    this.simulacrumPops = this.simulacrumPops.flatMap((pop) => tickMirrorPop(pop, delta) ?? []);
     const cell = playerCell(this.world);
     const player = this.playerPosition();
     if (
@@ -1623,7 +1674,7 @@ export class LearnSim {
         radiusBonusPx: pelletCollectRadiusBonusPx(this.learnUpgrades.owned),
         solids: getActiveLayout().playerSolids,
       },
-      this.twinPosition(),
+      this.bodyPoints(),
     );
   }
 
@@ -1675,11 +1726,14 @@ export class LearnSim {
           this.hyperspeedPellets,
           this.collectBodyPellets(),
         );
-        this.hyperspeedFruit.push(...collectFruitForBodies(this.world, this.twinPosition()));
+        this.hyperspeedFruit.push(...collectFruitForBodies(this.world, this.bodyPoints()));
         this.eatFrightenedGhosts();
         const options = this.catchOptions();
         if (this.tryBreakPeel(options)) {
           return false;
+        }
+        if (this.catchDemoOwned()) {
+          this.popCaughtSimulacra(options);
         }
         const twinAt = this.twinPosition();
         const hit =
@@ -1829,6 +1883,12 @@ export class LearnSim {
       this.popup("TWIN POPPED");
       return;
     }
+    const from = promoteNearestSimulacrum(this.world, this.playerSolids());
+    if (from !== null) {
+      this.simulacrumPops.push({ ...from, elapsedMs: 0 });
+      this.popup("COPY TAKES OVER");
+      return;
+    }
     this.learnUpgrades = endMirror(this.learnUpgrades);
     const lines: string[] = [];
     if (hasUpgrade(owned, "passiveDeathsHarvest")) {
@@ -1973,7 +2033,7 @@ export class LearnSim {
     const fruitTilesBefore = fruitTiles(this.world);
     const removedFruitEids = [
       ...this.hyperspeedFruit,
-      ...collectFruitForBodies(this.world, this.twinPosition()),
+      ...collectFruitForBodies(this.world, this.bodyPoints()),
     ];
     this.hyperspeedFruit = [];
     if (removedFruitEids.length === 0) {

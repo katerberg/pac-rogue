@@ -93,7 +93,8 @@ export type CoreUpgradeId =
   | "passiveFloating"
   | "passiveGleaning"
   | "passiveSonicBoom"
-  | "passiveScarecrow";
+  | "passiveScarecrow"
+  | "passiveSimulacrum";
 
 export type BaseUpgradeId = CoreUpgradeId | TrinketUpgradeId;
 export type EnhancedUpgradeId = `${BaseUpgradeId}Plus`;
@@ -191,6 +192,7 @@ export type UpgradeEffects = {
   wallDropMs?: number;
   wallDropPassable?: true;
   mirrorSavesLife?: true;
+  simulacrumCopies?: number;
   floatsOverHazards?: true;
   floatsOverSlowZones?: true;
   onPowerPellet?: {
@@ -288,6 +290,8 @@ export const GHOST_SLOW_MUL = 0.8;
 export const GHOST_HOUSE_RELEASE_DELAY_ADD_MS = 2000;
 export const GHOST_HOUSE_RELIEF_PELLET_ADD = 15;
 export const EXTRA_HUNGRY_COUNT = 8;
+export const SIMULACRUM_COPIES = 1;
+export const SIMULACRUM_ENHANCED_COPIES = 2;
 export const STORE_UPGRADE_PRICE = 4;
 export const STORE_RARE_UPGRADE_PRICE = 5;
 export const RARE_MIN_OWNED = 2;
@@ -1205,6 +1209,22 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
       scarecrowLingerMs: SCARECROW_LINGER_MS,
     },
   },
+  {
+    id: "passiveSimulacrum",
+    label: "Simulacrum",
+    school: "harvest",
+    description:
+      "Each level starts with a copy of you above the ghost house. It moves as you do and eats what it touches. If a ghost catches you, the nearest copy becomes you instead.",
+    storePrice: STORE_RARE_UPGRADE_PRICE,
+    rare: true,
+    simulacrumCopies: SIMULACRUM_COPIES,
+    enhanced: {
+      enhanceNote: "Simulacrum adds a second copy at the bottom of the level.",
+      description:
+        "Each level starts with a copy of you above the ghost house and one at the bottom. They move as you do and eat what they touch. If a ghost catches you, the nearest copy becomes you instead.",
+      simulacrumCopies: SIMULACRUM_ENHANCED_COPIES,
+    },
+  },
 ];
 
 function toBaseDef(def: BaseUpgradeDef): UpgradeDef {
@@ -1593,6 +1613,8 @@ export function eligibleUpgrades(
       !(id === "powerPelletHyperspeed" && ownedBases.has("powerPelletProgrammer")) &&
       !(id === "powerPelletProgrammer" && ownedBases.has("powerPelletHyperspeed")) &&
       !(id === "passiveMole" && ownedBases.has("passiveAfterburner")) &&
+      !(id === "powerPelletMirror" && ownedBases.has("passiveSimulacrum")) &&
+      !(id === "passiveSimulacrum" && ownedBases.has("powerPelletMirror")) &&
       !(id === "passiveAfterburner" && ownedBases.has("passiveMole")) &&
       (!needsShields || shieldsOwned) &&
       rareOk &&
@@ -2457,6 +2479,10 @@ function ownedValue<K extends Exclude<keyof UpgradeEffects, "onPowerPellet">>(
 
 export function mirrorSavesLife(owned: readonly UpgradeId[]): boolean {
   return ownedValue(owned, "mirrorSavesLife") === true;
+}
+
+export function simulacrumCopies(owned: readonly UpgradeId[]): number {
+  return ownedValue(owned, "simulacrumCopies") ?? 0;
 }
 
 export function endMirror(state: RunUpgrades): RunUpgrades {

@@ -731,6 +731,8 @@ export type RenderOptions = {
   programmerPath?: ProgrammerPathMark[];
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
+  simulacra?: { x: number; y: number; facing: number }[];
+  simulacrumPops?: { x: number; y: number; progress: number }[];
 };
 
 const CHARM_DEPTH = -0.5;
@@ -907,7 +909,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   const tailGraphics = scene.add.graphics();
   tailGraphics.setDepth(CHARM_DEPTH);
   const mirrorDustGraphics = scene.add.graphics();
-  let mirrorAngle = 0;
+  const mirrorAngles = new Map<string, number>();
   const hauntLock = scene.add
     .image(0, 0, HAUNT_LOCK_KEY)
     .setDepth(HAUNT_CAGE_DEPTH)
@@ -1784,17 +1786,21 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
     }
 
-    const drawMirror = (at: { x: number; y: number }, facing: number, alpha: number): void => {
+    const drawMirror = (
+      key: string,
+      at: { x: number; y: number },
+      facing: number,
+      alpha: number,
+    ): void => {
       const step = facingToStep(facing as Direction);
       if (step !== null) {
-        mirrorAngle = headingAngle(step);
+        mirrorAngles.set(key, headingAngle(step));
       }
-      const key = "mirror:body";
       alive.add(key);
       let body = drawableObjects.get(key);
       if (!body) {
         body = scene.add.image(at.x, at.y, DOTMAN_BODY_TEXTURE_KEY);
-        body.setName("mirror");
+        body.setName(key);
         drawableObjects.set(key, body);
       }
       const size = displaySizeForDrawable(PLAYER_DRAWABLE_ID);
@@ -1803,28 +1809,37 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       body.setAlpha(alpha * entityAlpha);
       body.setTint(MIRROR_TINT);
       body.setTintMode(Phaser.TintModes.FILL);
-      drawVisor(key, visorPose(mirrorAngle), 0, true);
+      drawVisor(key, visorPose(mirrorAngles.get(key) ?? 0), 0, true);
+    };
+    const drawMirrorPop = (key: string, pop: { x: number; y: number; progress: number }): void => {
+      const look = mirrorPopLook(pop.progress);
+      if (look.bodyAlpha > 0) {
+        drawMirror(key, pop, DIRECTION.none, look.bodyAlpha);
+      }
+      for (const mote of mirrorDust(look.dustProgress, getActiveLayout().tileSize)) {
+        mirrorDustGraphics.fillStyle(MIRROR_TINT, mote.alpha * entityAlpha);
+        mirrorDustGraphics.fillRect(
+          pop.x + mote.dx - mote.size / 2,
+          pop.y + mote.dy - mote.size / 2,
+          mote.size,
+          mote.size,
+        );
+      }
     };
     const mirror = opts?.mirror ?? null;
     const mirrorPop = opts?.mirrorPop ?? null;
     mirrorDustGraphics.clear();
     if (mirror !== null) {
-      drawMirror(mirror, mirror.facing, MIRROR_ALPHA);
+      drawMirror("mirror:body", mirror, mirror.facing, MIRROR_ALPHA);
     } else if (mirrorPop !== null) {
-      const look = mirrorPopLook(mirrorPop.progress);
-      if (look.bodyAlpha > 0) {
-        drawMirror(mirrorPop, DIRECTION.none, look.bodyAlpha);
-      }
-      for (const mote of mirrorDust(look.dustProgress, getActiveLayout().tileSize)) {
-        mirrorDustGraphics.fillStyle(MIRROR_TINT, mote.alpha * entityAlpha);
-        mirrorDustGraphics.fillRect(
-          mirrorPop.x + mote.dx - mote.size / 2,
-          mirrorPop.y + mote.dy - mote.size / 2,
-          mote.size,
-          mote.size,
-        );
-      }
+      drawMirrorPop("mirror:body", mirrorPop);
     }
+    (opts?.simulacra ?? []).forEach((copy, index) => {
+      drawMirror(`simulacrum:${index}`, copy, copy.facing, MIRROR_ALPHA);
+    });
+    (opts?.simulacrumPops ?? []).forEach((pop, index) => {
+      drawMirrorPop(`simulacrum:pop:${index}`, pop);
+    });
 
     chainGraphics.clear();
     chainGraphics.setAlpha(entityAlpha);

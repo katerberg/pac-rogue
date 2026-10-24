@@ -284,7 +284,7 @@ export function ghostAi(
   frightenedEids: ReadonlySet<number> = new Set(),
   blockTunnelRow: number | null = null,
   droppedWall: DroppedWall | null = null,
-  twin: BodyTile | null = null,
+  bodies: readonly BodyTile[] = [],
   decoys: readonly ChaffDecoy[] = [],
   scent: ScentField | null = null,
 ): void {
@@ -319,9 +319,9 @@ export function ghostAi(
 
     const isBossGhost = hasComponent(world, eid, BossGhost);
     const ghostCtx =
-      twin === null
+      bodies.length === 0
         ? ctx
-        : { ...ctx, player: nearestBody({ col, row }, ctx.player, twin, rules.solids) };
+        : { ...ctx, player: nearestBody({ col, row }, ctx.player, bodies, rules.solids) };
     const target =
       isBossGhost && phase === GHOST_PHASE.active && mode === GHOST_AI_MODE.scatter
         ? { col: BossGhost.scatterCol[eid] ?? 0, row: BossGhost.scatterRow[eid] ?? 0 }

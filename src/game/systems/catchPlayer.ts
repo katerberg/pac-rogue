@@ -62,18 +62,19 @@ export function catchPlayer(world: World, options?: CatchOptions): number | null
 export function edibleGhostsTouchingPlayer(
   world: World,
   edibleGhostEids: ReadonlySet<number>,
+  bodies: readonly { x: number; y: number }[] = [],
 ): number[] {
   const playerEid = query(world, [Player, Position, Drawable])[0];
   if (playerEid === undefined || edibleGhostEids.size === 0) {
     return [];
   }
-  return edibleGhostsTouchingAt(
-    world,
-    Position.x[playerEid] ?? 0,
-    Position.y[playerEid] ?? 0,
-    Drawable.radius[playerEid] ?? 0,
-    edibleGhostEids,
-  );
+  const radius = Drawable.radius[playerEid] ?? 0;
+  const at = [{ x: Position.x[playerEid] ?? 0, y: Position.y[playerEid] ?? 0 }, ...bodies];
+  return [
+    ...new Set(
+      at.flatMap(({ x, y }) => edibleGhostsTouchingAt(world, x, y, radius, edibleGhostEids)),
+    ),
+  ];
 }
 
 export function edibleGhostsTouchingEid(

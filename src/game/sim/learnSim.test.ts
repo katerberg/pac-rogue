@@ -56,7 +56,9 @@ import { GhostPhase } from "../components/GhostPhase";
 import { Pellet } from "../components/Pellet";
 import { Player } from "../components/Player";
 import { Position } from "../components/Position";
+import { Simulacrum } from "../components/Simulacrum";
 import { Speed } from "../components/Speed";
+import { removeSimulacra } from "../systems/simulacrum";
 import { Velocity } from "../components/Velocity";
 import { PowerPellet } from "../components/PowerPellet";
 import { worldSnapshot } from "../systems/worldSnapshot";
@@ -1327,6 +1329,79 @@ describe("LearnSim upgrade demos", () => {
       GhostPhase.value[ghost] = GHOST_PHASE.active;
       moveTo(ghost, { x: twin.x - 2 * TILE_SIZE, y: twin.y });
       expect(sim.overlayModel()!.playerPx).toMatchObject({ x: twin.x, y: twin.y });
+    });
+  });
+
+  describe("Simulacrum", () => {
+    function copies(sim: LearnSim): number[] {
+      return [...query(sim.world, [Simulacrum, Position])];
+    }
+
+    function activeGhostAt(sim: LearnSim, at: { x: number; y: number }): void {
+      const ghost = sim.ghostEid!;
+      GhostPhase.value[ghost] = GHOST_PHASE.active;
+      moveTo(ghost, at);
+    }
+
+    it("does nothing without the upgrade", () => {
+      const { sim } = setup();
+      expect(copies(sim)).toEqual([]);
+      expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).simulacra).toEqual([]);
+    });
+
+    it("adds a copy off the ghost's tile, a second with Plus, and removes them when toggled off", () => {
+      const { sim } = setup("passiveSimulacrum");
+      expect(copies(sim)).toHaveLength(1);
+      const exit = getActiveLayout().ghostHouseExit;
+      const copy = copies(sim)[0]!;
+      expect(worldToRow(Position.y[copy]!)).toBeGreaterThan(exit.row);
+      moveTo(sim.ghostEid!, { x: cellCenterX(1), y: cellCenterY(1) });
+      sim.toggleEnhanced("passiveSimulacrum");
+      expect(copies(sim)).toHaveLength(2);
+      sim.toggleUpgrade("passiveSimulacrumPlus");
+      expect(copies(sim)).toEqual([]);
+    });
+
+    it("moves as Maze-Man does and eats what it touches", () => {
+      const { sim } = setup("passiveSimulacrum");
+      GhostPhase.value[sim.ghostEid!] = GHOST_PHASE.inHouse;
+      const copy = copies(sim)[0]!;
+      const pellet = query(sim.world, [Pellet, Position]).find(
+        (eid) => !hasComponent(sim.world, eid, PowerPellet),
+      )!;
+      moveTo(copy, posOf(pellet));
+      sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(query(sim.world, [Pellet]).includes(pellet)).toBe(false);
+      const before = posOf(copy);
+      for (let i = 0; i < 20; i += 1) {
+        sim.step(held("left"), FRAME_MS);
+      }
+      expect(Position.x[copy]!).not.toBe(before.x);
+      expect(lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).simulacra).toHaveLength(1);
+    });
+
+    it("a ghost catching a copy only pops it", () => {
+      const { sim } = setup("passiveSimulacrum");
+      activeGhostAt(sim, posOf(copies(sim)[0]!));
+      const events = sim.step(NO_KEYS_HELD, FRAME_MS);
+      expect(popups(events)).toEqual(["COPY POPPED"]);
+      expect(copies(sim)).toEqual([]);
+      expect(lastDrawOptions(events).simulacrumPops).toHaveLength(1);
+    });
+
+    it("a ghost catching Maze-Man moves Maze-Man to the copy instead", () => {
+      const { sim, player } = setup("passiveSimulacrum");
+      const spot = posOf(copies(sim)[0]!);
+      const events = catchByGhost(sim, player);
+      expect(popups(events)).toEqual(["COPY TAKES OVER"]);
+      expect(posOf(player)).toEqual(spot);
+      expect(copies(sim)).toEqual([]);
+    });
+
+    it("a ghost catching Maze-Man with no copies left is a death", () => {
+      const { sim, player } = setup("passiveSimulacrum");
+      removeSimulacra(sim.world);
+      expect(popups(catchByGhost(sim, player)).join(" ")).toContain("LIFE LOST");
     });
   });
 
