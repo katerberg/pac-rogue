@@ -4977,10 +4977,12 @@ export class PlaySim {
     if (at === null || !hasUpgrade(this.effectiveUpgrades(), "passiveGraveLilies")) {
       return;
     }
-    const taken = takeGraveLiliesCharge(this.graveLiliesCharges);
-    this.graveLiliesCharges = taken.charges;
-    if (!taken.drop) {
-      return;
+    if (this.graveFruit.length === 0) {
+      const taken = takeGraveLiliesCharge(this.graveLiliesCharges);
+      this.graveLiliesCharges = taken.charges;
+      if (!taken.drop) {
+        return;
+      }
     }
     for (const eid of this.graveFruit) {
       removeEntity(this.world, eid);

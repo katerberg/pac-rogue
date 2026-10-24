@@ -4565,14 +4565,25 @@ describe("Grave Lilies", () => {
     expect(fruitPositions(sim.world)).toEqual([at]);
   });
 
-  it("drops only once per level", () => {
+  it("drops only once per level, then moves the uneaten fruit to the new death site", () => {
     const sim = startLilies(["passiveGraveLilies"]);
     die(sim);
     expect(sim.snapshot().graveLilies.charges).toBe(0);
     const first = fruitPositions(sim.world);
     teleportPlayer(sim, first[0]!.x + 40, first[0]!.y);
+    const second = die(sim);
+    expect(sim.snapshot().fruitKinds).toEqual(["watermelon"]);
+    expect(fruitPositions(sim.world)).toEqual([second]);
+    expect(second).not.toEqual(first[0]);
+  });
+
+  it("leaves no fruit on a later death once the first was eaten", () => {
+    const sim = startLilies(["passiveGraveLilies"]);
+    const at = die(sim);
+    teleportPlayer(sim, at.x, at.y);
+    runFrames(sim, 2);
     die(sim);
-    expect(fruitPositions(sim.world)).toEqual(first);
+    expect(sim.snapshot().fruitKinds).toEqual([]);
   });
 
   it("drops nothing when not owned", () => {

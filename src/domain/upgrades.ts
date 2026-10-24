@@ -1211,11 +1211,12 @@ export const BASE_UPGRADE_DEFS: readonly BaseUpgradeDef[] = [
     id: "passiveGraveLilies",
     label: "Grave Lilies",
     school: "death",
-    description: "Dying leaves a fruit where you fell, once per level.",
+    description: "Dying leaves a fruit where you fell, once per level. Dying again moves it.",
     storePrice: STORE_UPGRADE_PRICE,
     enhanced: {
       enhanceNote: "Grave Lilies recharge on every power pellet instead of once per level.",
-      description: "Dying leaves a fruit where you fell. Power pellets recharge the lilies.",
+      description:
+        "Dying leaves a fruit where you fell, and dying again moves it. Power pellets recharge the lilies.",
       onPowerPellet: { graveLiliesRecharge: true },
     },
   },

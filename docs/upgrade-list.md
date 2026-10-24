@@ -73,7 +73,7 @@ Base and enhanced effects side by side (the one-line card text from each def).
 | `passiveGleaning` | Gleaning | harvest | Ghosts crossing cleared tiles leave crumbs that add to your streak. | Ghosts crossing cleared tiles leave crumbs that add to your streak and pay half a penny each. |
 | `passiveSonicBoom` | Sonic Boom | speed | At top speed, a boom turns nearby ghosts around, and ripples 4 tiles down side hallways at T and X junctions. | At top speed, a boom stuns nearby ghosts for 2s and you pass through them. Ripples 4 tiles down side hallways at T and X junctions. |
 | `passiveScarecrow` | Scarecrow | harvest | Ghosts won't path within 4 tiles of fruit. | Ghosts won't path within 4 tiles of fruit, and the scent lingers 5 seconds after pickup. |
-| `passiveGraveLilies` | Grave Lilies | death | Dying leaves a fruit where you fell, once per level. | Dying leaves a fruit where you fell. Power pellets recharge the lilies. |
+| `passiveGraveLilies` | Grave Lilies | death | Dying leaves a fruit where you fell, once per level. Dying again moves it. | Dying leaves a fruit where you fell, and dying again moves it. Power pellets recharge the lilies. |
 | `lowSpeed` | Speed | neutral | +6% Dot-Man speed. Stacks. |  |
 | `lowTunnelSpeed` | Tunnel Speed | neutral | +16% Dot-Man speed inside tunnels. Stacks. |  |
 | `lowTunnelVortex` | Tunnel Vortex | neutral | Ghosts are 16% slower inside tunnels. Stacks. |  |

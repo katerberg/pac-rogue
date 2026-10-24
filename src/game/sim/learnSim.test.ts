@@ -665,25 +665,28 @@ describe("LearnSim upgrade demos", () => {
     expect(query(sim.world, [Pellet]).length).toBeLessThan(before);
   });
 
-  it("Grave Lilies leave one watermelon per charge, recharged by power pellets when enhanced", () => {
+  it("Grave Lilies leave one watermelon, move it on later deaths, and recharge on power pellets when enhanced", () => {
     const { sim, player } = setup("passiveGraveLilies");
-    const melons = () => fruitKindsOnBoard(sim.world).filter((kind) => kind === "watermelon");
+    const kinds = () => fruitKindsOnBoard(sim.world);
+    const melons = () => {
+      const at = fruitPositions(sim.world);
+      return kinds().flatMap((kind, i) => (kind === "watermelon" ? [at[i]!] : []));
+    };
     expect(melons()).toEqual([]);
     catchByGhost(sim, player);
-    expect(melons()).toEqual(["watermelon"]);
+    const first = melons();
+    expect(first).toHaveLength(1);
+    const cell = { x: first[0]!.x + 120, y: first[0]!.y };
+    moveTo(player, cell);
     runMs(sim, 1_600);
-    const first = fruitPositions(sim.world);
-    moveTo(player, { x: first[0]!.x + 60, y: first[0]!.y });
+    expect(melons()).toEqual(first);
     catchByGhost(sim, player);
-    expect(fruitPositions(sim.world)).toEqual(first);
+    expect(melons()).toHaveLength(1);
+    expect(melons()).not.toEqual(first);
     sim.toggleUpgrade("passiveGraveLilies");
+    expect(sim["graveLiliesCharges"]).toBe(0);
     sim.toggleUpgrade("passiveGraveLiliesPlus");
-    moveTo(player, posOf(query(sim.world, [PowerPellet, Position])[0]!));
-    sim.step(NO_KEYS_HELD, FRAME_MS);
-    runMs(sim, 1_600);
-    moveTo(player, { x: first[0]!.x + 60, y: first[0]!.y });
-    catchByGhost(sim, player);
-    expect(fruitPositions(sim.world)).not.toEqual(first);
+    expect(sim["graveLiliesCharges"]).toBe(1);
   });
 
   it("Death's Bounty earns pennies with decaying payouts", () => {
