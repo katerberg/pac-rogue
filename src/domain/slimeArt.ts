@@ -7,7 +7,6 @@ import {
   type MazeTile,
 } from "./maze";
 
-/** Pixel sizes are at a 16px tile and scale with the board's tile size. */
 export const SLIME_ART = {
   halfWidthPx: 7,
   roughPx: 3.4,
@@ -62,7 +61,6 @@ function adjacent(a: MazeTile, b: MazeTile): boolean {
   return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
 }
 
-/** Newest-first point runs; a run breaks where tiles aren't neighbours (wraps, eaten-ghost jumps). */
 function trailRuns(trail: SlimeTrailView): Point[][] {
   const center = (tile: MazeTile): Point => ({
     x: cellCenterX(tile.col),
@@ -186,14 +184,9 @@ export function slimePixels(trails: readonly SlimeTrailView[], nowMs: number): S
         }
         const phase = cycle / window;
         const put = (gx: number, gy: number, color: number): void => {
-          const key = `${gx},${gy}`;
-          if (slimed.has(key)) {
-            slimed.set(key, {
-              x: layout.offsetX + gx * art,
-              y: layout.offsetY + gy * art,
-              size: art,
-              color,
-            });
+          const pixel = slimed.get(`${gx},${gy}`);
+          if (pixel !== undefined) {
+            pixel.color = color;
           }
         };
         if (phase < 0.3 || phase > 0.75) {
