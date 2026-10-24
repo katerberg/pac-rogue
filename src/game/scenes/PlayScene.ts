@@ -1151,11 +1151,16 @@ export class PlayScene extends Phaser.Scene {
     ) {
       return;
     }
+    this.makeUpgradeIconsHoverable();
+    const resolve = (events: SimEvent[]): void => {
+      this.upgradeHoverPreview?.hide();
+      this.applyEvents(events, 0);
+    };
     this.salvageCard.open({
       ...prompt,
       owned: this.upgradeHudSlots(),
-      onSalvageNew: () => this.applyEvents(this.sim.salvageNew(), 0),
-      onSalvageOwned: (id) => this.applyEvents(this.sim.salvageReplace(id), 0),
+      onSalvageNew: () => resolve(this.sim.salvageNew()),
+      onSalvageOwned: (id) => resolve(this.sim.salvageReplace(id)),
     });
   }
 

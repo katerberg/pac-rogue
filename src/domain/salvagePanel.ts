@@ -9,13 +9,13 @@ export type SalvageCardStep = { index: number; outcome: "salvageNew" | "salvageO
 
 export function salvageCardStep(index: number, key: SalvageKey, count: number): SalvageCardStep {
   switch (key) {
-    case "up":
-      return { index: (index + count - 1) % count, outcome: null };
-    case "down":
-      return { index: (index + 1) % count, outcome: null };
     case "left":
-      return { index, outcome: "salvageNew" };
+      return { index: (index + count - 1) % count, outcome: null };
     case "right":
+      return { index: (index + 1) % count, outcome: null };
+    case "up":
+      return { index, outcome: "salvageNew" };
+    case "down":
     case "confirm":
       return { index, outcome: "salvageOwned" };
   }

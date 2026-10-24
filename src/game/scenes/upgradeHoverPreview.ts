@@ -12,6 +12,7 @@ export type UpgradeHoverSlot = { id: UpgradeId; copies: number; size: number };
 
 export type UpgradeHoverPreview = {
   attach(icon: Phaser.GameObjects.Image | Phaser.GameObjects.Shape, slot: UpgradeHoverSlot): void;
+  show(slot: UpgradeHoverSlot, pointerY: number): void;
   hide(): void;
 };
 
@@ -55,6 +56,7 @@ export function createUpgradeHoverPreview(scene: Phaser.Scene, depth: number): U
         hide();
       });
     },
+    show,
     hide,
   };
 }

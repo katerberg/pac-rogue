@@ -8,15 +8,15 @@ import {
 } from "./salvagePanel";
 
 describe("salvageCardStep", () => {
-  it("walks the six owned cards with up and down, wrapping", () => {
-    expect(salvageCardStep(0, "down", 6)).toEqual({ index: 1, outcome: null });
-    expect(salvageCardStep(5, "down", 6).index).toBe(0);
-    expect(salvageCardStep(0, "up", 6).index).toBe(5);
+  it("walks the six owned cards with left and right, wrapping", () => {
+    expect(salvageCardStep(0, "right", 6)).toEqual({ index: 1, outcome: null });
+    expect(salvageCardStep(5, "right", 6).index).toBe(0);
+    expect(salvageCardStep(0, "left", 6).index).toBe(5);
   });
 
-  it("salvages the new card on left and the selected owned card on right or confirm", () => {
-    expect(salvageCardStep(3, "left", 6)).toEqual({ index: 3, outcome: "salvageNew" });
-    expect(salvageCardStep(3, "right", 6)).toEqual({ index: 3, outcome: "salvageOwned" });
+  it("skips the new card on up and salvages the selected owned card on down or confirm", () => {
+    expect(salvageCardStep(3, "up", 6)).toEqual({ index: 3, outcome: "salvageNew" });
+    expect(salvageCardStep(3, "down", 6)).toEqual({ index: 3, outcome: "salvageOwned" });
     expect(salvageCardStep(3, "confirm", 6).outcome).toBe("salvageOwned");
   });
 });

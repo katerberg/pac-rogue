@@ -14,6 +14,7 @@ import {
   UPGRADES_HUD_FONT_SIZE,
 } from "./pixelFont";
 import type { PanelItem } from "./salvagePanel";
+import { createUpgradeHoverPreview } from "./upgradeHoverPreview";
 import {
   buildUpgradeCardVisual,
   CHOICE_BUTTON_HEIGHT,
@@ -28,22 +29,21 @@ const CENTER_X = PLAYFIELD_WIDTH / 2;
 const TITLE_Y = 118;
 const TITLE_BAND = 28;
 const CARD_Y = 225;
-const TAG_HEIGHT = 130;
+const TAG_HEIGHT = 156;
 const TAG_TOP = CARD_Y + CHOICE_BUTTON_HEIGHT / 2;
 const TAG_Y = TAG_TOP + TAG_HEIGHT / 2;
 const TAG_STROKE = 4;
-const ROW_Y = TAG_TOP + 80;
+const SKIP_Y = TAG_TOP + 52;
+const ROW_Y = TAG_TOP + 86;
+const NAME_Y = TAG_TOP + 114;
+const SALVAGE_Y = TAG_TOP + 140;
 const ICON_SIZE = 40;
-const ARROW_GAP = 30;
-const CHEVRON_GAP = ICON_SIZE / 2 + 12;
-const TEXT_GAP = 11;
+const CHEVRON_GAP = ICON_SIZE / 2 + 14;
+const LABEL_GAP = 6;
 const ARROW_SIZE = 6;
-const NAME_CHARS = 11;
-const STACK_GAP = 2;
+const NAME_CHARS = 24;
 const NAME_LINE_SPACING = 3;
 const HUD_SELECT_PAD = 5;
-const SKIP_LABEL = "SKIP";
-const SALVAGE_LABEL = "SALVAGE";
 const TAG_LEFT = CENTER_X - CHOICE_BUTTON_WIDTH / 2 + TAG_STROKE;
 const TAG_RIGHT = CENTER_X + CHOICE_BUTTON_WIDTH / 2 - TAG_STROKE;
 const TAG_BOTTOM = TAG_TOP + TAG_HEIGHT - TAG_STROKE;
@@ -77,13 +77,6 @@ function arrow(graphics: Phaser.GameObjects.Graphics, dir: Dir, x: number, y: nu
   }
 }
 
-function rowIconX(names: readonly string[]): number {
-  const widest = (lines: string) => Math.max(...lines.split("\n").map((line) => line.length));
-  const rightChars = Math.max(SALVAGE_LABEL.length, ...names.map((label) => widest(label)));
-  const extent = (chars: number) => CHEVRON_GAP + TEXT_GAP + chars * UPGRADES_HUD_FONT_SIZE;
-  return CENTER_X + (extent(SKIP_LABEL.length) - extent(rightChars)) / 2;
-}
-
 type SalvageKeys = { pressed: () => SalvageKey | null; anyHeld: () => boolean };
 
 function createSalvageKeys(scene: Phaser.Scene): SalvageKeys {
@@ -110,6 +103,7 @@ function createSalvageKeys(scene: Phaser.Scene): SalvageKeys {
 
 export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
   const keys = createSalvageKeys(scene);
+  const preview = createUpgradeHoverPreview(scene, DEPTH + 1);
   let parts: Phaser.GameObjects.GameObject[] = [];
   let owned: readonly PanelItem[] = [];
   let index = 0;
@@ -129,6 +123,7 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
     );
 
   const clear = (): void => {
+    preview.hide();
     parts.forEach((part) => part.destroy());
     parts = [];
     owned = [];
@@ -181,15 +176,7 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
       );
       centered(TAG_TOP + 18, "SLOTS FULL!", UPGRADES_HUD_FONT_SIZE, ALERT_RED);
       centered(TAG_TOP + 32, "CHOOSE 1 TO SALVAGE:", UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE);
-      const names = owned.map(({ id }) => wrapText(getUpgradeDef(id).label, NAME_CHARS));
-      const iconX = rowIconX(names);
-      const at: Record<Dir, { x: number; y: number }> = {
-        up: { x: iconX, y: ROW_Y - ARROW_GAP },
-        down: { x: iconX, y: ROW_Y + ARROW_GAP },
-        left: { x: iconX - CHEVRON_GAP, y: ROW_Y },
-        right: { x: iconX + CHEVRON_GAP, y: ROW_Y },
-      };
-      const icon = track(scene.add.image(iconX, ROW_Y, ""));
+      const icon = track(scene.add.image(CENTER_X, ROW_Y, ""));
       const name = track(
         addPixelText(scene, 0, 0, "", UPGRADES_HUD_FONT_SIZE, ALERT_RED).setLineSpacing(
           NAME_LINE_SPACING,
@@ -198,16 +185,35 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
       const arrows = track(scene.add.graphics());
       const hudSelector = track(scene.add.graphics());
       arrows.fillStyle(TEXT_COLOR_YELLOW, 1);
-      (Object.keys(at) as Dir[]).forEach((dir) => arrow(arrows, dir, at[dir].x, at[dir].y));
-      const skip = track(
-        addPixelText(scene, 0, 0, SKIP_LABEL, UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE),
-      );
-      placePixelText(skip, at.left.x - TEXT_GAP, ROW_Y, 1, 0.5);
-      const salvage = track(
-        addPixelText(scene, 0, 0, SALVAGE_LABEL, UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE),
-      );
-      const rightX = at.right.x + TEXT_GAP;
-      placePixelText(salvage, rightX, ROW_Y - STACK_GAP, 0, 1);
+      arrow(arrows, "left", CENTER_X - CHEVRON_GAP, ROW_Y);
+      arrow(arrows, "right", CENTER_X + CHEVRON_GAP, ROW_Y);
+      const action = (dir: "up" | "down", y: number, label: string): void => {
+        const width = ARROW_SIZE * 2 + LABEL_GAP + label.length * UPGRADES_HUD_FONT_SIZE;
+        const arrowX = CENTER_X - width / 2 + ARROW_SIZE;
+        arrow(arrows, dir, arrowX, y);
+        const text = track(
+          addPixelText(scene, 0, 0, label, UPGRADES_HUD_FONT_SIZE, TEXT_COLOR_WHITE),
+        );
+        placePixelText(text, arrowX + ARROW_SIZE + LABEL_GAP, y, 0, 0.5);
+      };
+      action("up", SKIP_Y, "SKIP");
+      action("down", SALVAGE_Y, "SALVAGE");
+      let hoverY: number | null = null;
+      const showPreview = (): void => {
+        const current = owned[index];
+        if (hoverY !== null && current !== undefined) {
+          preview.show({ id: current.id, copies: 1, size: ICON_SIZE }, hoverY);
+        }
+      };
+      icon.setInteractive();
+      icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
+        hoverY = pointer.worldY;
+        showPreview();
+      });
+      icon.on("pointerout", () => {
+        hoverY = null;
+        preview.hide();
+      });
 
       const redraw = (): void => {
         const current = owned[index];
@@ -215,11 +221,12 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
           return;
         }
         icon.setTexture(upgradeIconTexture(current.id)).setDisplaySize(ICON_SIZE, ICON_SIZE);
-        name.setText(names[index] ?? "");
-        placePixelText(name, rightX, ROW_Y + STACK_GAP, 0, 0);
+        name.setText(wrapText(getUpgradeDef(current.id).label, NAME_CHARS)).setCenterAlign();
+        placePixelText(name, CENTER_X, NAME_Y, 0.5, 0.5);
         hudSelector.clear().lineStyle(2, TEXT_COLOR_YELLOW, 1);
         const half = current.size / 2 + HUD_SELECT_PAD;
         hudSelector.strokeRect(current.x - half, current.y - half, half * 2, half * 2);
+        showPreview();
       };
 
       onKey = (key) => {
@@ -254,12 +261,10 @@ export function createSalvageCard(scene: Phaser.Scene): SalvageCard {
         );
       const iconTop = ROW_Y - ICON_SIZE / 2;
       const iconBottom = ROW_Y + ICON_SIZE / 2;
-      const iconLeft = iconX - ICON_SIZE / 2;
-      const iconRight = iconX + ICON_SIZE / 2;
-      zone("left", TAG_LEFT, iconTop, iconLeft, iconBottom);
-      zone("right", iconRight, iconTop, TAG_RIGHT, iconBottom);
-      zone("up", iconLeft, ROW_TOP, iconRight, iconTop);
-      zone("down", iconLeft, iconBottom, iconRight, TAG_BOTTOM);
+      zone("up", TAG_LEFT, ROW_TOP, TAG_RIGHT, iconTop);
+      zone("left", TAG_LEFT, iconTop, CENTER_X - ICON_SIZE / 2, iconBottom);
+      zone("right", CENTER_X + ICON_SIZE / 2, iconTop, TAG_RIGHT, iconBottom);
+      zone("down", TAG_LEFT, iconBottom, TAG_RIGHT, TAG_BOTTOM);
       redraw();
       setAlpha(0);
     },
