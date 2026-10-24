@@ -257,7 +257,7 @@ describe("renderReport", () => {
     expect(report).toContain("**Target miss (average):** Reach L6 17% vs 30%–50% (below; n=30).");
     expect(report).toContain("**Target miss (average):** Reach boss 0%* vs 15%–25% (below; n=30).");
     expect(report).toContain("– vs 3%–7% (runs stop at the boss)");
-    expect(report).toContain("| 5 | 0 | 0 | 25 (100%) | 0 | 0 | 0 | 25 |");
+    expect(report).toContain("| 5 | 0 | 0 | 25 (100%) | 0 | 0 | 0 | 0 | 25 |");
   });
 });
 

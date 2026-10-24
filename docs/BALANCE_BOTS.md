@@ -24,7 +24,7 @@ A profile is `<persona>@<skill tier>`: personas (`cautious`, `speedrunner`, `dis
 - **Execution:** turns press shortly before the corner plus jitter. A wrong turn picks another survivable route; deaths come from slow reactions, late presses and what the search can't see.
 - All randomness comes from the `bot` `RunRandom` stream, so an episode replays exactly from its job (profile + seed + arm).
 - Build runs play from level 1 with the game's own starting upgrade; forced tests start at the tested level. Every arm uses the same seeds so arms compare on the same boards. Levels are capped in sim time; hitting the cap records `stalled`.
-- Every build-run death is tagged with a cause from the bot's last plan (`deathCause` in `bot.ts`): cornered, execution, horizon, reaction or hazard; the report explains each.
+- Every build-run death is tagged with a cause from the bot's last plan (`deathCause` in `bot.ts`): cornered, execution, horizon, model, reaction or hazard; the report explains each.
 
 Experiments: `builds` (play from the level-2 offer to the boss), `singles` (one upgrade at one level vs a `none` arm), `pairs`, `schools` (with and without the Specialist) and `enemies` (each roster and each ghost alone). Presets differ in profiles, arms and budget; pilot and full calibrate seconds per run and split the budget across experiments, giving build runs whatever remains.
 
@@ -36,7 +36,7 @@ Experiments: `builds` (play from the level-2 offer to the boss), `singles` (one 
 
 - **Health first.** Errors or over 2% `stalled` means the bots got stuck: the report says `UNTRUSTWORTHY` at the top; fix that before trusting anything.
 - **Targets** (right after Health): one row per tier, each cell the measured share against its band with ok / above / below. A `*` means the whole 95% interval is outside the band. Misses repeat under Watchouts.
-- **Death causes** (under the difficulty curve): per tier, deaths by level and cause. Cornered points at the map or ghost speed, horizon at mode flips and ghosts arriving from outside the plan, execution and reaction at the tier's hands; read the row for the level where a tier's reach drops.
+- **Death causes** (under the difficulty curve): per tier, deaths by level and cause. Cornered points at the map or ghost speed, horizon at mode flips and ghosts arriving from outside the plan, model at the planner's own ghost simulation (a bot gap, not a tuning lead), execution and reaction at the tier's hands; read the row for the level where a tier's reach drops.
 - **Executive summary** (right after Health): one-line takeaway, the most over/underperforming upgrades (singles Δ progress with a short why, plus build value when present), and watchouts (difficulty spikes, pair synergies, lethal ghosts, hard rosters, play-style spread, school specialists). Thin seeds/arm (< 50) are called out as leads only. Detail tables below are the evidence.
 - **Board progress** (1 for a clear, else the share of pellets eaten before game over) is the main forced-test metric. `*` means the 95% intervals don't overlap.
 - **Difficulty curve** (Builds): share of runs reaching each level and deaths spent on it. A steep drop between two levels is a difficulty spike; compare `@expert` with `@average` to see who it hits.

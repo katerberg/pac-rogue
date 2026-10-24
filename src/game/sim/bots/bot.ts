@@ -24,6 +24,7 @@ export const DEATH_CAUSES = [
   "cornered",
   "execution",
   "horizon",
+  "model",
   "reaction",
   "hazard",
   "unknown",
@@ -31,6 +32,8 @@ export const DEATH_CAUSES = [
 export type DeathCause = (typeof DEATH_CAUSES)[number];
 
 type LastPlan = {
+  decision: Decision;
+  exact: readonly GhostSample[];
   survivable: boolean;
   choice: Direction | null;
   mistake: boolean;
@@ -162,7 +165,11 @@ export class Bot {
     if (mode !== plan.mode || (killer !== undefined && !plan.ghostEids.has(killer.eid))) {
       return "horizon";
     }
-    return "reaction";
+    const exact = this.observer.plannerState(sim, plan.exact, plan.decision, this.profile.skill);
+    const chosen = planExits(exact, plannerWeights(this.profile.persona.weights, exact)).find(
+      (entry) => entry.direction === plan.choice,
+    );
+    return chosen !== undefined && chosen.score > SURVIVABLE_SCORE ? "model" : "reaction";
   }
 
   step(sim: PlaySim): SimInput {
@@ -271,6 +278,8 @@ export class Bot {
       choice = survivable[Math.floor(this.rng() * survivable.length)]!.direction;
     }
     this.lastPlan = {
+      decision,
+      exact: this.history.at(-1) ?? [],
       survivable: survivable.length > 0,
       choice,
       mistake,

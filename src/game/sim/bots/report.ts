@@ -486,7 +486,7 @@ function causesSection(summary: Summary): string[] {
   const lines = [
     "### Death causes",
     "",
-    "Build-run deaths per level by what the bot's last plan said: cornered (no surviving route at the last junction), execution (wrong turn or a press that missed the corner), horizon (a mode flip or a ghost the plan did not see), reaction (the plan was fine with slightly stale ghost positions), hazard (lava or boss).",
+    "Build-run deaths per level by what the bot's last plan said: cornered (no surviving route at the last junction), execution (wrong turn or a press that missed the corner), horizon (a mode flip or a ghost the plan did not see), model (the route also survives a re-plan with exact ghost positions, so the ghosts moved differently than the planner simulates), reaction (the same re-plan rejects the route, so the delayed ghost positions hid the catch), hazard (lava or boss).",
     "",
   ];
   for (const tier of tiersIn(summary)) {
