@@ -7,6 +7,7 @@ import {
   SPEED_ZONE_WATER_ART_TILE,
   SPEED_ZONE_WATER_STYLE,
   speedZoneWaterCanvas,
+  speedZoneWaterMask,
   stepWakeDroplets,
   waterCellOpen,
   wakePixels,
@@ -15,11 +16,30 @@ import {
 
 const ART = SPEED_ZONE_WATER_ART_TILE;
 const lane: SpeedZone = { col: 5, row: 4, axis: "horizontal", length: 6, fastDir: "right" };
-const corridorRow = (_col: number, row: number) => row === lane.row;
+const INSET = 7;
+const REACH = INSET - SPEED_ZONE_WATER_STYLE.wallGapPx;
 
-function painted(zone: SpeedZone, nowMs: number, isOpen = corridorRow) {
+function board(open: (col: number, row: number) => boolean) {
+  const grid = (fill: (col: number, row: number) => boolean) =>
+    Array.from({ length: 16 }, (_, row) => Array.from({ length: 20 }, (_, col) => fill(col, row)));
+  return {
+    walls: grid((col, row) => !open(col, row)),
+    house: grid(() => false),
+    door: grid(() => false),
+  };
+}
+
+const corridorRow = board((_col, row) => row === lane.row);
+
+function painted(zone: SpeedZone, nowMs: number, open = corridorRow) {
   const canvas = speedZoneWaterCanvas(zone);
-  paintSpeedZoneWater(canvas, zone, nowMs, DEFAULT_SPEED_ZONE_FLOW_SPEEDS, isOpen);
+  paintSpeedZoneWater(
+    canvas,
+    zone,
+    nowMs,
+    DEFAULT_SPEED_ZONE_FLOW_SPEEDS,
+    speedZoneWaterMask(open, INSET),
+  );
   const alphaAt = (bx: number, by: number) =>
     canvas.rgba[((by - canvas.y) * canvas.width + (bx - canvas.x)) * 4 + 3]!;
   const covered: { x: number; y: number }[] = [];
@@ -48,14 +68,15 @@ describe("flowProfile", () => {
 });
 
 describe("paintSpeedZoneWater", () => {
-  it("fills the lane with water narrower than the corridor", () => {
+  it("fills the corridor out to just short of the wall lines", () => {
     const { alphaAt } = painted(lane, 1234);
     const midX = (lane.col + 3) * ART + 3;
     const top = lane.row * ART;
-    const margin = Math.floor((ART - SPEED_ZONE_WATER_STYLE.widthPx) / 2);
     expect(alphaAt(midX, top + ART / 2)).toBe(255);
-    expect(alphaAt(midX, top + margin + 1)).toBe(255);
-    expect(alphaAt(midX, top)).toBe(0);
+    expect(alphaAt(midX, top - REACH)).toBe(255);
+    expect(alphaAt(midX, top + ART + REACH - 1)).toBe(255);
+    expect(alphaAt(midX, top - REACH - 1)).toBe(0);
+    expect(alphaAt(midX, top + ART + REACH)).toBe(0);
   });
 
   it("sprays out of the fast end but never over walls", () => {
@@ -64,7 +85,8 @@ describe("paintSpeedZoneWater", () => {
       const beyond = new Set<number>();
       for (let ms = 0; ms < 2000; ms += 97) {
         for (const { x, y } of painted(zone, ms).covered) {
-          expect(Math.floor(y / ART)).toBe(lane.row);
+          expect(y).toBeGreaterThanOrEqual(lane.row * ART - REACH);
+          expect(y).toBeLessThan((lane.row + 1) * ART + REACH);
           const outside =
             fastDir === "right" ? x - (lane.col + lane.length) * ART : lane.col * ART - 1 - x;
           const behind =
@@ -81,10 +103,15 @@ describe("paintSpeedZoneWater", () => {
 
   it("keeps vertical lanes in their column", () => {
     const zone: SpeedZone = { col: 3, row: 2, axis: "vertical", length: 9, fastDir: "up" };
-    const column = (col: number) => col === zone.col;
-    const { covered } = painted(zone, 800, column);
-    expect(covered.length).toBeGreaterThan(zone.length * ART * 10);
-    expect(covered.every(({ x }) => Math.floor(x / ART) === zone.col)).toBe(true);
+    const { covered } = painted(
+      zone,
+      800,
+      board((col) => col === zone.col),
+    );
+    expect(covered.length).toBeGreaterThan(zone.length * ART * 20);
+    expect(
+      covered.every(({ x }) => x >= zone.col * ART - REACH && x < (zone.col + 1) * ART + REACH),
+    ).toBe(true);
     expect(covered.some(({ y }) => y < zone.row * ART)).toBe(true);
   });
 
@@ -110,9 +137,27 @@ describe("waterCellOpen", () => {
     ]);
     expect(waterCellOpen(board, 9, 0)).toBe(false);
   });
+
+  it("lets the water mask reach into wall tiles up to the wall line, but not round corners", () => {
+    const mask = speedZoneWaterMask(corridorRow, INSET);
+    const top = lane.row * ART;
+    expect(mask.halfWidthPx).toBe(ART / 2 + REACH);
+    expect(mask.isOpen(40, top + 3)).toBe(true);
+    expect(mask.isOpen(40, top - REACH)).toBe(true);
+    expect(mask.isOpen(40, top - REACH - 1)).toBe(false);
+    expect(mask.isOpen(40, top + ART + REACH - 1)).toBe(true);
+    expect(mask.isOpen(40, top + ART + REACH)).toBe(false);
+    expect(
+      speedZoneWaterMask(
+        board(() => false),
+        INSET,
+      ).isOpen(40, top),
+    ).toBe(false);
+  });
 });
 
 describe("wake droplets", () => {
+  const RADIUS = 12;
   const rider = (effect: WakeRider["effect"]): WakeRider => ({
     x: 100,
     y: 50,
@@ -122,27 +167,28 @@ describe("wake droplets", () => {
   });
 
   it("throws spray behind Dot-Man riding the flow and ahead of him fighting it", () => {
-    const behind = stepWakeDroplets([], rider("fast"), 0, 1000);
-    const ahead = stepWakeDroplets([], rider("slow"), 0, 1000);
+    const behind = stepWakeDroplets([], rider("fast"), 0, 1000, RADIUS);
+    const ahead = stepWakeDroplets([], rider("slow"), 0, 1000, RADIUS);
     expect(behind.length).toBeGreaterThan(0);
     expect(behind.every((d) => d.x < 100 && d.vx < 0)).toBe(true);
-    expect(ahead.every((d) => d.x > 100)).toBe(true);
+    expect(ahead.length).toBeGreaterThan(0);
+    expect(ahead.every((d) => d.x > 100 + RADIUS && d.vx > 0)).toBe(true);
   });
 
   it("spawns at a steady rate, only for the last droplet lifetime, and lets them expire", () => {
     const perSec = SPEED_ZONE_WATER_STYLE.wakePerSec;
     const life = SPEED_ZONE_WATER_STYLE.wakeLifeMs;
-    const oneFrame = stepWakeDroplets([], rider("fast"), 10000, 10100);
+    const oneFrame = stepWakeDroplets([], rider("fast"), 10000, 10100, RADIUS);
     expect(oneFrame.length).toBeGreaterThanOrEqual(Math.floor(perSec / 10));
     expect(oneFrame.length).toBeLessThanOrEqual(Math.ceil(perSec / 10));
-    const longGap = stepWakeDroplets([], rider("fast"), 0, 60000);
+    const longGap = stepWakeDroplets([], rider("fast"), 0, 60000, RADIUS);
     expect(longGap.length).toBeLessThanOrEqual(Math.ceil((perSec * life) / 1000));
-    expect(stepWakeDroplets(oneFrame, null, 10100, 10100 + life)).toEqual([]);
-    expect(stepWakeDroplets(oneFrame, null, 10100, 10150)).toEqual(oneFrame);
+    expect(stepWakeDroplets(oneFrame, null, 10100, 10100 + life, RADIUS)).toEqual([]);
+    expect(stepWakeDroplets(oneFrame, null, 10100, 10150, RADIUS)).toEqual(oneFrame);
   });
 
   it("fades droplets like spray and drops ones over walls", () => {
-    const droplets = stepWakeDroplets([], rider("fast"), 0, 1000);
+    const droplets = stepWakeDroplets([], rider("fast"), 0, 1000, RADIUS);
     const open = () => true;
     const fresh = wakePixels(droplets, 1000, open);
     expect(fresh.length).toBe(droplets.length);
