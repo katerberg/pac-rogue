@@ -12,16 +12,12 @@ import { Velocity } from "../components/Velocity";
 
 type Point = { x: number; y: number };
 
-export function simulacrumEids(world: World): number[] {
+function simulacrumEids(world: World): number[] {
   return [...query(world, [Simulacrum, Position])];
 }
 
 function pointOf(eid: number): Point {
   return { x: Position.x[eid] ?? 0, y: Position.y[eid] ?? 0 };
-}
-
-export function simulacrumPoints(world: World): Point[] {
-  return simulacrumEids(world).map(pointOf);
 }
 
 export function simulacrumBodies(world: World): BodyTile[] {
@@ -32,7 +28,7 @@ export function simulacrumBodies(world: World): BodyTile[] {
   }));
 }
 
-export function simulacrumSprites(world: World): { x: number; y: number; facing: number }[] {
+export function simulacrumPoints(world: World): (Point & { facing: number })[] {
   return simulacrumEids(world).map((eid) => ({
     ...pointOf(eid),
     facing: Facing.direction[eid] ?? 0,
@@ -73,10 +69,7 @@ export function promoteNearestSimulacrum(world: World, solids: SolidGrid): Point
     return null;
   }
   const from = pointOf(player);
-  const tiles = copies.map((eid) => ({
-    col: worldToCol(Position.x[eid] ?? 0),
-    row: worldToRow(Position.y[eid] ?? 0),
-  }));
+  const tiles = simulacrumBodies(world);
   const copy =
     copies[nearestIndex({ col: worldToCol(from.x), row: worldToRow(from.y) }, tiles, solids)]!;
   Position.x[player] = Position.x[copy] ?? 0;

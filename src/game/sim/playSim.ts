@@ -471,7 +471,6 @@ import {
   catchPlayer,
   edibleGhostsTouchingEid,
   edibleGhostsTouchingPlayer,
-  edibleGhostsTouchingPoint,
   type CatchOptions,
 } from "../systems/catchPlayer";
 import {
@@ -479,7 +478,6 @@ import {
   promoteNearestSimulacrum,
   simulacrumBodies,
   simulacrumPoints,
-  simulacrumSprites,
   syncSimulacra,
 } from "../systems/simulacrum";
 import { harvestPelletsByGhost } from "../systems/possessionHarvest";
@@ -1254,7 +1252,7 @@ export class PlaySim {
           : [],
       mirror: this.death === null ? this.twinRenderBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
-      simulacra: this.death === null ? simulacrumSprites(this.world) : [],
+      simulacra: this.death === null ? simulacrumPoints(this.world) : [],
       simulacrumPops: this.simulacrumPops.map((pop) => mirrorPopRender(pop)!),
     };
   }
@@ -2441,14 +2439,7 @@ export class PlaySim {
     const possessed = possessedGhostEid(this.runUpgrades);
     const eaten =
       possessed === null
-        ? [
-            ...new Set([
-              ...edibleGhostsTouchingPlayer(this.world, edible),
-              ...simulacrumPoints(this.world).flatMap((at) =>
-                edibleGhostsTouchingPoint(this.world, at, edible),
-              ),
-            ]),
-          ]
+        ? edibleGhostsTouchingPlayer(this.world, edible, simulacrumPoints(this.world))
         : edibleGhostsTouchingEid(this.world, possessed, edible);
     for (const eid of eaten) {
       if (eid === frozenGhostEid(this.runUpgrades)) {

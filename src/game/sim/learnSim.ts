@@ -281,7 +281,6 @@ import {
   catchPlayer,
   edibleGhostsTouchingEid,
   edibleGhostsTouchingPlayer,
-  edibleGhostsTouchingPoint,
   type CatchOptions,
 } from "../systems/catchPlayer";
 import {
@@ -290,7 +289,6 @@ import {
   removeSimulacra,
   simulacrumBodies,
   simulacrumPoints,
-  simulacrumSprites,
   syncSimulacra,
 } from "../systems/simulacrum";
 import { frightenedGhostAi, frightenGhosts } from "../systems/ghostFrightened";
@@ -923,7 +921,7 @@ export class LearnSim {
         ),
         mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
-        simulacra: simulacrumSprites(this.world),
+        simulacra: simulacrumPoints(this.world),
         simulacrumPops: this.simulacrumPops.map((pop) => mirrorPopRender(pop)!),
       },
     });
@@ -1452,14 +1450,7 @@ export class LearnSim {
     const possessed = possessedGhostEid(this.learnUpgrades);
     const eaten =
       possessed === null
-        ? [
-            ...new Set([
-              ...edibleGhostsTouchingPlayer(this.world, edible),
-              ...simulacrumPoints(this.world).flatMap((at) =>
-                edibleGhostsTouchingPoint(this.world, at, edible),
-              ),
-            ]),
-          ]
+        ? edibleGhostsTouchingPlayer(this.world, edible, simulacrumPoints(this.world))
         : edibleGhostsTouchingEid(this.world, possessed, edible);
     for (const eid of eaten) {
       if (eid === frozenGhostEid(this.learnUpgrades)) {
