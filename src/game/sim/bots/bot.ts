@@ -1,3 +1,4 @@
+import { GHOST_AI_MODE, type GhostAiMode } from "../../../domain/ghostMode";
 import { GHOST_PHASE } from "../../../domain/ghostPhase";
 import { createRunRandom } from "../../../domain/runRandom";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../../domain/maze";
@@ -18,6 +19,24 @@ import { StoreBot } from "./storeBot";
 
 const LEAD_TILES = 0.75;
 const STUCK_FRAMES = 90;
+
+export const DEATH_CAUSES = [
+  "cornered",
+  "execution",
+  "horizon",
+  "reaction",
+  "hazard",
+  "unknown",
+] as const;
+export type DeathCause = (typeof DEATH_CAUSES)[number];
+
+type LastPlan = {
+  survivable: boolean;
+  choice: Direction | null;
+  mistake: boolean;
+  mode: GhostAiMode;
+  ghostEids: ReadonlySet<number>;
+};
 
 export function gaussianFrom(rng: () => number): () => number {
   return () => {
@@ -94,6 +113,7 @@ export class Bot {
   private releaseFrames = 0;
   private lastPos = { x: 0, y: 0 };
   private stillFrames = 0;
+  private lastPlan: LastPlan | null = null;
 
   constructor(
     profileId: string,
@@ -121,6 +141,30 @@ export class Bot {
       : pickSalvage(prompt.incoming, sim.hud().upgrades, this.profile.persona, this.rng);
   }
 
+  deathCause(sim: PlaySim): DeathCause {
+    const plan = this.lastPlan;
+    const eid = playerEid(sim.world);
+    if (plan === null || eid === undefined) {
+      return "unknown";
+    }
+    if (!plan.survivable) {
+      return "cornered";
+    }
+    if (plan.mistake || (plan.choice !== null && Facing.direction[eid] !== plan.choice)) {
+      return "execution";
+    }
+    const mode = GHOST_AI_MODE[sim.snapshot().ghostMode as keyof typeof GHOST_AI_MODE];
+    const x = Position.x[eid] ?? 0;
+    const y = Position.y[eid] ?? 0;
+    const killer = sampleGhosts(sim.world)
+      .filter((ghost) => ghost.phase === GHOST_PHASE.active)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0];
+    if (mode !== plan.mode || (killer !== undefined && !plan.ghostEids.has(killer.eid))) {
+      return "horizon";
+    }
+    return "reaction";
+  }
+
   step(sim: PlaySim): SimInput {
     const frameMs = this.frameMs;
     this.frame += 1;
@@ -136,6 +180,10 @@ export class Bot {
     if (sim.storeState() !== null) {
       this.reset();
       return { ...IDLE_INPUT, ...this.store.input(sim, frameMs) };
+    }
+    if (sim.inputSuppressed()) {
+      this.reset();
+      return IDLE_INPUT;
     }
     const ghosts = sampleGhosts(sim.world);
     this.recordGhostTime(ghosts, frameMs);
@@ -156,6 +204,7 @@ export class Bot {
     this.pending = null;
     this.held = DIRECTION.none;
     this.releaseFrames = 1;
+    this.lastPlan = null;
   }
 
   private recordGhostTime(ghosts: readonly GhostSample[], frameMs: number): void {
@@ -205,7 +254,7 @@ export class Bot {
   private plan(sim: PlaySim, decision: Decision): void {
     this.planCell = decision.cell;
     const delayed = this.history[0] ?? [];
-    const state = this.observer.plannerState(sim, delayed, decision, this.profile.skill.depth);
+    const state = this.observer.plannerState(sim, delayed, decision, this.profile.skill);
     const noise = this.profile.persona.weights.noise;
     const scores = planExits(state, plannerWeights(this.profile.persona.weights, state)).map(
       (entry) => ({
@@ -217,9 +266,19 @@ export class Bot {
     let choice: Direction | null = bestExit(scores);
     const mistakeRate = this.profile.skill.mistakeRate;
     const survivable = scores.filter((entry) => entry.score > SURVIVABLE_SCORE);
-    if (survivable.length > 1 && this.rng() < mistakeRate) {
+    const mistake = survivable.length > 1 && this.rng() < mistakeRate;
+    if (mistake) {
       choice = survivable[Math.floor(this.rng() * survivable.length)]!.direction;
     }
+    this.lastPlan = {
+      survivable: survivable.length > 0,
+      choice,
+      mistake,
+      mode: state.mode,
+      ghostEids: new Set(
+        state.ghosts.filter((ghost) => ghost.frightenedSteps <= 0).map((ghost) => ghost.eid),
+      ),
+    };
     if (choice === null || (choice === this.held && this.pending === null)) {
       this.pending = null;
       return;

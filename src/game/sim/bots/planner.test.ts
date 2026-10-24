@@ -10,9 +10,12 @@ import { GhostKind } from "../../components/GhostKind";
 import { GhostPhase } from "../../components/GhostPhase";
 import { DIRECTION } from "../../components/Input";
 import { Position } from "../../components/Position";
+import { NO_KEYS_HELD } from "../../systems/heldKeys";
 import { PlaySim } from "../playSim";
+import { IDLE_INPUT } from "../simInput";
+import { FRAME_MS } from "../simTesting";
 import { bestExit, cellIndex } from "./navigate";
-import { Observer, playerEid, sampleGhosts } from "./observe";
+import { cellOf, Observer, playerEid, sampleGhosts } from "./observe";
 import { planExits, SURVIVABLE_SCORE, type PlannerWeights } from "./planner";
 
 const WEIGHTS: PlannerWeights = {
@@ -68,7 +71,7 @@ describe("planExits", () => {
       sim,
       sampleGhosts(sim.world),
       { current: start, cell: start, distPx: 0, facing: DIRECTION.right },
-      12,
+      { depth: 12, readsGhosts: true },
     );
     const scores = planExits(state, WEIGHTS);
     const right = scores.find((entry) => entry.direction === DIRECTION.right)!;
@@ -77,5 +80,33 @@ describe("planExits", () => {
     expect(right.score).toBeLessThan(SURVIVABLE_SCORE);
     expect(left.score).toBeGreaterThan(SURVIVABLE_SCORE);
     expect(bestExit(scores)).toBe(DIRECTION.left);
+  });
+
+  it("plans against ghosts that keep their heading when the tier does not read them", () => {
+    const sim = new PlaySim(
+      { ...defaultPlayOptions(), level: 3, maze: "maze1", disableLevelUpgrades: true },
+      "planner-naive",
+    );
+    sim.start();
+    for (let frame = 0; frame < 600; frame += 1) {
+      sim.step({ ...IDLE_INPUT, keys: { ...NO_KEYS_HELD, left: 1 } }, FRAME_MS);
+    }
+    const ghosts = sampleGhosts(sim.world);
+    expect(ghosts.some((ghost) => ghost.phase === GHOST_PHASE.active)).toBe(true);
+    const observer = new Observer();
+    const { grid } = observer.grid(false);
+    const player = playerEid(sim.world)!;
+    const start = cellOf(grid, Position.x[player]!, Position.y[player]!)!;
+    const decision = { current: start, cell: start, distPx: 0, facing: DIRECTION.left };
+    const reading = planExits(
+      observer.plannerState(sim, ghosts, decision, { depth: 12, readsGhosts: true }),
+      WEIGHTS,
+    );
+    const naive = planExits(
+      observer.plannerState(sim, ghosts, decision, { depth: 12, readsGhosts: false }),
+      WEIGHTS,
+    );
+    expect(naive.map((e) => e.direction)).toEqual(reading.map((e) => e.direction));
+    expect(naive.map((e) => e.score)).not.toEqual(reading.map((e) => e.score));
   });
 });

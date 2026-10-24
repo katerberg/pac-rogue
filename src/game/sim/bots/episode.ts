@@ -2,11 +2,10 @@ import { BOSS_LEVEL } from "../../../domain/bossRules";
 import type { GhostKindId } from "../../../domain/ghostKind";
 import { getActiveLayout } from "../../../domain/maze";
 import { defaultPlayOptions, type PlayOptions } from "../../../domain/playOptions";
-import { createRunRandom } from "../../../domain/runRandom";
-import { pickStartingUpgrade, type UpgradeId } from "../../../domain/upgrades";
+import type { UpgradeId } from "../../../domain/upgrades";
 import { PlaySim } from "../playSim";
 import { FRAME_MS } from "../simTesting";
-import { Bot } from "./bot";
+import { Bot, type DeathCause } from "./bot";
 
 const LEVEL_CAP_MS = 240_000;
 
@@ -25,13 +24,20 @@ export type Job = {
 
 export type EpisodeOutcome = "reachedBoss" | "clear" | "death" | "stalled" | "error";
 
+export type EpisodeDeath = {
+  level: number;
+  ghost: string | null;
+  ghostMode: string;
+  cause: DeathCause;
+};
+
 export type EpisodeResult = {
   job: Job;
   outcome: EpisodeOutcome;
   levelReached: number;
   progress: number;
   simMs: number;
-  deaths: { level: number; ghost: string | null; ghostMode: string }[];
+  deaths: EpisodeDeath[];
   ghostOutMs: Record<string, number>;
   offers: { level: number; offered: string[]; took: string | null }[];
   finalLoadout: string[];
@@ -43,13 +49,7 @@ export type EpisodeResult = {
 function optionsFor(job: Job): PlayOptions {
   const base = { ...defaultPlayOptions(), roster: job.roster ?? null };
   if (job.experiment === "builds") {
-    const start = pickStartingUpgrade([], createRunRandom(job.seed).stream("startingUpgrade"));
-    return {
-      ...base,
-      level: 2,
-      jumpToUpgrade: true,
-      enableUpgrades: start === null ? [] : [start],
-    };
+    return { ...base, level: 1 };
   }
   return {
     ...base,
@@ -85,6 +85,7 @@ export function answerPrompts(sim: PlaySim, bot: Bot): void {
 export function runJob(job: Job): EpisodeResult {
   const sim = new PlaySim(optionsFor(job), job.seed);
   const bot = new Bot(job.profile, job.seed, FRAME_MS);
+  const causes: DeathCause[] = [];
   let outcome: EpisodeOutcome | null = null;
   let simMs = 0;
   let error: string | undefined;
@@ -98,6 +99,9 @@ export function runJob(job: Job): EpisodeResult {
       const events = sim.step(bot.step(sim), FRAME_MS);
       simMs += FRAME_MS;
       levelMs += FRAME_MS;
+      while (causes.length < sim.deathCount()) {
+        causes.push(bot.deathCause(sim));
+      }
       if (sim.currentLevel() !== level) {
         level = sim.currentLevel();
         levelMs = 0;
@@ -115,7 +119,7 @@ export function runJob(job: Job): EpisodeResult {
     error = caught instanceof Error ? caught.message : String(caught);
   }
   try {
-    return episodeResult(sim, bot, job, outcome, simMs, error);
+    return episodeResult(sim, bot, job, outcome, simMs, causes, error);
   } catch (caught) {
     return {
       job,
@@ -140,6 +144,7 @@ function episodeResult(
   job: Job,
   outcome: EpisodeOutcome,
   simMs: number,
+  causes: readonly DeathCause[],
   error: string | undefined,
 ): EpisodeResult {
   const record = sim.runLogRecord();
@@ -151,6 +156,7 @@ function episodeResult(
           1,
           (lastLevel?.pelletsCollected ?? 0) / Math.max(1, getActiveLayout().pelletCount),
         );
+  let index = 0;
   return {
     job,
     outcome,
@@ -158,11 +164,16 @@ function episodeResult(
     progress: Math.round(progress * 1000) / 1000,
     simMs: Math.round(simMs),
     deaths: record.levels.flatMap((level) =>
-      level.deaths.map((death) => ({
-        level: level.level,
-        ghost: death.ghost,
-        ghostMode: death.ghostMode,
-      })),
+      level.deaths.map((death) => {
+        const cause = causes[index] ?? "unknown";
+        index += 1;
+        return {
+          level: level.level,
+          ghost: death.ghost,
+          ghostMode: death.ghostMode,
+          cause: death.lava || death.bossGhost ? "hazard" : cause,
+        };
+      }),
     ),
     ghostOutMs: Object.fromEntries(
       Object.entries(bot.ghostOutMs).map(([kind, ms]) => [kind, Math.round(ms)]),

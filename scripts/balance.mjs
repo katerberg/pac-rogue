@@ -1,5 +1,5 @@
 import { execFileSync, fork } from "node:child_process";
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -10,6 +10,31 @@ import { root } from "./lib/server.mjs";
 const scriptPath = fileURLToPath(import.meta.url);
 const PROGRESS_MS = 30_000;
 
+const fruitArtPlugin = {
+  name: "fruit-art",
+  setup(api) {
+    api.onLoad({ filter: /[\\/]src[\\/]game[\\/]fruitArt\.ts$/ }, () => {
+      const paths = readdirSync(join(root, "src", "art", "fruit"))
+        .filter((name) => name.endsWith(".png"))
+        .map((name) => `../art/fruit/${name}`);
+      return {
+        loader: "ts",
+        resolveDir: join(root, "src", "game"),
+        contents: [
+          `import { fruitArtIdOfPath } from "../domain/fruitArt";`,
+          `const artUrlByPath: Record<string, string> = ${JSON.stringify(
+            Object.fromEntries(paths.map((path) => [path, path])),
+          )};`,
+          "export const FRUIT_ART_URLS = new Map(",
+          "  Object.entries(artUrlByPath).map(([path, url]) => [fruitArtIdOfPath(path), url]),",
+          ");",
+          "export const FRUIT_KINDS = Object.freeze([...FRUIT_ART_URLS.keys()].sort());",
+        ].join("\n"),
+      };
+    });
+  },
+};
+
 async function bundle() {
   const outfile = join(root, "artifacts", "balance", ".build", "bots.mjs");
   await build({
@@ -19,6 +44,7 @@ async function bundle() {
     format: "esm",
     outfile,
     logLevel: "warning",
+    plugins: [fruitArtPlugin],
   });
   return outfile;
 }

@@ -1135,8 +1135,16 @@ export class PlaySim {
     return this.recorder.snapshotRecord(this.runTotals());
   }
 
+  deathCount(): number {
+    return this.recorder.deathCount();
+  }
+
   suppressInputUntilRelease(): void {
     this.suppressInputUntilKeyRelease = true;
+  }
+
+  inputSuppressed(): boolean {
+    return this.suppressInputUntilKeyRelease;
   }
 
   storeRouting(): boolean {
