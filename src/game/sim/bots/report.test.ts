@@ -32,7 +32,7 @@ function result(job: Partial<Job>, overrides: Partial<EpisodeResult> = {}): Epis
     levelReached: 5,
     progress: 0.5,
     simMs: 60_000,
-    deaths: [{ level: 5, ghost: "blinky", ghostMode: "chase" }],
+    deaths: [{ level: 5, ghost: "blinky", ghostMode: "chase", cause: "reaction" }],
     ghostOutMs: { blinky: 60_000 },
     offers: [],
     finalLoadout: [],
@@ -106,12 +106,14 @@ describe("renderReport", () => {
     const report = renderReport(summarize(results, meta));
     for (const heading of [
       "## Health",
+      "## Targets",
       "## Executive summary",
       "### Most overperforming",
       "### Most underperforming",
       "### Watchouts",
       "## Builds",
       "### Difficulty curve",
+      "### Death causes",
       "## Singles",
       "## Pairs",
       "## School Specialists",
@@ -213,8 +215,8 @@ describe("renderReport", () => {
           deaths:
             i < 25
               ? [
-                  { level: 5, ghost: "blinky", ghostMode: "chase" },
-                  { level: 5, ghost: "blinky", ghostMode: "chase" },
+                  { level: 5, ghost: "blinky", ghostMode: "chase", cause: "cornered" as const },
+                  { level: 5, ghost: "blinky", ghostMode: "chase", cause: "cornered" as const },
                 ]
               : [],
           offers: [],
@@ -224,6 +226,38 @@ describe("renderReport", () => {
     );
     const report = renderReport(summarize(builds, meta));
     expect(report).toContain("**Difficulty spike");
+  });
+
+  it("checks each tier's build runs against its targets", () => {
+    const builds = Array.from({ length: 30 }, (_, i) =>
+      result(
+        {
+          experiment: "builds",
+          arm: "build",
+          profile: i % 2 === 0 ? "cautious@average" : "casual@average",
+          seed: `target-${i}`,
+          level: undefined,
+        },
+        {
+          levelReached: i < 25 ? 5 : 7,
+          deaths: [
+            { level: i < 25 ? 5 : 7, ghost: "blinky", ghostMode: "chase", cause: "horizon" },
+          ],
+          offers: [],
+          finalLoadout: [],
+        },
+      ),
+    );
+    const summary = summarize(builds, meta);
+    expect(summary.targets.average!.n).toBe(30);
+    expect(summary.targets.novice).toBeUndefined();
+    expect(summary.causes.average!["5"]!.horizon).toBe(25);
+    const report = renderReport(summary);
+    expect(report).toContain("| average (2-5 hours in) | 30 | 100% [89%–100%] vs 90%–100% ok |");
+    expect(report).toContain("**Target miss (average):** Reach L6 17% vs 30%–50% (below; n=30).");
+    expect(report).toContain("**Target miss (average):** Reach boss 0%* vs 15%–25% (below; n=30).");
+    expect(report).toContain("– vs 3%–7% (runs stop at the boss)");
+    expect(report).toContain("| 5 | 0 | 0 | 25 (100%) | 0 | 0 | 0 | 0 | 25 |");
   });
 });
 

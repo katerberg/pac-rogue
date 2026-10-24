@@ -68,6 +68,7 @@ import {
   type DeathSequenceEvent,
   type DeathSequenceState,
 } from "../../domain/deathSequence";
+import { dotManDeathFrame } from "../../domain/dotManDeath";
 import { reviveSplashProgress } from "../../domain/reviveSplash";
 import { respawnCenter } from "../../domain/reanimation";
 import { lastLifeSaveCost, moneyTalksLaunchedCount } from "../../domain/moneyTalks";
@@ -709,8 +710,10 @@ export class PlaySim {
   private lastStreakPop: number | null = null;
   private upgradeTimers: UpgradeTimers = {};
   private firedUpgrades: BaseUpgradeId[] = [];
+  private pulseCause: BaseUpgradeId | undefined;
   private upgradePulseCount = 0;
   private lastUpgradePulse: BaseUpgradeId[] = [];
+  private lastUpgradePulseCause: BaseUpgradeId | null = null;
   private quarters = 0;
   private pennies: PennyPurse;
   private slotPickupProgress = 0;
@@ -953,10 +956,13 @@ export class PlaySim {
     );
     this.upgradeTimers = timers;
     this.firedUpgrades = [];
-    if (pulses.length > 0) {
+    const cause = this.pulseCause;
+    this.pulseCause = undefined;
+    if (pulses.length > 0 || cause !== undefined) {
       this.upgradePulseCount += 1;
       this.lastUpgradePulse = pulses;
-      this.emit({ type: "upgradePulse", ids: pulses });
+      this.lastUpgradePulseCause = cause ?? null;
+      this.emit({ type: "upgradePulse", ids: pulses, cause });
     }
   }
 
@@ -1142,8 +1148,16 @@ export class PlaySim {
     return this.recorder.snapshotRecord(this.runTotals());
   }
 
+  deathCount(): number {
+    return this.recorder.deathCount();
+  }
+
   suppressInputUntilRelease(): void {
     this.suppressInputUntilKeyRelease = true;
+  }
+
+  inputSuppressed(): boolean {
+    return this.suppressInputUntilKeyRelease;
   }
 
   storeRouting(): boolean {
@@ -1206,6 +1220,7 @@ export class PlaySim {
       frozenGhostRemainingMs: this.runUpgrades.freezeRemainingMs,
       possessedGhostEid: possessedGhostEid(this.runUpgrades),
       ...(possessionActive(this.runUpgrades) ? { playerAlpha: 0 } : {}),
+      playerDeathFrame: this.deathFrame(),
       playerInvulnRemainingMs: playerTintRemainingMs(this.runUpgrades),
       fruitRemainingMs: this.flickerFruitMs(),
       wallPassActive: wallPassActive(this.runUpgrades),
@@ -1240,7 +1255,7 @@ export class PlaySim {
       chaff: chaffSprites(this.runUpgrades.chaff),
       scent: scentSprites(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
       pupilTarget: this.blinkyPupilTarget(),
-      shields: this.runUpgrades.shieldsBanked,
+      shields: this.deathFrame() === undefined ? this.runUpgrades.shieldsBanked : 0,
       peels: bananaPeelSprites(this.peelBeads()),
       programmerQueue: this.programmerQueue(),
       programmerPath:
@@ -1336,7 +1351,11 @@ export class PlaySim {
       ghostsEatenThisFright: upgrades.ghostsEatenThisFright,
       streakPops: { count: this.streakPopCount, last: this.lastStreakPop },
       crumbs: this.crumbCount,
-      upgradePulses: { count: this.upgradePulseCount, last: this.lastUpgradePulse },
+      upgradePulses: {
+        count: this.upgradePulseCount,
+        last: this.lastUpgradePulse,
+        cause: this.lastUpgradePulseCause,
+      },
       upgradeTimers: upgradeTimerFractions(this.upgradeTimers),
       boardCollected: this.pelletProgress.boardCollected,
       pelletsRemaining: this.pelletProgress.pelletsRemaining,
@@ -1430,6 +1449,7 @@ export class PlaySim {
       },
       inputSuppressed: this.suppressInputUntilKeyRelease,
       dying: this.death !== null,
+      deathFrame: this.deathFrame() ?? null,
       reviveProgress:
         this.reviveSplashElapsedMs === null
           ? null
@@ -1514,6 +1534,12 @@ export class PlaySim {
     this.ghostCornerWarps = mergeGhostCornerWarps(this.ghostCornerWarps, warps);
   }
 
+  private deathFrame(): number | undefined {
+    return this.death === null
+      ? undefined
+      : dotManDeathFrame(this.death, this.currentTuning.deathHoldMs);
+  }
+
   private emitDraw(overrides: Partial<SimRenderOptions> = {}): void {
     this.emit({ type: "draw", options: { ...this.renderOptions(), ...overrides } });
   }
@@ -1548,6 +1574,9 @@ export class PlaySim {
       this.death = tick.state;
       for (const event of tick.events) {
         this.handleDeathEvent(event);
+      }
+      if (this.death?.phase === "hold" || this.death?.phase === "fadeToGameOver") {
+        this.emitDraw();
       }
       this.tickReviveSplash(delta);
       this.tickMoneyTalks(delta);
@@ -2198,6 +2227,7 @@ export class PlaySim {
         })
       ) {
         this.recorder.activation("martyr");
+        this.pulseCause = "passiveMartyr";
         const cleared = this.firePowerPelletEffects(1);
         this.emitDraw();
         if (cleared) {

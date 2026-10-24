@@ -103,6 +103,14 @@ function learnCellSpeedsAfterToggle(id: BaseUpgradeId): {
 }
 
 describe("LearnSim", () => {
+  it("plays on the original small board, not the level-1 map", () => {
+    const sim = new LearnSim("learn");
+    sim.start();
+    const layout = getActiveLayout();
+    expect(layout.id).toBe("mazeLearn");
+    expect([layout.cols, layout.rows]).toEqual([22, 21]);
+  });
+
   it("runs a chosen ghost and moves the player", () => {
     const sim = new LearnSim("learn");
     sim.start();
@@ -583,8 +591,8 @@ describe("LearnSim upgrade demos", () => {
       const dist = ({ col, row }: { col: number; row: number }) =>
         Math.hypot(col - fruitCell.col, row - fruitCell.row);
       const ghost = sim.ghostEid!;
-      const from = cells.find((cell) => dist(cell) > 6 && dist(cell) < 9)!;
       const near = cells.find((cell) => dist(cell) >= 2 && dist(cell) < 3)!;
+      const from = cells.find((cell) => cell.row === near.row && dist(cell) > 6 && dist(cell) < 9)!;
       Position.x[ghost] = cellCenterX(from.col);
       Position.y[ghost] = cellCenterY(from.row);
       let min = Infinity;
@@ -1342,11 +1350,25 @@ describe("LearnSim upgrade demos", () => {
       holdDuringChomp = false,
     ): keyof typeof STEP {
       const at = posOf(query(sim.world, [PowerPellet, Position])[0]!);
-      // Prefer horizontal so the program stays on one corridor; mazeSmall also
-      // stacks powers vertically in the same column.
-      const dir = (["right", "left", "up", "down"] as const).find((key) =>
-        canEnterDirection(at.x, at.y, STEP[key][0], STEP[key][1]),
-      )!;
+      const tile = getActiveLayout().tileSize;
+      const run = (key: keyof typeof STEP): number => {
+        let steps = 0;
+        while (
+          steps < 6 &&
+          canEnterDirection(
+            at.x + STEP[key][0] * tile * steps,
+            at.y + STEP[key][1] * tile * steps,
+            STEP[key][0],
+            STEP[key][1],
+          )
+        ) {
+          steps += 1;
+        }
+        return steps;
+      };
+      const dir = (["right", "left", "up", "down"] as const).reduce((best, key) =>
+        run(key) > run(best) ? key : best,
+      );
       moveTo(player, at);
       sim.step(holdDuringChomp ? held(dir) : NO_KEYS_HELD, FRAME_MS);
       // Clear only powers ahead on this corridor. Leave at least one elsewhere
@@ -1379,8 +1401,10 @@ describe("LearnSim upgrade demos", () => {
       const draw = events.find((event) => event.type === "draw")!;
       const path = draw.type === "draw" ? draw.options.programmerPath : null;
       expect(path?.[0]?.dir).toBe(dir);
-      expect(path?.[0]?.y).toBe(stoppedAt.y);
-      expect(path?.[0]?.x).not.toBe(stoppedAt.x);
+      const [along, across] =
+        dir === "left" || dir === "right" ? (["x", "y"] as const) : (["y", "x"] as const);
+      expect(path?.[0]?.[across]).toBe(stoppedAt[across]);
+      expect(path?.[0]?.[along]).not.toBe(stoppedAt[along]);
       expect(path?.at(-1)?.latest).toBe(true);
     });
 
@@ -2214,7 +2238,7 @@ describe("LearnSim upgrade demos", () => {
   });
 
   describe("Tunnel Boring", () => {
-    function boreSpot(): {
+    function boreSpot(minCells = 1): {
       col: number;
       row: number;
       dx: number;
@@ -2250,7 +2274,8 @@ describe("LearnSim upgrade demos", () => {
                   layout.house[target.row + dy!]?.[target.col + dx!] ||
                   layout.door[target.row + dy!]?.[target.col + dx!],
               );
-              if (!fromHouse && tunnelBoringCells(col, row, step.dx, step.dy) !== null) {
+              const cells = tunnelBoringCells(col, row, step.dx, step.dy);
+              if (!fromHouse && cells !== null && cells.length >= minCells) {
                 return { col, row, ...step };
               }
             }
@@ -2294,7 +2319,7 @@ describe("LearnSim upgrade demos", () => {
 
     it("slows Dot-Man 25% while he is inside the bore", () => {
       const { sim, player } = setup("passiveTunnelBoring");
-      const spot = boreSpot();
+      const spot = boreSpot(3);
       const expected = tunnelBoringCells(spot.col, spot.row, spot.dx, spot.dy)!;
       moveTo(player, { x: cellCenterX(spot.col), y: cellCenterY(spot.row) });
       Facing.direction[player] = DIRECTION.none;
@@ -2349,6 +2374,7 @@ const LEARN_OMITS_RENDER_OPTIONS: readonly (keyof SimRenderOptions)[] = [
   "wallAlpha",
   "mazeColorInverted",
   "playerReviveProgress",
+  "playerDeathFrame",
   "bossChains",
   "timedTunnel",
   "lava",
@@ -2484,8 +2510,13 @@ describe("Martyr and Possession (LEARN)", () => {
 
   it("Martyr fires power effects on a demo catch", () => {
     const { sim, player } = setup("passiveMartyr", "powerPelletInvuln");
-    const text = popups(catchByGhost(sim, player)).join("\n");
-    expect(text).toContain("MARTYR");
+    const events = catchByGhost(sim, player);
+    expect(popups(events).join("\n")).toContain("MARTYR");
+    expect(events).toContainEqual({
+      type: "upgradePulse",
+      ids: ["powerPelletInvuln"],
+      cause: "passiveMartyr",
+    });
     expect(sim["learnUpgrades"].invulnRemainingMs).toBeGreaterThan(0);
   });
 

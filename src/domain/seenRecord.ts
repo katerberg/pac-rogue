@@ -1,4 +1,4 @@
-import { GHOST_KIND, type GhostKindId } from "./ghostKind";
+import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "./ghostKind";
 import { ALL_UPGRADE_IDS, baseIdOf, type UpgradeId } from "./upgrades";
 
 export type SeenRecord = {
@@ -68,10 +68,21 @@ export function withSeenUpgrade(record: SeenRecord, id: UpgradeId): SeenRecord {
 
 export type LearnAllMode = "all" | "none";
 
+const LEARN_LOCKED_GHOST_LABEL = "???";
+
 export function learnSeenRecord(mode: LearnAllMode | null, stored: () => SeenRecord): SeenRecord {
   const upgrades =
     mode === "all" ? allSeenRecord().upgrades : mode === "none" ? [] : stored().upgrades;
-  return { ghosts: [...GHOST_KIND_IDS], upgrades };
+  const ghosts = mode === "all" ? GHOST_KIND_IDS : mode === "none" ? [] : stored().ghosts;
+  return withSeenGhosts({ ghosts: [...ghosts], upgrades }, [GHOST_KIND.blinky]);
+}
+
+export function learnGhostUnlocked(record: SeenRecord, kind: GhostKindId): boolean {
+  return kind === GHOST_KIND.blinky || record.ghosts.includes(kind);
+}
+
+export function learnGhostLabel(record: SeenRecord, kind: GhostKindId): string {
+  return learnGhostUnlocked(record, kind) ? ghostKindLabel(kind) : LEARN_LOCKED_GHOST_LABEL;
 }
 
 export function parseLearnAllMode(params: URLSearchParams): LearnAllMode | null {

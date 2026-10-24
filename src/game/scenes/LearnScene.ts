@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { parseQueryParams } from "../../domain/queryParams";
 import { freshSeed, parseSeedParam } from "../../domain/runRandom";
-import { GHOST_KIND, ghostKindLabel, type GhostKindId } from "../../domain/ghostKind";
+import { GHOST_KIND, type GhostKindId } from "../../domain/ghostKind";
 import { glyphInkCenterOffsetX, glyphInkCenterOffsetY } from "./font8x8Basic";
 import {
   LEARN_BACK_Y,
@@ -47,6 +47,8 @@ import {
 import { GHOST_DRAWABLE_BY_KIND, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import {
   emptySeenRecord,
+  learnGhostLabel,
+  learnGhostUnlocked,
   learnSeenRecord,
   parseLearnAllMode,
   type SeenRecord,
@@ -289,6 +291,8 @@ export class LearnScene extends Phaser.Scene {
     owned: readonly UpgradeId[];
     tunnelBoring: ReturnType<LearnSim["tunnelBoringDebug"]>;
     haunt: ReturnType<LearnSim["hauntDebug"]>;
+    selectedGhost: GhostKindId | null;
+    pulsing: BaseUpgradeId[];
   } {
     const preview = this.hoverPreviewCard;
     return {
@@ -303,6 +307,10 @@ export class LearnScene extends Phaser.Scene {
       owned: this.sim.ownedUpgrades,
       tunnelBoring: this.sim.tunnelBoringDebug(),
       haunt: this.sim.hauntDebug(),
+      selectedGhost: this.sim.selectedKind,
+      pulsing: this.upgradeMarks()
+        .filter(({ mark }) => this.tweens.isTweening(mark))
+        .map(({ id }) => id),
     };
   }
 
@@ -335,7 +343,7 @@ export class LearnScene extends Phaser.Scene {
       } else if (event.type === "powerPelletBreak") {
         this.powerPelletBreakFx.apply(event);
       } else if (event.type === "upgradePulse") {
-        pulseUpgradeMarks(this, this.upgradeMarks(), event.ids);
+        pulseUpgradeMarks(this, this.upgradeMarks(), event.ids, event.cause);
       } else if (event.type === "chaffBurst") {
         playChaffBurst(this, event);
       } else if (event.type === "sonicBoomEcho") {
@@ -358,6 +366,9 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private selectGhost(kind: GhostKindId): void {
+    if (!learnGhostUnlocked(this.seen, kind)) {
+      return;
+    }
     this.applyEvents(this.sim.selectGhost(kind));
     this.reticlePx = null;
     this.pivotPx = null;
@@ -388,9 +399,10 @@ export class LearnScene extends Phaser.Scene {
     SLOT_KINDS.forEach((kind, index) => {
       const x = firstX + index * (SLOT_SIZE + SLOT_GAP);
       const frame = this.add.graphics();
-      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, actorDisplaySize());
+      const unlocked = learnGhostUnlocked(this.seen, kind);
+      addGhostIcon(this, GHOST_DRAWABLE_BY_KIND[kind], x, SLOT_Y, actorDisplaySize(), !unlocked);
       const zone = this.add.zone(x, SLOT_Y, SLOT_SIZE, SLOT_SIZE);
-      zone.setInteractive({ useHandCursor: true });
+      zone.setInteractive({ useHandCursor: unlocked });
       zone.on("pointerdown", () => this.selectGhost(kind));
       zone.on("pointerover", () => this.showGhostName(kind, x));
       zone.on("pointerout", () => this.ghostNameText.setText(""));
@@ -400,7 +412,7 @@ export class LearnScene extends Phaser.Scene {
   }
 
   private showGhostName(kind: GhostKindId, x: number): void {
-    this.ghostNameText.setText(ghostKindLabel(kind));
+    this.ghostNameText.setText(learnGhostLabel(this.seen, kind));
     placePixelText(this.ghostNameText, x, GHOST_NAME_Y, 0.5, 0.5);
   }
 

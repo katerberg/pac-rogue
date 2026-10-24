@@ -244,6 +244,10 @@ export class RunRecorder {
     }
   }
 
+  deathCount(): number {
+    return this.record.levels.reduce((count, level) => count + level.deaths.length, 0);
+  }
+
   death(death: Omit<DeathLog, "simMs" | "maxFrameMsLastSecond">): void {
     const level = this.level;
     if (level === null) {
