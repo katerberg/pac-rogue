@@ -116,7 +116,6 @@ async function toPagePoint(page, canvas, x, y) {
   };
 }
 
-const heldTouch = new WeakMap();
 const touchSessions = new WeakMap();
 
 async function dispatchTouch(page, type, point) {
@@ -178,23 +177,11 @@ async function runStep(page, canvas, step, name) {
       await page.keyboard.press(a, { delay: 50 });
       break;
     case "click": {
-      const box = await canvas.boundingBox();
-      if (box === null) {
-        throw new Error("canvas has no bounding box");
-      }
-      const game = await worldSize(page);
-      await page.mouse.click(
-        box.x + (Number(a) / game.width) * box.width,
-        box.y + (Number(b) / game.height) * box.height,
-      );
+      const point = await toPagePoint(page, canvas, a, b);
+      await page.mouse.click(point.x, point.y);
       break;
     }
     case "wheel": {
-      const box = await canvas.boundingBox();
-      if (box === null) {
-        throw new Error("canvas has no bounding box");
-      }
-      const game = await worldSize(page);
       const parts = step.split(":");
       const wx = Number(parts[1]);
       const wy = Number(parts[2]);
@@ -202,23 +189,14 @@ async function runStep(page, canvas, step, name) {
       if (![wx, wy, deltaY].every(Number.isFinite)) {
         throw new Error(`Bad wheel step "${step}"; use wheel:<x>:<y>:<deltaY>`);
       }
-      await page.mouse.move(
-        box.x + (wx / game.width) * box.width,
-        box.y + (wy / game.height) * box.height,
-      );
+      const point = await toPagePoint(page, canvas, wx, wy);
+      await page.mouse.move(point.x, point.y);
       await page.mouse.wheel(0, deltaY);
       break;
     }
     case "hover": {
-      const box = await canvas.boundingBox();
-      if (box === null) {
-        throw new Error("canvas has no bounding box");
-      }
-      const game = await worldSize(page);
-      await page.mouse.move(
-        box.x + (Number(a) / game.width) * box.width,
-        box.y + (Number(b) / game.height) * box.height,
-      );
+      const point = await toPagePoint(page, canvas, a, b);
+      await page.mouse.move(point.x, point.y);
       break;
     }
     case "tap": {
@@ -230,21 +208,14 @@ async function runStep(page, canvas, step, name) {
     }
     case "touchDown": {
       const point = await toPagePoint(page, canvas, a, b);
-      heldTouch.set(page, point);
       await dispatchTouch(page, "touchStart", point);
       break;
     }
     case "touchMove": {
-      if (!heldTouch.has(page)) {
-        throw new Error("touchMove needs a touchDown first");
-      }
-      const point = await toPagePoint(page, canvas, a, b);
-      heldTouch.set(page, point);
-      await dispatchTouch(page, "touchMove", point);
+      await dispatchTouch(page, "touchMove", await toPagePoint(page, canvas, a, b));
       break;
     }
     case "touchUp":
-      heldTouch.delete(page);
       await dispatchTouch(page, "touchEnd", null);
       break;
     case "shot": {
