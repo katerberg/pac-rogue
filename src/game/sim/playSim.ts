@@ -1235,7 +1235,7 @@ export class PlaySim {
       chaff: chaffSprites(this.runUpgrades.chaff),
       scent: scentSprites(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
       pupilTarget: this.blinkyPupilTarget(),
-      shields: this.runUpgrades.shieldsBanked,
+      shields: this.deathFrame() === undefined ? this.runUpgrades.shieldsBanked : 0,
       peels: bananaPeelSprites(this.peelBeads()),
       programmerQueue: this.programmerQueue(),
       programmerPath:

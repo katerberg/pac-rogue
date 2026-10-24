@@ -1240,6 +1240,23 @@ describe("PlaySim", () => {
     expect(sim.snapshot().deathFrame).toBeNull();
   });
 
+  it("hides banked shields while the death frames play", () => {
+    const sim = startSim({ level: 2, maze: "maze1" });
+    runFrames(sim, 20, { keys: held("left") });
+    ghostOntoPlayer(sim);
+    runFrames(sim, 1);
+    sim["runUpgrades"] = { ...sim["runUpgrades"], shieldsBanked: 2 };
+    const holdDraws = runFrames(sim, 2).filter((event) => event.type === "draw");
+    expect(holdDraws.length).toBeGreaterThan(0);
+    for (const draw of holdDraws) {
+      expect(draw.type === "draw" && draw.options.shields).toBe(0);
+    }
+    const after = runUntil(sim, () => !sim.snapshot().dying, 240).filter(
+      (event) => event.type === "draw",
+    );
+    expect(after.at(-1)?.type === "draw" && after.at(-1)?.options.shields).toBe(2);
+  });
+
   it("ignores ghost contact in god mode", () => {
     const sim = startSim({ level: 2, maze: "maze1", godMode: true });
     runFrames(sim, 20, { keys: held("left") });
