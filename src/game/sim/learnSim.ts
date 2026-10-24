@@ -1922,7 +1922,6 @@ export class LearnSim {
     this.seatGhostInHouse(ghostEid);
     this.eatenHoldGhostEids.push(ghostEid);
     this.eatenHoldRemainingMs = LEARN_EATEN_HOLD_MS;
-    this.catchGraceMs = LEARN_CATCH_GRACE_MS;
   }
 
   private finishLearnPossession(possessedEid: number | null): void {
