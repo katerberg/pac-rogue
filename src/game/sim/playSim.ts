@@ -95,10 +95,12 @@ import {
   createGhostModeClock,
   GHOST_AI_MODE,
   effectiveGhostMode,
+  ghostModeFlip,
   resolveGhostModeStep,
   startGhostModeClock,
   type GhostAiMode,
   type GhostModeClock,
+  type GhostModeFlip,
 } from "../../domain/ghostMode";
 import {
   ANCHOR_RELEASE_DELAY_MS,
@@ -1137,6 +1139,10 @@ export class PlaySim {
 
   deathCount(): number {
     return this.recorder.deathCount();
+  }
+
+  ghostModeFlip(): GhostModeFlip | null {
+    return ghostModeFlip(this.ghostModeClock, this.currentTuning);
   }
 
   suppressInputUntilRelease(): void {

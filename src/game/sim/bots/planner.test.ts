@@ -14,7 +14,15 @@ import { GHOST_AI_MODE } from "../../../domain/ghostMode";
 import { PlaySim } from "../playSim";
 import { bestExit, cellIndex } from "./navigate";
 import { Observer, playerEid, sampleGhosts } from "./observe";
-import { advanceGhost, planExits, SURVIVABLE_SCORE, type PlannerWeights } from "./planner";
+import { powerPelletAffordance } from "./affordances";
+import {
+  advanceGhost,
+  planExits,
+  SURVIVABLE_SCORE,
+  type PlannerState,
+  type PlannerWeights,
+} from "./planner";
+import type { UpgradeId } from "../../../domain/upgrades";
 
 const WEIGHTS: PlannerWeights = {
   pellet: 1,
@@ -67,6 +75,74 @@ function place(eid: number, col: number, row: number, facing: number): void {
   Position.y[eid] = cellCenterY(row);
   Facing.direction[eid] = facing as never;
 }
+
+function headOn(): { state: PlannerState; pelletCell: number } {
+  const sim = new PlaySim(
+    { ...defaultPlayOptions(), level: 3, maze: "maze1", disableLevelUpgrades: true },
+    "planner",
+  );
+  sim.start();
+  const { row, col } = corridorRun(6);
+  const player = playerEid(sim.world)!;
+  place(player, col + 1, row, DIRECTION.right);
+  const blinky = [...query(sim.world, [Ghost, GhostKind])].find(
+    (eid) => GhostKind.kind[eid] === GHOST_KIND.blinky,
+  )!;
+  place(blinky, col + 5, row, DIRECTION.left);
+  GhostPhase.value[blinky] = GHOST_PHASE.active;
+  const observer = new Observer();
+  const grid = observer.grid(false).grid;
+  const start = cellIndex(grid, col + 1, row);
+  const state = observer.plannerState(
+    sim,
+    sampleGhosts(sim.world),
+    { current: start, cell: start, distPx: 0, facing: DIRECTION.right },
+    { depth: 12, readsGhosts: true },
+  );
+  return { state, pelletCell: cellIndex(grid, col + 2, row) };
+}
+
+function rightExit(state: PlannerState): number {
+  return planExits(state, WEIGHTS).find((entry) => entry.direction === DIRECTION.right)!.score;
+}
+
+function withPowerPellet(state: PlannerState, cell: number, owned: UpgradeId[]): PlannerState {
+  const power = new Uint8Array(state.power);
+  power[cell] = 1;
+  return { ...state, power, affordance: powerPelletAffordance(owned, 3, 100) };
+}
+
+describe("planExits with upgrades", () => {
+  it("walks through a ghost after a power pellet that grants invulnerability", () => {
+    const { state, pelletCell } = headOn();
+    expect(rightExit(state)).toBeLessThan(SURVIVABLE_SCORE);
+    expect(rightExit(withPowerPellet(state, pelletCell, ["powerPelletInvuln"]))).toBeGreaterThan(
+      SURVIVABLE_SCORE,
+    );
+  });
+
+  it("spends a shield instead of dying", () => {
+    const { state } = headOn();
+    expect(rightExit({ ...state, shields: 1 })).toBeGreaterThan(SURVIVABLE_SCORE);
+  });
+
+  it("treats a frozen or frightened ghost as harmless", () => {
+    const { state, pelletCell } = headOn();
+    expect(rightExit(withPowerPellet(state, pelletCell, ["powerPelletFreeze"]))).toBeGreaterThan(
+      SURVIVABLE_SCORE,
+    );
+    expect(rightExit(withPowerPellet(state, pelletCell, ["powerPelletHunter"]))).toBeGreaterThan(
+      SURVIVABLE_SCORE,
+    );
+  });
+
+  it("is still caught when Shield Break swallows the pellet's effect", () => {
+    const { state, pelletCell } = headOn();
+    expect(
+      rightExit(withPowerPellet(state, pelletCell, ["powerPelletInvuln", "passiveShieldBreak"])),
+    ).toBeLessThan(SURVIVABLE_SCORE);
+  });
+});
 
 describe("planExits", () => {
   it("refuses to walk into a ghost coming head-on and turns back instead", () => {

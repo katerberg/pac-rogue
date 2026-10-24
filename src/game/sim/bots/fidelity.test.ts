@@ -23,6 +23,9 @@ describe("measureGhostPrediction", { timeout: 120_000 }, () => {
       }
     }
     expect(summary["h0|phase:active"]!.mean).toBeLessThan(0.01);
-    expect(summary["h15|phase:active"]!.mean).toBeLessThan(1);
+    expect(summary["h15|phase:active"]!.mean).toBeLessThan(0.5);
+    expect(summary["h30|phase:active"]!.mean).toBeLessThan(1);
+    expect(summary["h60|phase:active"]!.mean).toBeLessThan(2.6);
+    expect(summary["h60|phase:leaving"]!.mean).toBeLessThan(3);
   });
 });

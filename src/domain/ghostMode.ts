@@ -60,6 +60,24 @@ export function startGhostModeClock(
   return buildGhostModeClock(levelIndex, true, tuning);
 }
 
+export type GhostModeFlip = { inMs: number; mode: GhostAiMode };
+
+export function ghostModeFlip(
+  clock: GhostModeClock,
+  tuning: Tuning = DEFAULT_TUNING,
+): GhostModeFlip | null {
+  if (!clock.active) {
+    return null;
+  }
+  const waves = ghostModeWavesForLevel(clock.levelIndex, tuning);
+  const wave = waves[clock.waveIndex];
+  const next = waves[clock.waveIndex + 1];
+  if (wave === undefined || next === undefined || !Number.isFinite(wave.durationMs)) {
+    return null;
+  }
+  return { inMs: Math.max(0, wave.durationMs - clock.elapsedMs), mode: next.mode };
+}
+
 export type GhostModeStep = {
   clock: GhostModeClock;
   mode: GhostAiMode;

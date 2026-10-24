@@ -1,3 +1,4 @@
+import { effectiveGhostMode } from "../../../domain/ghostMode";
 import { GHOST_PHASE } from "../../../domain/ghostPhase";
 import { ghostDirStep } from "../../../domain/ghostPath";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../../domain/maze";
@@ -13,7 +14,7 @@ import { FRAME_MS } from "../simTesting";
 import { Bot } from "./bot";
 import { answerPrompts } from "./episode";
 import { cellOf, Observer, playerEid, sampleGhosts, type GhostSample } from "./observe";
-import { advanceGhost, type PlannerGhost, type PlannerState } from "./planner";
+import { tickGhost, type PlannerGhost, type PlannerState } from "./planner";
 import { profileFor } from "./profiles";
 
 export type FidelitySample = {
@@ -117,7 +118,7 @@ export function measureGhostPrediction(options: FidelityOptions): FidelitySample
         const ghost: PlannerGhost = { ...planned };
         for (let f = 0; f < horizon; f += 1) {
           const at = frames[frame + f]!;
-          if (at.playerCell === null || ghost.frightenedSteps > 0) {
+          if (at.playerCell === null) {
             continue;
           }
           const player = {
@@ -131,7 +132,20 @@ export function measureGhostPrediction(options: FidelityOptions): FidelitySample
             blinkyCell === null
               ? player
               : { col: blinkyCell % grid.cols, row: Math.floor(blinkyCell / grid.cols) };
-          advanceGhost(state, ghost, ghost.speed * tilesPerFrame, player, blinkyTile);
+          const flip = state.modeFlip;
+          const mode = effectiveGhostMode(
+            flip !== null && f * tilesPerFrame >= flip.atStep ? flip.mode : state.mode,
+            state.pelletsRemaining,
+          );
+          tickGhost(
+            state,
+            ghost,
+            ghost.speed * tilesPerFrame,
+            tilesPerFrame,
+            player,
+            blinkyTile,
+            mode,
+          );
         }
         const { dx: stepX, dy: stepY } = ghostDirStep(ghost.dir);
         const tile = getActiveLayout().tileSize;

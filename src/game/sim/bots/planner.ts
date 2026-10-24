@@ -1,26 +1,34 @@
+import type { GhostKindId } from "../../../domain/ghostKind";
+import { effectiveGhostMode, type GhostAiMode } from "../../../domain/ghostMode";
 import { ghostDirStep, pickGhostDirection, type GhostDir } from "../../../domain/ghostPath";
-import type { GhostAiMode } from "../../../domain/ghostMode";
 import { cellCenterX, cellCenterY, type SolidGrid } from "../../../domain/maze";
 import type { Tuning } from "../../../domain/tuning";
 import type { Direction } from "../../components/Input";
 import { resolveGhostTarget } from "../../systems/ghostAi";
+import type { PowerPelletAffordance } from "./affordances";
 import { CARDINALS, neighbor, reverseOf, type CardinalDirection, type Grid } from "./navigate";
 
-const CATCH_TILES = 0.75;
+const CATCH_TILES = 0.7;
 const DISCOUNT = 0.93;
 const DEATH_SCORE = -1000;
 const NODE_BUDGET = 800;
 const SAFE_GAP = 6;
+const STRAIGHT_AHEAD = 100;
+const SHIELD_BOUNCE_STEPS = 2;
 export const SURVIVABLE_SCORE = DEATH_SCORE / 2;
 
 export type PlannerGhost = {
   eid: number;
+  kind: GhostKindId;
   col: number;
   row: number;
   dir: GhostDir;
   progress: number;
   speed: number;
   frightenedSteps: number;
+  frozenSteps: number;
+  delaySteps: number;
+  leaving: boolean;
   blinky: boolean;
 };
 
@@ -33,6 +41,8 @@ export type PlannerWeights = {
   margin: number;
 };
 
+export type ModeFlip = { atStep: number; mode: GhostAiMode };
+
 export type PlannerState = {
   grid: Grid;
   ghostSolids: SolidGrid;
@@ -43,18 +53,22 @@ export type PlannerState = {
   leadSteps: number;
   ghosts: readonly PlannerGhost[];
   mode: GhostAiMode;
+  modeFlip: ModeFlip | null;
   pelletsRemaining: number;
   tuning: Tuning;
   invulnSteps: number;
+  shields: number;
+  speedMul: number;
+  speedSteps: number;
   pellets: Uint8Array;
   power: Uint8Array;
   fruit: number | null;
   pelletDist: Int32Array;
   depth: number;
   readsGhosts: boolean;
+  speedOf: (ghost: PlannerGhost, pelletsRemaining: number) => number;
+  affordance: PowerPelletAffordance | null;
 };
-
-const STRAIGHT_AHEAD = 100;
 
 type Ghost = PlannerGhost;
 
@@ -68,12 +82,43 @@ function wrap(grid: Grid, col: number, row: number): { col: number; row: number 
   };
 }
 
+export function tickGhost(
+  state: PlannerState,
+  ghost: Ghost,
+  amount: number,
+  elapsedSteps: number,
+  player: { col: number; row: number; facing: Direction },
+  blinky: { col: number; row: number },
+  mode: GhostAiMode = state.mode,
+  pelletsRemaining: number = state.pelletsRemaining,
+): void {
+  if (ghost.delaySteps > 0) {
+    ghost.delaySteps -= elapsedSteps;
+    if (ghost.delaySteps <= 0) {
+      ghost.leaving = false;
+      ghost.speed = state.speedOf(ghost, pelletsRemaining);
+      decide(state, ghost, player, blinky, mode, pelletsRemaining);
+    }
+    return;
+  }
+  if (ghost.frozenSteps > 0) {
+    ghost.frozenSteps -= elapsedSteps;
+    return;
+  }
+  if (ghost.frightenedSteps > 0) {
+    return;
+  }
+  advanceGhost(state, ghost, amount, player, blinky, mode, pelletsRemaining);
+}
+
 export function advanceGhost(
   state: PlannerState,
   ghost: Ghost,
   amount: number,
   player: { col: number; row: number; facing: Direction },
   blinky: { col: number; row: number },
+  mode: GhostAiMode = state.mode,
+  pelletsRemaining: number = state.pelletsRemaining,
 ): void {
   ghost.progress += amount;
   while (ghost.progress >= 1) {
@@ -82,29 +127,39 @@ export function advanceGhost(
     const next = wrap(state.grid, ghost.col + dx, ghost.row + dy);
     ghost.col = next.col;
     ghost.row = next.row;
-    const target = state.readsGhosts
-      ? resolveGhostTarget(
-          ghost.eid,
-          state.mode,
-          state.pelletsRemaining,
-          {
-            player: { ...player, facing: player.facing as GhostDir },
-            blinky,
-            tuning: state.tuning,
-          },
-          next,
-        )
-      : { col: next.col + dx * STRAIGHT_AHEAD, row: next.row + dy * STRAIGHT_AHEAD };
-    ghost.dir = pickGhostDirection({
-      x: cellCenterX(next.col),
-      y: cellCenterY(next.row),
-      facing: ghost.dir,
-      targetCol: target.col,
-      targetRow: target.row,
-      solids: state.ghostSolids,
-      canEnter: state.canEnter,
-    });
+    ghost.speed = state.speedOf(ghost, pelletsRemaining);
+    decide(state, ghost, player, blinky, mode, pelletsRemaining);
   }
+}
+
+function decide(
+  state: PlannerState,
+  ghost: Ghost,
+  player: { col: number; row: number; facing: Direction },
+  blinky: { col: number; row: number },
+  mode: GhostAiMode,
+  pelletsRemaining: number,
+): void {
+  const { dx, dy } = ghostDirStep(ghost.dir);
+  const at = { col: ghost.col, row: ghost.row };
+  const target = state.readsGhosts
+    ? resolveGhostTarget(
+        ghost.eid,
+        mode,
+        pelletsRemaining,
+        { player: { ...player, facing: player.facing as GhostDir }, blinky, tuning: state.tuning },
+        at,
+      )
+    : { col: at.col + dx * STRAIGHT_AHEAD, row: at.row + dy * STRAIGHT_AHEAD };
+  ghost.dir = pickGhostDirection({
+    x: cellCenterX(at.col),
+    y: cellCenterY(at.row),
+    facing: ghost.dir,
+    targetCol: target.col,
+    targetRow: target.row,
+    solids: state.ghostSolids,
+    canEnter: state.canEnter,
+  });
 }
 
 function ghostPoint(ghost: Ghost): { x: number; y: number } {
@@ -112,18 +167,91 @@ function ghostPoint(ghost: Ghost): { x: number; y: number } {
   return { x: ghost.col + dx * ghost.progress, y: ghost.row + dy * ghost.progress };
 }
 
-function gap(grid: Grid, a: { x: number; y: number }, b: { x: number; y: number }): number {
+function offsets(grid: Grid, a: { x: number; y: number }, b: { x: number; y: number }) {
   const rawX = Math.abs(a.x - b.x);
   const rawY = Math.abs(a.y - b.y);
-  return Math.min(rawX, grid.cols - rawX) + Math.min(rawY, grid.rows - rawY);
+  return { dx: Math.min(rawX, grid.cols - rawX), dy: Math.min(rawY, grid.rows - rawY) };
 }
+
+function gap(grid: Grid, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const { dx, dy } = offsets(grid, a, b);
+  return dx + dy;
+}
+
+function reach(grid: Grid, a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const { dx, dy } = offsets(grid, a, b);
+  return Math.hypot(dx, dy);
+}
+
+const lethal = (ghost: Ghost) =>
+  ghost.frightenedSteps <= 0 && ghost.frozenSteps <= 0 && ghost.delaySteps <= 0;
 
 type Walk = {
   ghosts: Ghost[];
   steps: number;
   score: number;
   eaten: Set<number>;
+  pelletsRemaining: number;
+  invulnUntil: number;
+  shields: number;
+  speedMul: number;
+  speedUntil: number;
 };
+
+function nearestGhosts(
+  grid: Grid,
+  ghosts: readonly Ghost[],
+  at: { x: number; y: number },
+): Ghost[] {
+  return [...ghosts]
+    .filter((ghost) => ghost.delaySteps <= 0)
+    .sort((a, b) => reach(grid, at, ghostPoint(a)) - reach(grid, at, ghostPoint(b)));
+}
+
+function eatPowerPellet(
+  state: PlannerState,
+  walk: Walk,
+  at: { x: number; y: number },
+  weights: PlannerWeights,
+  value: number,
+): void {
+  const power = state.affordance;
+  if (power === null) {
+    return;
+  }
+  const grid = state.grid;
+  walk.invulnUntil = Math.max(walk.invulnUntil, walk.steps + power.invulnSteps);
+  walk.shields += power.shieldGain;
+  if (power.speedSteps > 0) {
+    walk.speedMul = power.speedMul;
+    walk.speedUntil = walk.steps + power.speedSteps;
+  }
+  if (power.frightSteps > 0) {
+    for (const ghost of walk.ghosts) {
+      if (ghost.delaySteps <= 0) {
+        ghost.frightenedSteps = Math.max(ghost.frightenedSteps, power.frightSteps);
+      }
+    }
+  }
+  if (power.freezeSteps > 0) {
+    const closest = nearestGhosts(grid, walk.ghosts, at)[0];
+    if (closest !== undefined) {
+      closest.frozenSteps = Math.max(closest.frozenSteps, power.freezeSteps);
+    }
+  }
+  if (power.recall > 0) {
+    const recalled = new Set(
+      nearestGhosts(grid, walk.ghosts, at)
+        .filter((ghost) => ghost.frozenSteps <= 0)
+        .slice(0, power.recall),
+    );
+    walk.ghosts = walk.ghosts.filter((ghost) => !recalled.has(ghost));
+  }
+  if (power.warp || power.cornerTeleport) {
+    walk.ghosts = walk.ghosts.filter((ghost) => ghost.delaySteps > 0);
+  }
+  walk.score += value * weights.pellet * power.extraPellets;
+}
 
 function stepWorld(
   state: PlannerState,
@@ -144,21 +272,49 @@ function stepWorld(
     ? toPoint
     : { x: (fromPoint.x + toPoint.x) / 2, y: (fromPoint.y + toPoint.y) / 2 };
   walk.steps += 1;
-  const vulnerable = walk.steps > state.invulnSteps;
+  const value = DISCOUNT ** walk.steps;
+  const eatsPower = state.power[to] === 1 && !walk.eaten.has(to);
+  if (eatsPower) {
+    eatPowerPellet(state, walk, toPoint, weights, value);
+  }
+  const mode = effectiveGhostMode(
+    state.modeFlip !== null && walk.steps >= state.modeFlip.atStep
+      ? state.modeFlip.mode
+      : state.mode,
+    walk.pelletsRemaining,
+  );
+  const playerMul = walk.steps <= walk.speedUntil ? walk.speedMul : 1;
   for (const half of [midPoint, toPoint]) {
     for (const ghost of walk.ghosts) {
-      if (ghost.frightenedSteps > 0) {
-        continue;
-      }
-      advanceGhost(state, ghost, (ghost.speed * slow) / 2, playerTile, blinky);
-      if (vulnerable && gap(grid, half, ghostPoint(ghost)) < CATCH_TILES + weights.margin) {
-        return false;
+      tickGhost(
+        state,
+        ghost,
+        (ghost.speed * slow) / 2 / playerMul,
+        0.5,
+        playerTile,
+        blinky,
+        mode,
+        walk.pelletsRemaining,
+      );
+      if (
+        walk.steps > walk.invulnUntil &&
+        lethal(ghost) &&
+        reach(grid, half, ghostPoint(ghost)) < CATCH_TILES + weights.margin
+      ) {
+        if (walk.shields > 0) {
+          walk.shields -= 1;
+          walk.invulnUntil = walk.steps + SHIELD_BOUNCE_STEPS;
+        } else {
+          return false;
+        }
       }
     }
   }
-  const value = DISCOUNT ** walk.steps;
   if (!walk.eaten.has(to)) {
     walk.eaten.add(to);
+    if (state.pellets[to] === 1) {
+      walk.pelletsRemaining -= 1;
+    }
     walk.score +=
       value * (state.pellets[to] === 1 ? weights.pellet : 0) +
       value * (state.power[to] === 1 ? weights.power : 0) +
@@ -180,21 +336,20 @@ function finalScore(state: PlannerState, walk: Walk, end: number, weights: Plann
   const endPoint = { x: colOf(grid, end), y: rowOf(grid, end) };
   let nearest = SAFE_GAP;
   for (const ghost of walk.ghosts) {
-    if (ghost.frightenedSteps <= 0) {
+    if (lethal(ghost)) {
       nearest = Math.min(nearest, gap(grid, endPoint, ghostPoint(ghost)));
     }
   }
   const pelletDist = state.pelletDist[end]!;
   const endgame = 1 + 10 / (state.pelletsRemaining + 1);
-  const reach = pelletDist < 0 ? 0 : (weights.pellet * endgame) / (1 + pelletDist);
-  return walk.score + reach + weights.safety * nearest;
+  const reachScore = pelletDist < 0 ? 0 : (weights.pellet * endgame) / (1 + pelletDist);
+  return walk.score + reachScore + weights.safety * nearest;
 }
 
 function cloneWalk(walk: Walk): Walk {
   return {
+    ...walk,
     ghosts: walk.ghosts.map((ghost) => ({ ...ghost })),
-    steps: walk.steps,
-    score: walk.score,
     eaten: new Set(walk.eaten),
   };
 }
@@ -240,6 +395,11 @@ export function planExits(state: PlannerState, weights: PlannerWeights): Planned
     steps: 0,
     score: 0,
     eaten: new Set(),
+    pelletsRemaining: state.pelletsRemaining,
+    invulnUntil: state.invulnSteps,
+    shields: state.shields,
+    speedMul: state.speedMul,
+    speedUntil: state.speedSteps,
   };
   const player = {
     col: colOf(grid, state.start),
@@ -247,8 +407,15 @@ export function planExits(state: PlannerState, weights: PlannerWeights): Planned
     facing: state.facing,
   };
   const blinky = base.ghosts.find((ghost) => ghost.blinky) ?? player;
-  for (const ghost of base.ghosts.filter((g) => g.frightenedSteps <= 0)) {
-    advanceGhost(state, ghost, ghost.speed * state.leadSteps, player, blinky);
+  for (const ghost of base.ghosts) {
+    tickGhost(
+      state,
+      ghost,
+      (ghost.speed * state.leadSteps) / Math.max(1, state.speedMul),
+      state.leadSteps,
+      player,
+      blinky,
+    );
   }
   const reverse = reverseOf(state.facing);
   const exits = CARDINALS.filter((dir) => neighbor(grid, state.start, dir) !== -1);
