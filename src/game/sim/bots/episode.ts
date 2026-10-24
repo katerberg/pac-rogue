@@ -156,25 +156,20 @@ function episodeResult(
           1,
           (lastLevel?.pelletsCollected ?? 0) / Math.max(1, getActiveLayout().pelletCount),
         );
-  let index = 0;
   return {
     job,
     outcome,
     levelReached: sim.currentLevel(),
     progress: Math.round(progress * 1000) / 1000,
     simMs: Math.round(simMs),
-    deaths: record.levels.flatMap((level) =>
-      level.deaths.map((death) => {
-        const cause = causes[index] ?? "unknown";
-        index += 1;
-        return {
-          level: level.level,
-          ghost: death.ghost,
-          ghostMode: death.ghostMode,
-          cause: death.lava || death.bossGhost ? "hazard" : cause,
-        };
-      }),
-    ),
+    deaths: record.levels
+      .flatMap((level) => level.deaths.map((death) => ({ level: level.level, death })))
+      .map(({ level, death }, index) => ({
+        level,
+        ghost: death.ghost,
+        ghostMode: death.ghostMode,
+        cause: death.lava || death.bossGhost ? "hazard" : (causes[index] ?? "unknown"),
+      })),
     ghostOutMs: Object.fromEntries(
       Object.entries(bot.ghostOutMs).map(([kind, ms]) => [kind, Math.round(ms)]),
     ),

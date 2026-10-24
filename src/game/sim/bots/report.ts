@@ -443,7 +443,6 @@ function spreadSection(summary: Summary): string[] {
   ];
 }
 
-const TIER_ORDER: readonly SkillTierId[] = ["novice", "average", "expert"];
 const METRIC_LABELS: Record<TargetMetric, string> = {
   reachL3: "Reach L3",
   reachL6: "Reach L6",
@@ -453,7 +452,9 @@ const METRIC_LABELS: Record<TargetMetric, string> = {
 const band = (b: Band) => `${pct(b.lo)}–${pct(b.hi)}`;
 
 function tiersIn(summary: Summary): SkillTierId[] {
-  return TIER_ORDER.filter((tier) => summary.targets[tier] !== undefined);
+  return (Object.keys(TIER_TARGETS) as SkillTierId[]).filter(
+    (tier) => summary.targets[tier] !== undefined,
+  );
 }
 
 function targetsSection(summary: Summary): string[] {
@@ -468,7 +469,7 @@ function targetsSection(summary: Summary): string[] {
         if (measured === null) {
           return `– vs ${band(target)} (runs stop at the boss)`;
         }
-        const check = checkTarget(metric, target, measured);
+        const check = checkTarget(target, measured);
         return `${ci(measured, pct)} vs ${band(target)} ${check.verdict}${check.separated ? "*" : ""}`;
       }),
     ];

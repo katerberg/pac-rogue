@@ -38,18 +38,12 @@ export const TIER_TARGETS: Record<SkillTierId, TierTarget> = {
   },
 };
 
-export type TargetVerdict = "ok" | "above" | "below";
 export type TierActual = {
   n: number;
   metrics: Record<TargetMetric, Interval | null>;
 };
-export type TargetCheck = {
-  metric: TargetMetric;
-  band: Band;
-  actual: Interval;
-  verdict: TargetVerdict;
-  separated: boolean;
-};
+export type TargetCheck = { verdict: "ok" | "above" | "below"; separated: boolean };
+export type TargetMiss = TargetCheck & { metric: TargetMetric; band: Band; actual: Interval };
 
 export function tierOf(profile: string): SkillTierId {
   return profile.split("@")[1] as SkillTierId;
@@ -70,24 +64,21 @@ export function tierActual(results: readonly EpisodeResult[]): TierActual {
   };
 }
 
-export function checkTarget(metric: TargetMetric, band: Band, actual: Interval): TargetCheck {
-  const verdict = actual.value < band.lo ? "below" : actual.value > band.hi ? "above" : "ok";
+export function checkTarget(band: Band, actual: Interval): TargetCheck {
   return {
-    metric,
-    band,
-    actual,
-    verdict,
+    verdict: actual.value < band.lo ? "below" : actual.value > band.hi ? "above" : "ok",
     separated: actual.n > 0 && (actual.hi < band.lo || actual.lo > band.hi),
   };
 }
 
-export function targetMisses(tier: SkillTierId, actual: TierActual): TargetCheck[] {
+export function targetMisses(tier: SkillTierId, actual: TierActual): TargetMiss[] {
   return TARGET_METRICS.flatMap((metric) => {
     const measured = actual.metrics[metric];
     if (measured === null || actual.n === 0) {
       return [];
     }
-    const check = checkTarget(metric, TIER_TARGETS[tier].bands[metric], measured);
-    return check.verdict === "ok" ? [] : [check];
+    const band = TIER_TARGETS[tier].bands[metric];
+    const check = checkTarget(band, measured);
+    return check.verdict === "ok" ? [] : [{ ...check, metric, band, actual: measured }];
   });
 }

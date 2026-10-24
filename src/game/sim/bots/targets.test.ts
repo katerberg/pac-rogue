@@ -38,15 +38,15 @@ describe("tierActual", () => {
 describe("checkTarget", () => {
   it("marks a point outside the band and whether the interval clears it", () => {
     const band = { lo: 0.6, hi: 0.8 };
-    expect(checkTarget("reachL3", band, { value: 0.7, lo: 0.5, hi: 0.9, n: 20 })).toMatchObject({
+    expect(checkTarget(band, { value: 0.7, lo: 0.5, hi: 0.9, n: 20 })).toMatchObject({
       verdict: "ok",
       separated: false,
     });
-    expect(checkTarget("reachL3", band, { value: 0.3, lo: 0.2, hi: 0.4, n: 80 })).toMatchObject({
+    expect(checkTarget(band, { value: 0.3, lo: 0.2, hi: 0.4, n: 80 })).toMatchObject({
       verdict: "below",
       separated: true,
     });
-    expect(checkTarget("reachL3", band, { value: 0.85, lo: 0.75, hi: 0.95, n: 40 })).toMatchObject({
+    expect(checkTarget(band, { value: 0.85, lo: 0.75, hi: 0.95, n: 40 })).toMatchObject({
       verdict: "above",
       separated: false,
     });
