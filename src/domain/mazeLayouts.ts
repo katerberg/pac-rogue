@@ -93,7 +93,6 @@ export const SMALL_MAZE_ASCII = `############################
 ############################
 ############################`;
 
-/** The original 22x21 level-1 board, kept as LEARN's sandbox; not selectable via `?maze=`. */
 export const LEARN_MAZE_ASCII = `######################
 #....................#
 #@#####.######.#####@#

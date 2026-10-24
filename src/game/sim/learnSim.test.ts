@@ -1350,8 +1350,6 @@ describe("LearnSim upgrade demos", () => {
       holdDuringChomp = false,
     ): keyof typeof STEP {
       const at = posOf(query(sim.world, [PowerPellet, Position])[0]!);
-      // Take the longest open run (horizontal first on ties) so the program has room for
-      // every press and stays on one corridor.
       const tile = getActiveLayout().tileSize;
       const run = (key: keyof typeof STEP): number => {
         let steps = 0;
