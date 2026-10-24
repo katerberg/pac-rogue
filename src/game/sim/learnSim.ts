@@ -238,6 +238,12 @@ import {
 } from "../systems/collectBodies";
 import { harvestPelletsByGhosts } from "../systems/ghostHarvest";
 import { harvestPelletsByGhost } from "../systems/possessionHarvest";
+import { burstOutOfGhost } from "../systems/possessionBurst";
+import {
+  possessionBurstRender,
+  tickPossessionBurst,
+  type PossessionBurst,
+} from "../../domain/possessionBurst";
 import {
   ghostAi,
   ghostAiContext,
@@ -419,6 +425,7 @@ export class LearnSim {
   private pendingPowerRespawns: PendingPowerPelletRespawn[] = [];
   private readonly runState = new LearnRunState();
   private mirrorPop: MirrorPop | null = null;
+  private possessionBurst: PossessionBurst | null = null;
   private readonly houseHold = new LearnHouseHold();
   private readonly recalled = new LearnRecall();
   private houseHoldEaten = 0;
@@ -525,6 +532,7 @@ export class LearnSim {
 
   step(keys: HeldKeys, delta: number): SimEvent[] {
     this.events = [];
+    this.possessionBurst = tickPossessionBurst(this.possessionBurst, delta);
     this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
       this.events.push(event),
     );
@@ -810,6 +818,7 @@ export class LearnSim {
     this.applyRemoteTransferStep(removedEids.length);
     if (query(this.world, [Pellet]).length === 0) {
       this.spawnPellets();
+      this.burstOutOfPossession();
       this.onBoardRefill();
     } else {
       this.regenPowerPellets();
@@ -907,6 +916,7 @@ export class LearnSim {
         ),
         mirror: this.twinRenderBody(),
         mirrorPop: mirrorPopRender(this.mirrorPop),
+        possessionBurst: possessionBurstRender(this.possessionBurst),
       },
     });
     const { timers, pulses } = advanceUpgradeTimers(
@@ -949,6 +959,7 @@ export class LearnSim {
     }
     this.learnUpgrades = clearUpgradeTimers(this.learnUpgrades);
     this.mirrorPop = null;
+    this.possessionBurst = null;
     this.hyperspeedDirection = null;
     this.turnCatchGraceMs = 0;
     this.hyperspeedPellets = emptyPlayerPelletFrame();
@@ -1899,6 +1910,20 @@ export class LearnSim {
     }
     this.catchGraceMs = LEARN_CATCH_GRACE_MS;
     this.popup(lines.join("\n"));
+  }
+
+  /** LEARN's level clear is a refill: like Play, clearing the board while possessing bursts out. */
+  private burstOutOfPossession(): void {
+    const ghostEid = possessedGhostEid(this.learnUpgrades);
+    if (ghostEid === null) {
+      return;
+    }
+    this.possessionBurst = burstOutOfGhost(this.world, ghostEid);
+    this.learnUpgrades = endPossession(this.learnUpgrades);
+    this.seatGhostInHouse(ghostEid);
+    this.eatenHoldGhostEids.push(ghostEid);
+    this.eatenHoldRemainingMs = LEARN_EATEN_HOLD_MS;
+    this.catchGraceMs = LEARN_CATCH_GRACE_MS;
   }
 
   private finishLearnPossession(possessedEid: number | null): void {

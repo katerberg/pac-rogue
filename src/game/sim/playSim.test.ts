@@ -10250,6 +10250,38 @@ describe("Possession", () => {
     expect(infinite.snapshot().dying).toBe(true);
   });
 
+  it("bursts the player out of the possessed ghost when it clears the board", () => {
+    const sim = startPossession(["passivePossession"]);
+    const killer = enterPossession(sim);
+    const pellets = query(sim.world, [Pellet, Position]);
+    const last = pellets.find((eid) => !hasComponent(sim.world, eid, PowerPellet))!;
+    for (const eid of pellets.filter((eid) => eid !== last)) {
+      removeEntity(sim.world, eid);
+      sim["pelletProgress"] = {
+        ...sim["pelletProgress"],
+        pelletsRemaining: Math.max(0, sim["pelletProgress"].pelletsRemaining - 1),
+      };
+    }
+    const at = { x: Position.x[last]!, y: Position.y[last]! };
+    Position.x[killer] = at.x;
+    Position.y[killer] = at.y;
+    runFrames(sim, 1);
+    expect(sim.snapshot().possessing).toBe(false);
+    expect(sim.snapshot().dying).toBe(false);
+    expect(sim.snapshot().possessionBurstProgress).toBe(0);
+    const burst = sim.renderOptions().possessionBurst!;
+    expect(burst).toMatchObject({ eid: killer, progress: 0 });
+    expect(Math.hypot(burst.x - at.x, burst.y - at.y)).toBeLessThan(getActiveLayout().tileSize);
+    expect(sim.renderOptions().playerAlpha).toBeUndefined();
+    const player = query(sim.world, [Player, Position])[0]!;
+    expect({ x: Position.x[player], y: Position.y[player] }).toEqual({ x: burst.x, y: burst.y });
+    expect(GhostPhase.value[killer]).toBe(GHOST_PHASE.inHouse);
+    const draws = runFrames(sim, 10).flatMap((e) => (e.type === "draw" ? [e.options] : []));
+    expect(draws.some((d) => (d.possessionBurst?.progress ?? 0) > 0)).toBe(true);
+    runUntil(sim, () => sim.snapshot().possessionBurstProgress === null, 120);
+    expect(sim.renderOptions().possessionBurst).toBeNull();
+  });
+
   it("eats regular pellets without growing the streak", () => {
     const sim = startPossession(["passivePossession"]);
     const killer = enterPossession(sim);
