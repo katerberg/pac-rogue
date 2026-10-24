@@ -4,10 +4,13 @@ import { GHOST_PHASE } from "../../../domain/ghostPhase";
 import { GHOST_AI_MODE } from "../../../domain/ghostMode";
 import { ghostMovementRules } from "../../../domain/ghostMovement";
 import { ghostDirStep, type GhostDir } from "../../../domain/ghostPath";
+import { resolveGhostSpeedForKind } from "../../../domain/ghostSpeed";
+import { trinketGhostSpeedMul } from "../../../domain/trinkets";
 import {
   cellCenterX,
   cellCenterY,
   getActiveLayout,
+  isGhostTunnelSlow,
   worldToCol,
   worldToRow,
   type MazeLayout,
@@ -25,11 +28,18 @@ import { Position } from "../../components/Position";
 import { PowerPellet } from "../../components/PowerPellet";
 import { playerSpeed as playerSpeedPx } from "../../../domain/playfield";
 import { speedLevelMultiplier } from "../../../domain/tuning";
-import { playerSpeedMultiplier } from "../../../domain/upgrades";
+import {
+  cellSpeedMultiplier,
+  ghostSpeedMultiplier,
+  ghostTunnelSpeedRatio,
+  playerSpeedMultiplier,
+  speedBurstMultiplier,
+} from "../../../domain/upgrades";
 import { Speed } from "../../components/Speed";
 import { nameOf } from "../../systems/worldSnapshot";
 import type { PlaySim } from "../playSim";
-import type { PlannerState } from "./planner";
+import { powerPelletAffordance } from "./affordances";
+import type { PlannerGhost, PlannerState } from "./planner";
 import type { SkillTier } from "./profiles";
 import {
   CARDINALS,
@@ -144,6 +154,26 @@ export class Observer {
     };
     const exitCell = cellIndex(grid, layout.ghostHouseExit.col, layout.ghostHouseExit.row);
     const rules = ghostMovementRules(GHOST_PHASE.active);
+    const owned = sim.hud().upgrades;
+    const level = sim.currentLevel();
+    const tuning = sim.tuning;
+    const ghostSpeedMul = speedLevelMultiplier(level, tuning) * ghostSpeedMultiplier(owned);
+    const tunnelRatio = ghostTunnelSpeedRatio(owned) ?? tuning.ghostTunnelRatio;
+    const speedOf = (ghost: PlannerGhost, pelletsRemaining: number): number =>
+      (resolveGhostSpeedForKind(
+        ghost.kind,
+        pelletsRemaining,
+        isGhostTunnelSlow(ghost.col, ghost.row),
+        level,
+        ghost.leaving,
+        tunnelRatio,
+        tuning,
+      ) *
+        ghostSpeedMul *
+        trinketGhostSpeedMul(owned, ghost.kind)) /
+      playerSpeed;
+    const timers = snapshot.timers;
+    const flip = sim.ghostModeFlip();
     return {
       grid,
       ghostSolids: rules.solids,
@@ -152,25 +182,59 @@ export class Observer {
       current: decision.current,
       facing: decision.facing,
       leadSteps: decision.distPx / layout.tileSize,
+      stepMs,
       ghosts: ghosts
         .filter((ghost) => ghost.phase !== GHOST_PHASE.inHouse)
-        .map((ghost) => {
+        .map((ghost): PlannerGhost => {
+          const leaving = ghost.phase === GHOST_PHASE.leaving;
           const placed = ghostPlacement(grid, ghost, exitCell, layout.tileSize);
-          return {
+          const base: PlannerGhost = {
             eid: ghost.eid,
+            kind: GHOST_KIND[ghost.kind as keyof typeof GHOST_KIND] ?? GHOST_KIND.blinky,
             ...placed,
-            speed: render.frozenGhostEid === ghost.eid ? 0 : Math.max(ghost.speed, 1) / playerSpeed,
+            speed: 0,
             frightenedSteps:
               frightened != null && frightened.eids.includes(ghost.eid)
                 ? frightened.remainingMs / stepMs
                 : 0,
+            frozenSteps:
+              render.frozenGhostEid === ghost.eid
+                ? (render.frozenGhostRemainingMs ?? 0) / stepMs
+                : 0,
+            delaySteps: 0,
+            leaving,
             blinky: ghost.kind === "blinky",
+          };
+          const at = cellOf(grid, ghost.x, ghost.y);
+          const tilesToExit =
+            at === null
+              ? 0
+              : Math.abs((at % grid.cols) - placed.col) +
+                Math.abs(Math.floor(at / grid.cols) - placed.row);
+          return {
+            ...base,
+            delaySteps: leaving ? tilesToExit / speedOf(base, snapshot.pelletsRemaining) : 0,
+            speed: speedOf(base, snapshot.pelletsRemaining),
           };
         }),
       mode: GHOST_AI_MODE[snapshot.ghostMode as keyof typeof GHOST_AI_MODE] ?? GHOST_AI_MODE.chase,
+      modeFlip:
+        flip === null || !Number.isFinite(flip.inMs)
+          ? null
+          : { atStep: flip.inMs / stepMs, mode: flip.mode },
       pelletsRemaining: snapshot.pelletsRemaining,
-      tuning: sim.tuning,
-      invulnSteps: render.playerInvulnRemainingMs / stepMs,
+      elroySuppressed: snapshot.elroySuppressed,
+      tuning,
+      invulnSteps: Math.max(timers.invulnMs, timers.defyDeathMs) / stepMs,
+      shields: sim.hud().shields + (timers.hyperspeedShieldMs > 0 ? 1 : 0),
+      speedMul: timers.speedBurstMs > 0 ? speedBurstMultiplier(owned) : 1,
+      speedSteps: timers.speedBurstMs / stepMs,
+      cellSpeedMul: {
+        pellet: cellSpeedMultiplier(owned, false),
+        empty: cellSpeedMultiplier(owned, true),
+      },
+      speedOf,
+      affordance: powerPelletAffordance(owned, level, stepMs, sim.hud().shields),
       pellets: mark(pellets),
       power: mark(powerPellets),
       fruit: cellsOf(query(world, [Fruit, Position]))[0] ?? null,
