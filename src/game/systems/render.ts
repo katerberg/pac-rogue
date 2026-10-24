@@ -35,7 +35,6 @@ import {
   type CollapseRenderState,
 } from "../../domain/collapseRubble";
 import {
-  SINKHOLE_ART_TILE,
   sinkholeOpening,
   sinkholePalette,
   sinkholePixelVisible,
@@ -67,8 +66,10 @@ import {
 } from "../../domain/chaff";
 import { droppedWallLook, type DroppedWall } from "../../domain/wallDrop";
 import {
+  PROGRAMMER_ARROW_TILES,
   PROGRAMMER_EMPTY_SLOT_TILES,
   programmerArrowPoints,
+  type ProgrammerPathMark,
   type ProgrammerQueueSlot,
 } from "../../domain/programmer";
 import { invertRgb24 } from "../../domain/bossRules";
@@ -712,6 +713,7 @@ export type RenderOptions = {
   shields?: number;
   peels?: { x: number; y: number }[];
   programmerQueue?: ProgrammerQueueSlot[] | null;
+  programmerPath?: ProgrammerPathMark[];
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
 };
@@ -743,6 +745,9 @@ export type PlayRender = {
 const DIM_GHOST_ALPHA = 0.4;
 const HAUNT_CAGE_DEPTH = 1;
 const PROGRAMMER_QUEUE_DEPTH = 10;
+const PROGRAMMER_PATH_DEPTH = -0.75;
+const PROGRAMMER_PATH_ARROW_SCALE = 0.45;
+const PROGRAMMER_PATH_FADED_ALPHA = 0.4;
 const SPEED_TRAIL_DEPTH = -1;
 const LAVA_DEPTH = -1.25;
 const SINKHOLE_FRAME_MS = 50;
@@ -916,6 +921,8 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
   lavaGraphics.setDepth(LAVA_DEPTH);
   const programmerGraphics = scene.add.graphics();
   programmerGraphics.setDepth(PROGRAMMER_QUEUE_DEPTH);
+  const programmerPathGraphics = scene.add.graphics();
+  programmerPathGraphics.setDepth(PROGRAMMER_PATH_DEPTH);
   let drawnWallStyle: WallStyle | null = null;
   let drawnWallLayout: MazeLayout | null = null;
   let drawnBoreJunk: readonly BoreJunk[] = [];
@@ -1008,7 +1015,7 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       }
       return;
     }
-    const key = `${sinkhole.key}:${style.background}`;
+    const key = `${sinkhole.key}:${style.color}`;
     const settled = sinkholeSettled(sinkhole);
     const step = settled ? -2 : Math.floor(sinkhole.elapsedMs / SINKHOLE_FRAME_MS);
     if (key === drawnSinkhole && step === drawnSinkholeStep) {
@@ -1016,14 +1023,14 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
     }
     drawnSinkhole = key;
     drawnSinkholeStep = step;
-    const palette = sinkholePalette(style.background);
-    const opening = sinkholeOpening(sinkhole.elapsedMs, sinkhole.fresh);
+    const palette = sinkholePalette(style.color, sinkhole.tuning);
+    const opening = sinkholeOpening(sinkhole);
     const origin = { x: cellOriginX(0), y: cellOriginY(0) };
-    const artPx = getActiveLayout().tileSize / SINKHOLE_ART_TILE;
+    const artPx = getActiveLayout().tileSize / sinkhole.art.tile;
     sinkholeGraphics.clear();
     for (const pixel of sinkhole.art.pixels) {
       if (sinkholePixelVisible(pixel, opening)) {
-        sinkholeGraphics.fillStyle(palette[pixel.tone]!, 1);
+        sinkholeGraphics.fillStyle(palette[pixel.tone], 1);
         sinkholeGraphics.fillRect(
           origin.x + pixel.x * artPx,
           origin.y + pixel.y * artPx,
@@ -1966,9 +1973,21 @@ export function createRender(scene: Phaser.Scene, sidebarBands = false): PlayRen
       if (slot.dir === null) {
         programmerGraphics.fillCircle(slot.x, slot.y, tilePx * PROGRAMMER_EMPTY_SLOT_TILES);
       } else {
-        const [a, b, c] = programmerArrowPoints(slot.x, slot.y, slot.dir, tilePx);
+        const half = tilePx * PROGRAMMER_ARROW_TILES;
+        const [a, b, c] = programmerArrowPoints(slot.x, slot.y, slot.dir, half);
         programmerGraphics.fillTriangle(a!.x, a!.y, b!.x, b!.y, c!.x, c!.y);
       }
+    }
+
+    programmerPathGraphics.clear();
+    const pathHalf = playerDisplaySize() * PROGRAMMER_PATH_ARROW_SCALE;
+    for (const mark of opts?.programmerPath ?? []) {
+      programmerPathGraphics.fillStyle(
+        PLAYER_PROGRAMMING_TINT,
+        mark.latest ? 1 : PROGRAMMER_PATH_FADED_ALPHA,
+      );
+      const [a, b, c] = programmerArrowPoints(mark.x, mark.y, mark.dir, pathHalf);
+      programmerPathGraphics.fillTriangle(a!.x, a!.y, b!.x, b!.y, c!.x, c!.y);
     }
 
     const peelSize = BANANA_PEEL_DISPLAY_SIZE_PX;

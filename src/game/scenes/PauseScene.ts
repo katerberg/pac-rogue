@@ -3,6 +3,7 @@ import { createKeyRepeatState, tickKeyRepeat, type KeyRepeatState } from "../../
 import { PLAYFIELD_HEIGHT, PLAYFIELD_WIDTH } from "../../domain/playfield";
 import { clamp } from "../../domain/clamp";
 import { hoverPreviewX } from "../../domain/learnUpgradeColumns";
+import { UPGRADE_HUD_HOVER_SCALE } from "../../domain/upgradeHud";
 import { upgradeIconTexture } from "../upgradeArt";
 import { getUpgradeDef, type UpgradeId } from "../../domain/upgrades";
 import type { PlayScene } from "./PlayScene";
@@ -21,7 +22,6 @@ import { addTrinketCard, createSalvagePanel, type SalvagePanel } from "./salvage
 import { buildUpgradeCardVisual, MODAL_DEPTH, type UpgradeCardVisual } from "./upgradeChoiceModal";
 import { applyRenderScale } from "../renderScale";
 
-const UPGRADE_ICON_HOVER_SCALE = 1.1;
 const UPGRADE_PREVIEW_Y_MIN = 90;
 const UPGRADE_PREVIEW_Y_MAX = 510;
 const SALVAGE_HINT_Y = 470;
@@ -288,7 +288,7 @@ export class PauseScene extends Phaser.Scene {
         .setDisplaySize(size, size)
         .setInteractive({ useHandCursor: true });
       icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
-        icon.setDisplaySize(size * UPGRADE_ICON_HOVER_SCALE, size * UPGRADE_ICON_HOVER_SCALE);
+        icon.setDisplaySize(size * UPGRADE_HUD_HOVER_SCALE, size * UPGRADE_HUD_HOVER_SCALE);
         this.showUpgradePreview(id, copies, pointer.worldY);
       });
       icon.on("pointerout", () => {

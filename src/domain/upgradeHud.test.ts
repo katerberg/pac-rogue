@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { activateLayout, MAZE_LAYOUT_IDS, MAZE_OFFSET_X } from "./maze";
 import {
   TRINKET_LAYER_OFFSET,
   TRINKET_POOL_COLUMNS,
@@ -6,6 +7,9 @@ import {
   upgradeHudTextAnchor,
   UPGRADE_HUD_COLUMNS,
   UPGRADE_HUD_COMPACT_SIZE,
+  UPGRADE_HUD_GAP,
+  UPGRADE_HUD_HOVER_SCALE,
+  UPGRADE_HUD_RIGHT_PAD,
   upgradeHudIconPosition,
   upgradeHudIconSize,
 } from "./upgradeHud";
@@ -13,8 +17,20 @@ import {
 describe("upgradeHudIconSize", () => {
   it("fits three icons and their gaps between the left margin and the maze", () => {
     const size = upgradeHudIconSize(200);
-    expect(12 + size * 3 + 4 * 2).toBeLessThanOrEqual(200 - 8);
-    expect(12 + (size + 1) * 3 + 4 * 2).toBeGreaterThan(200 - 8);
+    const gaps = UPGRADE_HUD_GAP * 2;
+    expect(12 + size * 3 + gaps).toBeLessThanOrEqual(200 - UPGRADE_HUD_RIGHT_PAD);
+    expect(12 + (size + 1) * 3 + gaps).toBeGreaterThan(200 - UPGRADE_HUD_RIGHT_PAD);
+  });
+
+  it.each(MAZE_LAYOUT_IDS)("leaves space around hovered icons in the %s gutter", (id) => {
+    activateLayout(id);
+    const size = upgradeHudIconSize(MAZE_OFFSET_X);
+    const grow = (size * (UPGRADE_HUD_HOVER_SCALE - 1)) / 2;
+    const [a, b, c] = [0, 1, 2].map((i) => upgradeHudIconPosition(i, size, 10));
+    expect(b!.x - a!.x - size - grow * 2).toBeGreaterThanOrEqual(4);
+    expect(MAZE_OFFSET_X - (c!.x + size / 2 + grow)).toBeGreaterThanOrEqual(8);
+    const below = upgradeHudIconPosition(3, size, 10);
+    expect(below.y - a!.y - size - grow * 2).toBeGreaterThanOrEqual(4);
   });
 
   it("never shrinks below the compact size", () => {
@@ -24,12 +40,12 @@ describe("upgradeHudIconSize", () => {
 
 describe("upgradeHudIconPosition", () => {
   it("starts right below the quarters row", () => {
-    expect(upgradeHudIconPosition(0, 16, 10)).toEqual({ x: 20, y: 34 });
+    expect(upgradeHudIconPosition(0, 16, 10)).toEqual({ x: 20, y: 42 });
   });
 
   it("fills three per row, left to right", () => {
     const xs = [0, 1, 2].map((i) => upgradeHudIconPosition(i, 16, 10).x);
-    expect(xs).toEqual([20, 40, 60]);
+    expect(xs).toEqual([20, 48, 76]);
     expect(upgradeHudIconPosition(UPGRADE_HUD_COLUMNS - 1, 16, 10).y).toBe(
       upgradeHudIconPosition(0, 16, 10).y,
     );
@@ -39,7 +55,7 @@ describe("upgradeHudIconPosition", () => {
     const first = upgradeHudIconPosition(0, 40, 10);
     const fourth = upgradeHudIconPosition(3, 40, 10);
     expect(fourth.x).toBe(first.x);
-    expect(fourth.y).toBe(first.y + 44);
+    expect(fourth.y).toBe(first.y + 40 + UPGRADE_HUD_GAP);
   });
 
   it("honors a shifted left edge", () => {
@@ -95,11 +111,11 @@ describe("upgradeHudTextAnchor", () => {
   it("centers on the middle grid column under the lowest box", () => {
     const middle = upgradeHudIconPosition(1, 40, 16);
     const low = { x: 10, y: 300, size: 20 };
-    expect(upgradeHudTextAnchor([low], 40, 16)).toEqual({ x: middle.x, y: 322 });
+    expect(upgradeHudTextAnchor([low], 40, 16)).toEqual({ x: middle.x, y: 330 });
   });
 
   it("sits under the first row when nothing is owned", () => {
     const middle = upgradeHudIconPosition(1, 40, 16);
-    expect(upgradeHudTextAnchor([], 40, 16)).toEqual({ x: middle.x, y: middle.y + 32 });
+    expect(upgradeHudTextAnchor([], 40, 16)).toEqual({ x: middle.x, y: middle.y + 40 });
   });
 });

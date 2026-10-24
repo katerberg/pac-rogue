@@ -22,7 +22,7 @@ import type { TimedTunnelRenderState } from "../../domain/timedTunnel";
 import type { ScentSprite } from "../systems/scarecrow";
 import type { ChaffSprite } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
-import type { ProgrammerQueueSlot } from "../../domain/programmer";
+import type { ProgrammerPathMark, ProgrammerQueueSlot } from "../../domain/programmer";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
 
 export type { TimedTunnelRenderState };
@@ -63,6 +63,7 @@ export type SimRenderOptions = {
   shields?: number;
   peels?: { x: number; y: number }[];
   programmerQueue?: ProgrammerQueueSlot[] | null;
+  programmerPath?: ProgrammerPathMark[];
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
 };

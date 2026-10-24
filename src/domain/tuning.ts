@@ -1,5 +1,6 @@
 import { DEFAULT_CHARM_TUNING, type CharmTuning } from "./charmTailParams";
 import { DOTMAN_CHOMP_SPEED_DEFAULT } from "./dotManMouth";
+import { DEFAULT_SINKHOLE_TUNING, type SinkholeTuning } from "./sinkholeTuning";
 import { DEFAULT_SPEED_ZONE_FLOW_SPEEDS } from "./speedZoneWater";
 import { TUNING_KNOBS, type KnobDef } from "./tuningKnobs";
 
@@ -53,7 +54,8 @@ export type Tuning = {
   readonly speedZoneFlowExit: number;
   readonly wallCornerRadius: number;
   readonly backgroundColor: number;
-} & CharmTuning;
+} & CharmTuning &
+  SinkholeTuning;
 
 export type TuningKey = keyof Tuning;
 
@@ -108,6 +110,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
   wallCornerRadius: 8,
   backgroundColor: 0x1a1a2e,
   ...DEFAULT_CHARM_TUNING,
+  ...DEFAULT_SINKHOLE_TUNING,
 });
 
 const TUNING_STORAGE_VERSION = 1;

@@ -7,6 +7,7 @@ import {
   type TuningKey,
 } from "../../domain/tuning";
 import {
+  formatKnobSectionSettings,
   formatKnobValue,
   KNOB_HELP,
   LEFT_KNOB_GROUPS,
@@ -15,6 +16,7 @@ import {
   VISUALS_SUBGROUPS,
   type KnobDef,
   type KnobGroup,
+  type VisualsSubgroup,
 } from "../../domain/tuningKnobs";
 import { colorToCssHex } from "../../domain/maze";
 
@@ -45,6 +47,15 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
   let tuning = opts.tuning;
   let level = opts.level;
@@ -69,6 +80,25 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
   const resetButton = (key: TuningKey): HTMLButtonElement => {
     const button = el("button", { className: "knob-reset", textContent: "↺", title: "Default" });
     button.addEventListener("click", () => setValue(key, DEFAULT_TUNING[key]));
+    return button;
+  };
+
+  const copyButton = (group: KnobGroup, subgroup?: VisualsSubgroup): HTMLButtonElement => {
+    const button = el("button", {
+      className: "knob-copy",
+      textContent: "copy",
+      title: "Copy these settings",
+    });
+    let restore = 0;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void copyText(formatKnobSectionSettings(tuning, group, subgroup)).then((ok) => {
+        button.textContent = ok ? "copied" : "failed";
+        window.clearTimeout(restore);
+        restore = window.setTimeout(() => (button.textContent = "copy"), 1200);
+      });
+    });
     return button;
   };
 
@@ -176,7 +206,7 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
         const nested = el("details", { className: "knob-subgroup" });
         nested.open = true;
         nested.dataset.subgroup = subgroup;
-        nested.append(el("summary", { textContent: subgroup }));
+        nested.append(el("summary", { textContent: subgroup }, [copyButton(group, subgroup)]));
         for (const knob of subKnobs) {
           nested.append(buildRow(knob));
         }
@@ -197,7 +227,7 @@ export function createKnobsPanel(opts: KnobsPanelOptions): KnobsPanel {
       if (group === "Visuals") {
         section.open = true;
       }
-      section.append(el("summary", { textContent: group }));
+      section.append(el("summary", { textContent: group }, [copyButton(group)]));
       appendGroupKnobs(section, group);
       if (group === "Ghost speed") {
         section.append(ghostEffective);
