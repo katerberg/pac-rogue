@@ -2727,9 +2727,10 @@ describe("PlaySim", () => {
     it("kills Dot-Man on slime and records the trail's ghost", () => {
       const sim = startSlime();
       runFrames(sim, 1, { keys: held("left") });
-      slimeUnderPlayer(sim);
+      const owner = slimeUnderPlayer(sim);
       runFrames(sim, 1, { keys: held("left") });
       expect(sim.snapshot().dying).toBe(true);
+      expect(sim["caughtByEid"]).toBe(owner);
       const deaths = sim.snapshot().runLog;
       expect(deaths.deaths).toBe(1);
       runUntil(sim, () => !sim.snapshot().dying, 400);
