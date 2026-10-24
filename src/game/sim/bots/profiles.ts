@@ -2,7 +2,7 @@ import type { UpgradeSchool } from "../../../domain/upgrades";
 import type { PlannerWeights } from "./planner";
 
 export type PersonaId = "cautious" | "speedrunner" | "disrupter" | "collector" | "casual";
-export type SkillTierId = "average" | "expert";
+export type SkillTierId = "novice" | "average" | "expert";
 
 export type MoveWeights = PlannerWeights & {
   powerHoldNearGhosts: boolean;
@@ -27,6 +27,7 @@ export type SkillTier = {
   reactionMs: number;
   jitterMs: number;
   mistakeRate: number;
+  readsGhosts: boolean;
 };
 
 export type Profile = { persona: Persona; skill: SkillTier };
@@ -92,8 +93,9 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 };
 
 const SKILL_TIERS: Record<SkillTierId, SkillTier> = {
-  average: { depth: 12, reactionMs: 180, jitterMs: 50, mistakeRate: 0.005 },
-  expert: { depth: 16, reactionMs: 100, jitterMs: 15, mistakeRate: 0 },
+  novice: { depth: 8, reactionMs: 280, jitterMs: 80, mistakeRate: 0.03, readsGhosts: false },
+  average: { depth: 12, reactionMs: 180, jitterMs: 50, mistakeRate: 0.005, readsGhosts: true },
+  expert: { depth: 16, reactionMs: 100, jitterMs: 15, mistakeRate: 0, readsGhosts: true },
 };
 
 export const EXPERT_PROFILE_IDS: readonly string[] = [
@@ -110,12 +112,16 @@ export const PROFILE_IDS: readonly string[] = [
   "casual@average",
 ];
 
+export const NOVICE_PROFILE_IDS: readonly string[] = ["cautious@novice", "casual@novice"];
+
+export const BUILD_PROFILE_IDS: readonly string[] = [...PROFILE_IDS, ...NOVICE_PROFILE_IDS];
+
 export function profileFor(id: string): Profile {
   const [personaId, tierId] = id.split("@");
   const persona = PERSONAS[personaId as PersonaId];
   const skill = SKILL_TIERS[tierId as SkillTierId];
   if (persona === undefined || skill === undefined) {
-    throw new Error(`Unknown bot profile "${id}"; expected <persona>@<average|expert>`);
+    throw new Error(`Unknown bot profile "${id}"; expected <persona>@<novice|average|expert>`);
   }
   return { persona, skill };
 }

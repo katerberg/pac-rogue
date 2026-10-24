@@ -292,6 +292,7 @@ export class LearnScene extends Phaser.Scene {
     tunnelBoring: ReturnType<LearnSim["tunnelBoringDebug"]>;
     haunt: ReturnType<LearnSim["hauntDebug"]>;
     selectedGhost: GhostKindId | null;
+    pulsing: BaseUpgradeId[];
   } {
     const preview = this.hoverPreviewCard;
     return {
@@ -307,6 +308,9 @@ export class LearnScene extends Phaser.Scene {
       tunnelBoring: this.sim.tunnelBoringDebug(),
       haunt: this.sim.hauntDebug(),
       selectedGhost: this.sim.selectedKind,
+      pulsing: this.upgradeMarks()
+        .filter(({ mark }) => this.tweens.isTweening(mark))
+        .map(({ id }) => id),
     };
   }
 
@@ -339,7 +343,7 @@ export class LearnScene extends Phaser.Scene {
       } else if (event.type === "powerPelletBreak") {
         this.powerPelletBreakFx.apply(event);
       } else if (event.type === "upgradePulse") {
-        pulseUpgradeMarks(this, this.upgradeMarks(), event.ids);
+        pulseUpgradeMarks(this, this.upgradeMarks(), event.ids, event.cause);
       } else if (event.type === "chaffBurst") {
         playChaffBurst(this, event);
       } else if (event.type === "sonicBoomEcho") {

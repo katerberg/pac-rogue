@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BudgetError, planJobs, presetArms, TESTABLE_UPGRADES } from "./experiments";
-import { EXPERT_PROFILE_IDS, PROFILE_IDS } from "./profiles";
+import { BUILD_PROFILE_IDS, EXPERT_PROFILE_IDS } from "./profiles";
 
 const M1_MAX = { buildSeconds: 2.2, forcedSeconds: 0.75, workers: 9 };
 
@@ -19,7 +19,7 @@ describe("presetArms", () => {
     expect(count("schools")).toBe(6 * 2 * 2);
     expect(count("enemies")).toBe(12);
     expect(arms.find((arm) => arm.experiment === "pairs")!.profiles).toEqual(EXPERT_PROFILE_IDS);
-    expect(arms.find((arm) => arm.experiment === "builds")!.profiles).toEqual(PROFILE_IDS);
+    expect(arms.find((arm) => arm.experiment === "builds")!.profiles).toEqual(BUILD_PROFILE_IDS);
   });
 
   it("never tests a School Specialist on its own", () => {

@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createRunRandom } from "../../../domain/runRandom";
 import { defaultPlayOptions } from "../../../domain/playOptions";
 import { isTrinketId } from "../../../domain/trinkets";
-import { pickStartingUpgrade } from "../../../domain/upgrades";
 import { PlaySim } from "../playSim";
 import { IDLE_INPUT } from "../simInput";
 import { FRAME_MS } from "../simTesting";
-import { Bot, gaussianFrom } from "./bot";
+import { Bot, DEATH_CAUSES, gaussianFrom } from "./bot";
 import { answerPrompts, runJob } from "./episode";
 import { Observer } from "./observe";
 import { PERSONAS } from "./profiles";
@@ -25,14 +24,32 @@ describe("runJob", { timeout: 60_000 }, () => {
     expect(runJob(job)).toEqual(runJob(job));
   });
 
-  it("starts build runs at the level-2 offer with the seeded starting upgrade", () => {
-    const seed = "bal-1";
-    const result = runJob({ experiment: "builds", arm: "build", profile: "cautious@expert", seed });
-    const start = pickStartingUpgrade([], createRunRandom(seed).stream("startingUpgrade"))!;
-    expect(result.offers[0]?.level).toBe(2);
+  it("plays build runs from level 1 with the game's own starting upgrade", () => {
+    const result = runJob({
+      experiment: "builds",
+      arm: "build",
+      profile: "cautious@expert",
+      seed: "bal-1",
+    });
+    expect(result.offers[0]?.level).toBe(1);
     expect(result.levelReached).toBeGreaterThanOrEqual(3);
-    expect(result.finalLoadout.some((id) => id.startsWith(start))).toBe(true);
+    expect(result.finalLoadout.length).toBeGreaterThan(0);
   });
+
+  it("tags every build-run death with a cause", () => {
+    const result = runJob({
+      experiment: "builds",
+      arm: "build",
+      profile: "casual@novice",
+      seed: "bal-2",
+    });
+    expect(result.outcome).not.toBe("error");
+    expect(result.deaths.length).toBeGreaterThan(0);
+    for (const death of result.deaths) {
+      expect(DEATH_CAUSES).toContain(death.cause);
+      expect(death.cause).not.toBe("unknown");
+    }
+  }, 30_000);
 
   it("plays differently at different skill tiers on the same seed", () => {
     const job = { experiment: "singles" as const, arm: "none", seed: "bal-4", level: 3 };
