@@ -157,7 +157,7 @@ import { IDLE_INPUT, type SimInput } from "./simInput";
 import { NO_KEYS_HELD } from "../systems/heldKeys";
 import { convertPelletToPower } from "../systems/pelletToPower";
 import { FRAME_MS, held, runFrames, runUntil } from "./simTesting";
-import { openGhostDirsAt } from "../../domain/ghostPath";
+import { openGhostDirsAt, reverseGhostDir, type GhostDir } from "../../domain/ghostPath";
 import { scentAwareCanEnter } from "../systems/ghostAi";
 import { scentFieldFor } from "../systems/scarecrow";
 
@@ -2811,6 +2811,30 @@ describe("PlaySim", () => {
     expect(sim.snapshot().ghostMode).toBe("scatter");
     runFrames(sim, Math.ceil(5.5 * 60), { keys: held("left") });
     expect(sim.snapshot().ghostMode).toBe("chase");
+  });
+
+  it("never turns a ghost around when the scatter wave flips to chase", () => {
+    const sim = startSim(
+      { level: 5, infiniteLives: true, ghosts: [GHOST_KIND.blinky] },
+      "scatter-no-reverse",
+    );
+    const blinky = query(sim.world, [Ghost, GhostKind])[0]!;
+    runUntil(sim, () => sim.snapshot().ghosts.some((g) => g.phase === "active"), 1200, {
+      keys: held("left"),
+    });
+    expect(sim.snapshot().ghostMode).toBe("scatter");
+    let prev = Facing.direction[blinky] as GhostDir;
+    let reversals = 0;
+    for (let i = 0; i < 6 * 60 && sim.snapshot().ghostMode === "scatter"; i += 1) {
+      runFrames(sim, 1, { keys: held("left") });
+      const facing = Facing.direction[blinky] as GhostDir;
+      if (prev !== DIRECTION.none && facing === reverseGhostDir(prev)) {
+        reversals += 1;
+      }
+      prev = facing;
+    }
+    expect(sim.snapshot().ghostMode).toBe("chase");
+    expect(reversals).toBe(0);
   });
 
   it("aims Blinky's eyes at Dot-Man from level 4 on", () => {

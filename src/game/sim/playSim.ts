@@ -1952,43 +1952,33 @@ export class PlaySim {
     const modeStep = resolveGhostModeStep(this.ghostModeClock, delta, this.currentTuning);
     this.ghostModeClock = modeStep.clock;
     const ghostMode = this.settledGhostMode();
-    if (ghostMode !== this.previousEffectiveGhostMode) {
-      forceGhostReverse(
-        this.world,
-        this.ghostsBlockedFromTunnels(),
-        undefined,
-        blockTunnelRow,
-        this.runUpgrades.droppedWall,
-      );
-      this.previousEffectiveGhostMode = ghostMode;
-    } else {
-      ghostAi(
-        this.world,
-        ghostMode,
-        this.pelletsForElroy(),
-        this.currentTuning,
-        this.ghostsBlockedFromTunnels(),
-        new Set([
-          ...frightenedGhostEids(this.runUpgrades),
-          ...(possessedGhostEid(this.runUpgrades) === null
-            ? []
-            : [possessedGhostEid(this.runUpgrades)!]),
-        ]),
-        blockTunnelRow,
-        this.runUpgrades.droppedWall,
-        this.twinBody(),
-        this.runUpgrades.chaff?.decoys,
-        scentFieldFor(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
-      );
-      frightenedGhostAi(
-        this.world,
-        frightenedGhostEids(this.runUpgrades),
-        this.random.stream("frightened", this.levelIndex),
-        this.ghostsBlockedFromTunnels(),
-        blockTunnelRow,
-        this.runUpgrades.droppedWall,
-      );
-    }
+    this.previousEffectiveGhostMode = ghostMode;
+    ghostAi(
+      this.world,
+      ghostMode,
+      this.pelletsForElroy(),
+      this.currentTuning,
+      this.ghostsBlockedFromTunnels(),
+      new Set([
+        ...frightenedGhostEids(this.runUpgrades),
+        ...(possessedGhostEid(this.runUpgrades) === null
+          ? []
+          : [possessedGhostEid(this.runUpgrades)!]),
+      ]),
+      blockTunnelRow,
+      this.runUpgrades.droppedWall,
+      this.twinBody(),
+      this.runUpgrades.chaff?.decoys,
+      scentFieldFor(this.effectiveUpgrades(), this.world, this.runUpgrades.scentLingers),
+    );
+    frightenedGhostAi(
+      this.world,
+      frightenedGhostEids(this.runUpgrades),
+      this.random.stream("frightened", this.levelIndex),
+      this.ghostsBlockedFromTunnels(),
+      blockTunnelRow,
+      this.runUpgrades.droppedWall,
+    );
     for (let recalled = 0; recalled < powerEffects.recallGhostCount; recalled += 1) {
       this.recordRecall(
         recallClosestGhostToHouse(
@@ -4606,8 +4596,6 @@ export class PlaySim {
       const frightened = frightenGhosts(
         this.world,
         hunterFrightenLimit(this.bossState?.def.id ?? null),
-        this.ghostsBlockedFromTunnels(),
-        this.closedGatedTunnelRow(),
       );
       this.runUpgrades = { ...this.runUpgrades, frightenedGhostEids: frightened };
       if (frightened.length > 0) {
