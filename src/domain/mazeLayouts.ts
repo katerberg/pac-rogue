@@ -177,7 +177,6 @@ export const STORE_MAZE_ASCII = `----------------------------
 ----------------------------
 ----------------------------`;
 
-/** Blinky Swarm boss board: a pillar lattice with no ghost house; Blinkys enter through the tunnels. */
 export const SWARM_BOSS_MAZE_ASCII = `#-#############-#
 #-#############-#
 #-#############-#

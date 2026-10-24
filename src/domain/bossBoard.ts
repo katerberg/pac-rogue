@@ -19,7 +19,6 @@ function spreadOpposites<T>(clockwise: readonly T[]): T[] {
   return order;
 }
 
-/** Every tunnel end, vertical ones first and each group ordered so consecutive spawns come from opposite sides. */
 export function bossTunnelMouths(solids: SolidGrid): BossTunnelMouth[] {
   const rows = solids.length;
   const cols = solids[0]?.length ?? 0;
@@ -38,7 +37,6 @@ export function bossTunnelMouths(solids: SolidGrid): BossTunnelMouth[] {
     ...sideRows.map((row) => ({ col: 0, row, facing: GHOST_DIR.right })),
     ...sideRows.map((row) => ({ col: cols - 1, row, facing: GHOST_DIR.left })),
   ];
-  // Clockwise from the bottom-left corner: up the left edge, across the top, down the right, back along the bottom.
   const perimeter = (mouth: BossTunnelMouth): number => {
     if (mouth.col === 0) {
       return rows - 1 - mouth.row;
