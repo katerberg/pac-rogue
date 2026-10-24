@@ -479,6 +479,12 @@ import {
   type CatchOptions,
 } from "../systems/catchPlayer";
 import { harvestPelletsByGhost } from "../systems/possessionHarvest";
+import { burstOutOfGhost } from "../systems/possessionBurst";
+import {
+  possessionBurstRender,
+  tickPossessionBurst,
+  type PossessionBurst,
+} from "../../domain/possessionBurst";
 import {
   lifeAfterDeathClear,
   shouldFireMartyr,
@@ -814,6 +820,7 @@ export class PlaySim {
   private reviveSplashPending = false;
   private reviveSplashElapsedMs: number | null = null;
   private mirrorPop: MirrorPop | null = null;
+  private possessionBurst: PossessionBurst | null = null;
   private powerPelletBreaks: ActivePowerPelletBreak[] = [];
   private nextPowerPelletBreakId = 1;
   private moneyTalksSpend: MoneyTalksSpend | null = null;
@@ -1264,6 +1271,7 @@ export class PlaySim {
           : [],
       mirror: this.death === null ? this.twinRenderBody() : null,
       mirrorPop: mirrorPopRender(this.mirrorPop),
+      possessionBurst: possessionBurstRender(this.possessionBurst),
     };
   }
 
@@ -1343,6 +1351,7 @@ export class PlaySim {
       hauntedGhost: ghostName(this.world, hauntedGhostEid(upgrades)),
       possessedGhost: ghostName(this.world, possessedGhostEid(upgrades)),
       possessing: possessionActive(upgrades),
+      possessionBurstProgress: possessionBurstRender(this.possessionBurst)?.progress ?? null,
       nearMissesPaid: this.nearMissesPaid,
       frightenedGhosts: [...frightenedGhostEids(upgrades)].map((eid) => ghostName(this.world, eid)),
       hunterHeld: upgrades.hunterHeldEids.map((eid) => ghostName(this.world, eid)),
@@ -1556,6 +1565,10 @@ export class PlaySim {
     this.powerPelletBreaks = tickPowerPelletBreaks(this.powerPelletBreaks, delta, (event) =>
       this.emit(event),
     );
+    if (this.possessionBurst !== null) {
+      this.possessionBurst = tickPossessionBurst(this.possessionBurst, delta);
+      this.emitDraw();
+    }
     if (this.awaitingStartingCard) {
       if (input.uiOpen) {
         return;
@@ -3139,6 +3152,7 @@ export class PlaySim {
     this.ghostTraction.reset();
     this.sonicEchoes.reset();
     this.mirrorPop = null;
+    this.possessionBurst = null;
     this.deathsThisBoard = 0;
     this.elroySuppressed = false;
     this.lastReactiveArmorSent = 0;
@@ -4529,6 +4543,18 @@ export class PlaySim {
   }
 
   private clearPossessionForLevelClear(): void {
+    const ghostEid = possessedGhostEid(this.runUpgrades);
+    if (ghostEid !== null) {
+      this.possessionBurst = burstOutOfGhost(this.world, ghostEid);
+      sendGhostToHouse(
+        this.world,
+        ghostEid,
+        this.ghostReleaseClock,
+        this.pelletProgress.boardCollected,
+        this.afterLifeRelease,
+        this.releaseAdds(),
+      );
+    }
     this.runUpgrades = endPossession(this.runUpgrades);
     this.lives = lifeAfterDeathClear(this.possessionLivesBefore);
     this.possessionPendingGameOver = false;

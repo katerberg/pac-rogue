@@ -2561,6 +2561,30 @@ describe("Martyr and Possession (LEARN)", () => {
     expect(sim["learnUpgrades"].possessedGhostEid).toBeNull();
   });
 
+  it("Possession bursts Maze-Man out of the ghost when it clears the board", () => {
+    const { sim, player } = setup("passivePossession");
+    const ghost = sim.ghostEid!;
+    catchByGhost(sim, player);
+    const pellets = query(sim.world, [Pellet, Position]);
+    const last = pellets.find((eid) => !hasComponent(sim.world, eid, PowerPellet))!;
+    for (const eid of pellets.filter((eid) => eid !== last)) {
+      removeEntity(sim.world, eid);
+    }
+    moveTo(ghost, posOf(last));
+    const burst = lastDrawOptions(sim.step(NO_KEYS_HELD, FRAME_MS)).possessionBurst!;
+    expect(burst).toMatchObject({ eid: ghost });
+    expect(sim["learnUpgrades"].possessedGhostEid).toBeNull();
+    expect(posOf(player)).toEqual({ x: burst.x, y: burst.y });
+    expect(posOf(ghost)).toEqual(ghostHouseSpawnCenter());
+    expect(GhostPhase.value[ghost]).toBe(GHOST_PHASE.inHouse);
+    let options = lastDrawOptions(sim.step(held("left"), FRAME_MS));
+    for (let t = 0; t < 2000 && options.possessionBurst !== null; t += FRAME_MS) {
+      expect(posOf(player)).toEqual({ x: burst.x, y: burst.y });
+      options = lastDrawOptions(sim.step(held("left"), FRAME_MS));
+    }
+    expect(options.possessionBurst).toBeNull();
+  });
+
   it("Possession+ haunts the steered ghost after possession ends", () => {
     const { sim, player } = setup("passivePossessionPlus");
     const ghost = sim.ghostEid!;

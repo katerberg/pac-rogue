@@ -24,6 +24,7 @@ import type { ChaffSprite } from "../../domain/chaff";
 import type { DroppedWall } from "../../domain/wallDrop";
 import type { ProgrammerPathMark, ProgrammerQueueSlot } from "../../domain/programmer";
 import type { WarpGlideSprite } from "../../domain/warpGlide";
+import type { PossessionBurstRender } from "../../domain/possessionBurst";
 
 export type { TimedTunnelRenderState };
 
@@ -67,6 +68,7 @@ export type SimRenderOptions = {
   programmerPath?: ProgrammerPathMark[];
   mirror?: { x: number; y: number; facing: number } | null;
   mirrorPop?: { x: number; y: number; progress: number } | null;
+  possessionBurst?: PossessionBurstRender | null;
 };
 
 export type MoneyTalksSpend = {
