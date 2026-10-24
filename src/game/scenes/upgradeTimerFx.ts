@@ -37,7 +37,19 @@ export function pulseUpgradeMarks(
   scene: Phaser.Scene,
   marks: readonly UpgradeMark[],
   ids: readonly BaseUpgradeId[],
+  cause?: BaseUpgradeId,
 ): void {
+  if (cause !== undefined) {
+    pulseUpgradeMarks(scene, marks, [cause]);
+    scene.time.delayedCall(PULSE_MS * 2, () =>
+      pulseUpgradeMarks(
+        scene,
+        marks.filter(({ mark }) => mark.active),
+        ids,
+      ),
+    );
+    return;
+  }
   for (const { id, mark } of marks) {
     if (!ids.includes(id) || scene.tweens.isTweening(mark)) {
       continue;

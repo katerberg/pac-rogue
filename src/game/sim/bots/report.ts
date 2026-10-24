@@ -1,10 +1,23 @@
 import { baseIdOf, getUpgradeDef, type UpgradeId } from "../../../domain/upgrades";
+import { DEATH_CAUSES, type DeathCause } from "./bot";
 import type { EpisodeResult, ExperimentId } from "./episode";
 import { armKey } from "./experiments";
+import type { SkillTierId } from "./profiles";
 import { meanCi, separated, synergy, wilson, type Interval } from "./stats";
+import {
+  TARGET_METRICS,
+  TIER_TARGETS,
+  checkTarget,
+  targetMisses,
+  tierActual,
+  tierOf,
+  type Band,
+  type TargetMetric,
+  type TierActual,
+} from "./targets";
 
-export const SUMMARY_VERSION = 1;
-const CURVE_LEVELS = [3, 4, 5, 6, 7, 8, 9];
+export const SUMMARY_VERSION = 2;
+const CURVE_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const STALL_LIMIT = 0.02;
 const minRows = (runs: number, floor: number, share: number) =>
   Math.max(floor, Math.round(runs * share));
@@ -30,6 +43,7 @@ export type BuildSummary = {
   curve: { level: number; reached: number; deaths: number }[];
 };
 export type GhostLethality = { catches: number; outMinutes: number; perMinute: number };
+export type DeathCauses = Record<string, Record<DeathCause, number>>;
 
 export type SummaryMeta = {
   gitSha: string;
@@ -52,6 +66,8 @@ export type Summary = SummaryMeta & {
   };
   arms: Record<string, Record<string, ArmMetrics>>;
   builds: Record<string, BuildSummary>;
+  targets: Partial<Record<SkillTierId, TierActual>>;
+  causes: Partial<Record<SkillTierId, DeathCauses>>;
   ghosts: Record<string, Record<string, GhostLethality>>;
 };
 
@@ -165,6 +181,19 @@ function buildSummary(results: readonly EpisodeResult[]): BuildSummary {
   };
 }
 
+function deathCauses(results: readonly EpisodeResult[]): DeathCauses {
+  const out: DeathCauses = {};
+  for (const death of results.flatMap((r) => r.deaths)) {
+    const level = String(death.level);
+    out[level] ??= Object.fromEntries(DEATH_CAUSES.map((cause) => [cause, 0])) as Record<
+      DeathCause,
+      number
+    >;
+    out[level][death.cause] += 1;
+  }
+  return out;
+}
+
 function ghostLethality(results: readonly EpisodeResult[]): Record<string, GhostLethality> {
   const catches = new Map<string, number>();
   const outMs = new Map<string, number>();
@@ -203,6 +232,7 @@ export function summarize(results: readonly EpisodeResult[], meta: SummaryMeta):
     );
   }
   const builds = results.filter((r) => r.job.experiment === "builds");
+  const byTier = groupBy(builds, (r) => tierOf(r.job.profile));
   return {
     ...meta,
     version: SUMMARY_VERSION,
@@ -223,6 +253,8 @@ export function summarize(results: readonly EpisodeResult[], meta: SummaryMeta):
         buildSummary(runs),
       ]),
     ),
+    targets: Object.fromEntries([...byTier].map(([tier, runs]) => [tier, tierActual(runs)])),
+    causes: Object.fromEntries([...byTier].map(([tier, runs]) => [tier, deathCauses(runs)])),
     ghosts: Object.fromEntries(
       [...groupBy(results, (r) => r.job.profile)].map(([profile, runs]) => [
         profile,
@@ -411,11 +443,83 @@ function spreadSection(summary: Summary): string[] {
   ];
 }
 
+const METRIC_LABELS: Record<TargetMetric, string> = {
+  reachL3: "Reach L3",
+  reachL6: "Reach L6",
+  reachBoss: "Reach boss",
+  win: "Win",
+};
+const band = (b: Band) => `${pct(b.lo)}–${pct(b.hi)}`;
+
+function tiersIn(summary: Summary): SkillTierId[] {
+  return (Object.keys(TIER_TARGETS) as SkillTierId[]).filter(
+    (tier) => summary.targets[tier] !== undefined,
+  );
+}
+
+function targetsSection(summary: Summary): string[] {
+  const rows = tiersIn(summary).map((tier) => {
+    const actual = summary.targets[tier]!;
+    return [
+      `${tier} (${TIER_TARGETS[tier].standsFor})`,
+      String(actual.n),
+      ...TARGET_METRICS.map((metric) => {
+        const measured = actual.metrics[metric];
+        const target = TIER_TARGETS[tier].bands[metric];
+        if (measured === null) {
+          return `– vs ${band(target)} (runs stop at the boss)`;
+        }
+        const check = checkTarget(target, measured);
+        return `${ci(measured, pct)} vs ${band(target)} ${check.verdict}${check.separated ? "*" : ""}`;
+      }),
+    ];
+  });
+  return [
+    "## Targets",
+    "",
+    "Build runs per skill tier against the reach targets in `targets.ts`. Each cell: share of runs [95% interval] vs the target band, then ok / above / below (`*` = the whole interval is outside the band).",
+    "",
+    ...table(["Tier", "Runs", ...TARGET_METRICS.map((m) => METRIC_LABELS[m])], rows),
+  ];
+}
+
+function causesSection(summary: Summary): string[] {
+  const lines = [
+    "### Death causes",
+    "",
+    "Build-run deaths per level by what the bot's last plan said: cornered (no surviving route at the last junction), execution (a wrong turn, or a press that missed the corner and left no way out), horizon (between that junction and the catch the ghost mode flipped or the catching ghost was not in the plan), model (the route also survives a re-plan with exact ghost positions, so the ghosts moved differently than the planner simulates), reaction (the same re-plan rejects the route, so the delayed ghost positions hid the catch), hazard (lava or boss).",
+    "",
+  ];
+  for (const tier of tiersIn(summary)) {
+    const byLevel = summary.causes[tier] ?? {};
+    const levels = Object.keys(byLevel).sort((a, b) => Number(a) - Number(b));
+    lines.push(
+      `#### ${tier}`,
+      "",
+      ...table(
+        ["Level", ...DEATH_CAUSES, "Total"],
+        levels.map((level) => {
+          const counts = byLevel[level]!;
+          const total = DEATH_CAUSES.reduce((sum, cause) => sum + counts[cause], 0);
+          return [
+            level,
+            ...DEATH_CAUSES.map((cause) =>
+              counts[cause] === 0 ? "0" : `${counts[cause]} (${pct(counts[cause] / total)})`,
+            ),
+            String(total),
+          ];
+        }),
+      ),
+    );
+  }
+  return lines;
+}
+
 function buildsSection(summary: Summary): string[] {
   const lines = ["## Builds", ""];
   const profiles = Object.keys(summary.builds).sort();
   lines.push(
-    "Runs start at the level-2 offer with a seeded starting upgrade and play to the level-9 boss.",
+    "Runs start at level 1 with the game's own starting upgrade and play to the level-9 boss.",
     "",
     ...table(
       ["Profile", "Runs", "Reached boss", "Mean level reached"],
@@ -439,6 +543,7 @@ function buildsSection(summary: Summary): string[] {
         ),
       ]),
     ),
+    ...causesSection(summary),
     "### Upgrade value (took it vs offered it and passed)",
     "",
     "Δ is mean level reached when the bot took the upgrade minus when it was offered and passed. `casual` picks at random, so its rows are the least biased.",
@@ -702,6 +807,15 @@ function pickLeads(leads: readonly SinglesLead[], direction: "over" | "under"): 
   return (withSignal.length > 0 ? withSignal : signed).slice(0, EXEC_TOP);
 }
 
+function targetWatchouts(summary: Summary): string[] {
+  return tiersIn(summary).flatMap((tier) =>
+    targetMisses(tier, summary.targets[tier]!).map(
+      (check) =>
+        `**Target miss (${tier}):** ${METRIC_LABELS[check.metric]} ${pct(check.actual.value)}${check.separated ? "*" : ""} vs ${band(check.band)} (${check.verdict}; n=${check.actual.n}).`,
+    ),
+  );
+}
+
 function difficultyWatchouts(summary: Summary): string[] {
   const out: string[] = [];
   for (const [profile, build] of Object.entries(summary.builds).sort(([a], [b]) =>
@@ -886,6 +1000,7 @@ function executiveSummarySection(summary: Summary): string[] {
     ...(h.storeStalls > 0
       ? [`**Store stalls:** ${h.storeStalls} episode(s) stalled in the store.`]
       : []),
+    ...targetWatchouts(summary),
     ...difficultyWatchouts(summary),
     ...pairWatchouts(summary),
     ...ghostWatchouts(summary),
@@ -899,7 +1014,7 @@ function executiveSummarySection(summary: Summary): string[] {
     "",
     `**Takeaway:** ${verdict}`,
     "",
-    "Rankings use singles Δ board progress vs the no-upgrade arm (one row per upgrade at its strongest level). `*` / “separated” means 95% intervals do not overlap. Build value is mean level reached when taken vs offered and passed (`casual` is least biased).",
+    "Targets (above) say whether each skill tier reaches the levels it should; the rankings below say which upgrades move that. Rankings use singles Δ board progress vs the no-upgrade arm (one row per upgrade at its strongest level). `*` / “separated” means 95% intervals do not overlap. Build value is mean level reached when taken vs offered and passed (`casual` is least biased).",
     "",
     "### Most overperforming",
     "",
@@ -949,6 +1064,7 @@ export function renderReport(summary: Summary): string {
     ),
     ...h.errorSamples.map((e) => `- ${e}`),
     ...(h.errorSamples.length > 0 ? [""] : []),
+    ...targetsSection(summary),
     ...executiveSummarySection(summary),
     ...buildsSection(summary),
     ...singlesSection(summary),

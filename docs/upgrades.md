@@ -20,7 +20,7 @@ Power pellets are inert unless an owned def reacts. `applyPowerPelletEffects` wa
 
 ## HUD timers
 
-The owned-upgrade icons (and LEARN's check marks) pulse when the upgrade fires and darken from the top as its timer runs out, so a refreshed timer snaps back to full. Which `RunUpgrades` timer drives each icon, and the pulse rule, live in [`upgradeTimers.ts`](../src/domain/upgradeTimers.ts); a new timed upgrade adds its reading there.
+The owned-upgrade icons (and LEARN's check marks) pulse when the upgrade fires and darken from the top as its timer runs out, so a refreshed timer snaps back to full. Which `RunUpgrades` timer drives each icon, and the pulse rule, live in [`upgradeTimers.ts`](../src/domain/upgradeTimers.ts); a new timed upgrade adds its reading there. When Martyr fires, its icon pulses first and the effects it fired pulse just after, so the chain reads as cause then effect.
 
 ## Enhanced upgrades
 

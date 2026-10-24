@@ -30,6 +30,7 @@ import { Speed } from "../../components/Speed";
 import { nameOf } from "../../systems/worldSnapshot";
 import type { PlaySim } from "../playSim";
 import type { PlannerState } from "./planner";
+import type { SkillTier } from "./profiles";
 import {
   CARDINALS,
   cellIndex,
@@ -106,7 +107,7 @@ export class Observer {
     sim: PlaySim,
     ghosts: readonly GhostSample[],
     decision: { current: number; cell: number; distPx: number; facing: Direction },
-    depth: number,
+    skill: Pick<SkillTier, "depth" | "readsGhosts">,
   ): PlannerState {
     const world = sim.world;
     const render = sim.renderOptions();
@@ -174,7 +175,8 @@ export class Observer {
       power: mark(powerPellets),
       fruit: cellsOf(query(world, [Fruit, Position]))[0] ?? null,
       pelletDist: multiSourceBfs(grid, [...pellets, ...powerPellets]),
-      depth,
+      depth: skill.depth,
+      readsGhosts: skill.readsGhosts,
     };
   }
 }

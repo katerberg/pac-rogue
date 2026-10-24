@@ -1,3 +1,4 @@
+import { GHOST_AI_MODE, type GhostAiMode } from "../../../domain/ghostMode";
 import { GHOST_PHASE } from "../../../domain/ghostPhase";
 import { createRunRandom } from "../../../domain/runRandom";
 import { cellCenterX, cellCenterY, getActiveLayout } from "../../../domain/maze";
@@ -18,6 +19,50 @@ import { StoreBot } from "./storeBot";
 
 const LEAD_TILES = 0.75;
 const STUCK_FRAMES = 90;
+
+export const DEATH_CAUSES = [
+  "cornered",
+  "execution",
+  "horizon",
+  "model",
+  "reaction",
+  "hazard",
+  "unknown",
+] as const;
+export type DeathCause = (typeof DEATH_CAUSES)[number];
+
+export type PlanVerdict = {
+  survivable: boolean;
+  mistake: boolean;
+  missedTurn: boolean;
+  mode: GhostAiMode;
+  ghostKinds: ReadonlySet<string>;
+};
+
+export type DeathObservation = {
+  mode: GhostAiMode;
+  killer: string | null;
+  exactSurvives: () => boolean;
+};
+
+export function classifyDeath(plan: PlanVerdict, now: DeathObservation): DeathCause {
+  if (!plan.survivable) {
+    return plan.missedTurn ? "execution" : "cornered";
+  }
+  if (plan.mistake) {
+    return "execution";
+  }
+  if (now.mode !== plan.mode || (now.killer !== null && !plan.ghostKinds.has(now.killer))) {
+    return "horizon";
+  }
+  return now.exactSurvives() ? "model" : "reaction";
+}
+
+type LastPlan = PlanVerdict & {
+  decision: Decision;
+  exact: readonly GhostSample[];
+  choice: Direction | null;
+};
 
 export function gaussianFrom(rng: () => number): () => number {
   return () => {
@@ -94,6 +139,7 @@ export class Bot {
   private releaseFrames = 0;
   private lastPos = { x: 0, y: 0 };
   private stillFrames = 0;
+  private lastPlan: LastPlan | null = null;
 
   constructor(
     profileId: string,
@@ -121,6 +167,29 @@ export class Bot {
       : pickSalvage(prompt.incoming, sim.hud().upgrades, this.profile.persona, this.rng);
   }
 
+  deathCause(sim: PlaySim): DeathCause {
+    const plan = this.lastPlan;
+    if (plan === null) {
+      return "unknown";
+    }
+    return classifyDeath(plan, {
+      mode: GHOST_AI_MODE[sim.snapshot().ghostMode as keyof typeof GHOST_AI_MODE],
+      killer: sim.runLogRecord().levels.at(-1)?.deaths.at(-1)?.ghost ?? null,
+      exactSurvives: () => {
+        const exact = this.observer.plannerState(
+          sim,
+          plan.exact,
+          plan.decision,
+          this.profile.skill,
+        );
+        const chosen = planExits(exact, plannerWeights(this.profile.persona.weights, exact)).find(
+          (entry) => entry.direction === plan.choice,
+        );
+        return chosen !== undefined && chosen.score > SURVIVABLE_SCORE;
+      },
+    });
+  }
+
   step(sim: PlaySim): SimInput {
     const frameMs = this.frameMs;
     this.frame += 1;
@@ -136,6 +205,10 @@ export class Bot {
     if (sim.storeState() !== null) {
       this.reset();
       return { ...IDLE_INPUT, ...this.store.input(sim, frameMs) };
+    }
+    if (sim.inputSuppressed()) {
+      this.reset();
+      return IDLE_INPUT;
     }
     const ghosts = sampleGhosts(sim.world);
     this.recordGhostTime(ghosts, frameMs);
@@ -156,6 +229,7 @@ export class Bot {
     this.pending = null;
     this.held = DIRECTION.none;
     this.releaseFrames = 1;
+    this.lastPlan = null;
   }
 
   private recordGhostTime(ghosts: readonly GhostSample[], frameMs: number): void {
@@ -205,7 +279,7 @@ export class Bot {
   private plan(sim: PlaySim, decision: Decision): void {
     this.planCell = decision.cell;
     const delayed = this.history[0] ?? [];
-    const state = this.observer.plannerState(sim, delayed, decision, this.profile.skill.depth);
+    const state = this.observer.plannerState(sim, delayed, decision, this.profile.skill);
     const noise = this.profile.persona.weights.noise;
     const scores = planExits(state, plannerWeights(this.profile.persona.weights, state)).map(
       (entry) => ({
@@ -217,9 +291,28 @@ export class Bot {
     let choice: Direction | null = bestExit(scores);
     const mistakeRate = this.profile.skill.mistakeRate;
     const survivable = scores.filter((entry) => entry.score > SURVIVABLE_SCORE);
-    if (survivable.length > 1 && this.rng() < mistakeRate) {
+    const mistake = survivable.length > 1 && this.rng() < mistakeRate;
+    if (mistake) {
       choice = survivable[Math.floor(this.rng() * survivable.length)]!.direction;
     }
+    const previous = this.lastPlan;
+    const chasing = new Set(
+      state.ghosts.filter((ghost) => ghost.frightenedSteps <= 0).map((ghost) => ghost.eid),
+    );
+    this.lastPlan = {
+      decision,
+      exact: this.history.at(-1) ?? [],
+      survivable: survivable.length > 0,
+      choice,
+      mistake,
+      missedTurn:
+        previous !== null &&
+        previous.choice !== null &&
+        previous.decision.cell === decision.current &&
+        previous.choice !== decision.facing,
+      mode: state.mode,
+      ghostKinds: new Set(delayed.filter((ghost) => chasing.has(ghost.eid)).map((g) => g.kind)),
+    };
     if (choice === null || (choice === this.held && this.pending === null)) {
       this.pending = null;
       return;
