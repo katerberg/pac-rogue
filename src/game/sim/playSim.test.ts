@@ -2742,6 +2742,12 @@ describe("PlaySim", () => {
       };
       runFrames(sim, 60, { keys: held("left") });
       expect(trails(sim).get(blinky)).toBe(before);
+      const newest = before[before.length - 1]!;
+      expect([worldToCol(Position.x[blinky]!), worldToRow(Position.y[blinky]!)]).not.toEqual([
+        newest.col,
+        newest.row,
+      ]);
+      expect(sim.renderOptions().slimeTrails?.[0]?.head).toBeNull();
     });
 
     it("kills Dot-Man on slime and records the trail's ghost", () => {
